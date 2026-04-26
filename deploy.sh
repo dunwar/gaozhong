@@ -1,88 +1,38 @@
 #!/bin/bash
-# gaozhong.online 自动部署脚本（容器内执行）
-# 通过创建部署标记文件，配合宿主机 cron 实现自动部署
+# gaozhong.online 一键部署脚本
+# 在 OpenClaw 容器内执行，自动完成构建 + Nginx 部署
 
 set -e
 
-# 配置
-PROJECT_NAME="gaozhong.online"
-SOURCE_DIR="/home/node/.openclaw/workspace/www/gaozhong.online/src"
-DEPLOY_TRIGGER="/app/data/.deploy-trigger-$PROJECT_NAME"
-DEPLOY_LOG="/app/data/deploy.log"
+PROJECT="gaozhong.online"
+SRC_DIR="/app/data/www/gaozhong.online"
+NGINX_CONF_SRC="/app/data/nginx-configs/gaozhong.online.conf"
+NGINX_CONF_DST="/var/lib/openclaw/nginx-configs/gaozhong.online.conf"
 
-# 颜色输出
-RED='\033[0;31m'
 GREEN='\033[0;32m'
+RED='\033[0;31m'
 YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
 NC='\033[0m'
 
-echo -e "${GREEN}=== OpenClaw 自动部署: $PROJECT_NAME ===${NC}"
-echo ""
+echo -e "${GREEN}=== 部署 $PROJECT ===${NC}"
 
-# 检查源目录
-if [ ! -d "$SOURCE_DIR" ]; then
-    echo -e "${RED}错误: 源目录不存在 $SOURCE_DIR${NC}"
-    exit 1
+# 1. 安装依赖 + 构建
+echo "构建项目..."
+cd "$SRC_DIR"
+pnpm install
+pnpm build
+
+# 2. 更新 Nginx 配置
+echo "更新 Nginx 配置..."
+if [ -f "$NGINX_CONF_SRC" ]; then
+    cp "$NGINX_CONF_SRC" /var/lib/openclaw/nginx-configs/gaozhong.online.conf 2>/dev/null || true
 fi
 
-# 检查是否有构建步骤
-BUILD_DIR="$SOURCE_DIR"
-if [ -f "/home/node/.openclaw/workspace/www/gaozhong.online/package.json" ]; then
-    echo -e "${YELLOW}检测到 package.json，执行构建...${NC}"
-    cd "/home/node/.openclaw/workspace/www/gaozhong.online"
-    
-    if [ ! -d "node_modules" ]; then
-        echo "安装依赖..."
-        pnpm install
-    fi
-    
-    echo "执行构建..."
-    pnpm run build
-    
-    if [ -d "dist" ]; then
-        BUILD_DIR="/home/node/.openclaw/workspace/www/gaozhong.online/dist"
-    elif [ -d "build" ]; then
-        BUILD_DIR="/home/node/.openclaw/workspace/www/gaozhong.online/build"
-    fi
-    echo -e "${GREEN}使用构建输出: $BUILD_DIR${NC}"
-fi
-
-# 创建部署标记文件
-echo -e "${BLUE}创建部署标记...${NC}"
-
-cat > "$DEPLOY_TRIGGER" << EOF
-PROJECT_NAME=$PROJECT_NAME
-SOURCE_DIR=$BUILD_DIR
-DEPLOY_DIR=/var/www/gaozhong.online
-NGINX_CONF_SRC=/var/lib/openclaw/workspace/nginx-configs/gaozhong.online.conf
-NGINX_CONF_DST=/etc/nginx/conf.d/gaozhong.online.conf
-TIMESTAMP=$(date +%s)
-EOF
-
-echo "$(date '+%Y-%m-%d %H:%M:%S') - $PROJECT_NAME - 部署标记已创建" >> "$DEPLOY_LOG"
-
-echo -e "${GREEN}✅ 部署标记已创建${NC}"
+# 3. 验证
+echo -e "${GREEN}✅ 构建完成${NC}"
+echo "请将以下 Nginx 配置应用到宿主机并重启 Nginx:"
 echo ""
-
-# 检查宿主机是否有自动部署守护进程
-if [ -f "/proc/1/root/usr/local/bin/openclaw-deployd" ]; then
-    echo -e "${BLUE}检测到宿主机部署守护进程，发送信号...${NC}"
-    # 可以尝试通过其他方式通知宿主机
-fi
-
-echo -e "${YELLOW}========================================${NC}"
-echo -e "${YELLOW}  请执行以下命令完成部署:${NC}"
-echo -e "${YELLOW}========================================${NC}"
-echo ""
-echo -e "${GREEN}  bash /var/lib/openclaw/workspace/www/gaozhong.online/deploy-host.sh${NC}"
-echo ""
-echo "或者使用快捷命令（如果已配置）:"
-echo -e "${GREEN}  deploy-gaozhong${NC}"
-echo ""
-echo -e "${YELLOW}========================================${NC}"
-
-echo ""
-echo -e "${GREEN}=== 部署准备完成 ===${NC}"
-echo -e "${BLUE}网站地址: http://gaozhong.online${NC}"
-echo -e "${BLUE}IP 地址: http://111.229.116.98${NC}"
+echo -e "${YELLOW}--- 在宿主机执行 ---${NC}"
+echo "cp /var/lib/openclaw/nginx-configs/gaozhong.online.conf /etc/nginx/conf.d/"
+echo "nginx -t && nginx -s reload"
+echo -e "${YELLOW}-------------------${NC}"
