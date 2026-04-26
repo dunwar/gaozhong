@@ -15,8 +15,9 @@
 | **前端框架** | Vue 3 + Vite |
 | **CSS** | Tailwind CSS v4 |
 | **路由** | Vue Router |
-| **AI 服务** | OpenClaw Gateway（通过 API 调用） |
-| **部署** | 静态构建 → Nginx 托管 |
+| **AI 服务** | OpenClaw Gateway（通过 api-server.js 中转） |
+| **API 服务** | Node.js 轻量服务（端口 3001） |
+| **部署** | 前端静态构建 → Nginx 托管；API 服务独立运行 |
 | **版本控制** | 每个功能独立提交，信息用中文 |
 | **浏览器兼容** | 现代浏览器（Chrome/Firefox/Safari/Edge 最新两版） |
 | **移动端** | 响应式设计，优先移动端 |
