@@ -1,0 +1,22 @@
+@import "tailwindcss";
+
+/* 腾讯风格设计系统 */
+:root {
+  --color-primary: #0052D9;
+  --color-primary-light: #4B9BFA;
+  --color-bg: #F5F7FA;
+  --color-text: #1D2129;
+  --color-text-secondary: #6B7280;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* 上传区域拖拽样式 */
+.upload-drag-over {
+  border-color: var(--color-primary) !important;
+  background-color: #E8F4FF !important;
+}

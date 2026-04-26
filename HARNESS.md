@@ -12,10 +12,11 @@
 
 | 维度 | 约束 |
 |:---|:---|
-| **前端框架** | Vue 3 + Vite（或按需调整） |
-| **CSS** | Tailwind CSS |
+| **前端框架** | Vue 3 + Vite |
+| **CSS** | Tailwind CSS v4 |
+| **路由** | Vue Router |
+| **AI 服务** | OpenClaw Gateway（通过 API 调用） |
 | **部署** | 静态构建 → Nginx 托管 |
-| **代码规范** | ESLint + Prettier |
 | **版本控制** | 每个功能独立提交，信息用中文 |
 | **浏览器兼容** | 现代浏览器（Chrome/Firefox/Safari/Edge 最新两版） |
 | **移动端** | 响应式设计，优先移动端 |
