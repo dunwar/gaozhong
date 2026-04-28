@@ -2,16 +2,17 @@
 /**
  * gaozhong.online - AI 作文批改 API 服务
  * 
- * 架构：直连阿里云百炼 API，不经过 OpenClaw Gateway
+ * 架构：直连大模型 API
  * 模型分工：
- *   - 图片识别/OCR: qwen-vl-plus
- *   - 作文批改: qwen3.6-plus
+ *   - 图片识别/OCR: 阿里云百炼 qwen-vl-plus
+ *   - 作文批改: DeepSeek v4 pro
  * 
  * Prompt 管理：prompts/ 目录下独立文件，方便迭代优化
  * 环境变量：
- *   DASHSCOPE_API_KEY - 百炼 API Key
- *   MODEL_OCR - OCR 模型（默认 qwen-vl-plus）
- *   MODEL_GRADING - 批改模型（默认 qwen3.6-plus）
+ *   DASHSCOPE_API_KEY - 百炼 API Key（OCR 用）
+ *   DEEPSEEK_API_KEY  - DeepSeek API Key（批改用）
+ *   MODEL_OCR         - OCR 模型（默认 qwen-vl-plus）
+ *   MODEL_GRADING     - 批改模型（默认 deepseek-v4-pro）
  */
 
 import http from 'http';
@@ -32,23 +33,29 @@ function loadEnv() {
   if (fs.existsSync(envPath)) {
     fs.readFileSync(envPath, 'utf-8')
       .split('\n')
-      .filter(line => line.trim() && !line.startsWith('#'))
+      .filter(line => line.trim() && !line.trim().startsWith('#'))
       .forEach(line => {
-        const [key, ...valParts] = line.split('=');
-        const val = valParts.join('=').trim();
-        if (!process.env[key.trim()]) process.env[key.trim()] = val;
+        // 移除行内注释
+        const cleanLine = line.split('#')[0].trim();
+        if (!cleanLine) return;
+        const eqIdx = cleanLine.indexOf('=');
+        if (eqIdx === -1) return;
+        const key = cleanLine.substring(0, eqIdx).trim();
+        const val = cleanLine.substring(eqIdx + 1).trim();
+        if (val && !process.env[key]) process.env[key] = val;
       });
   }
 }
 loadEnv();
 
 const DASHSCOPE_KEY = process.env.DASHSCOPE_API_KEY;
+const DEEPSEEK_KEY = process.env.DEEPSEEK_API_KEY;
 const MODEL_OCR = process.env.MODEL_OCR || 'qwen-vl-plus';
-const MODEL_GRADING = process.env.MODEL_GRADING || 'qwen3.6-plus';
+const MODEL_GRADING = process.env.MODEL_GRADING || 'deepseek-v4-pro';
 
 // 验证 Key
-if (!DASHSCOPE_KEY) {
-  console.error('❌ 错误: DASHSCOPE_API_KEY 未设置，请创建 .env 文件');
+if (!DEEPSEEK_KEY) {
+  console.error('❌ 错误: DEEPSEEK_API_KEY 未设置，请创建 .env 文件');
   process.exit(1);
 }
 
@@ -59,14 +66,12 @@ function log(level, msg, data = {}) {
 
 // ========== Prompt 模板处理 ==========
 
-// 渲染 Prompt 模板（替换 {topic} 和 {text} 变量）
 function renderPrompt(template, topic = '', text = '') {
   return template
-    .replace(/\{topic\}/g, topic || '(无)')
-    .replace(/\{text\}/g, text);
+    .replace(/\{作文题目材料\}/g, topic || '(无)')
+    .replace(/\{作文内容\}/g, text);
 }
 
-// 图片批改 Prompt
 function createVisionPrompt(topic = '') {
   return `你是资深高中语文教师。请完成两个任务：
 
@@ -94,41 +99,58 @@ ${topic ? `【作文题目】${topic}` : ''}
 }`;
 }
 
-// ========== DashScope API 请求 ==========
+// ========== API 请求封装 ==========
 
-function dashscopeRequest(body) {
+// 通用 API 请求
+function apiRequest({ hostname, path, apiKey, body, timeout = 120000 }) {
   return new Promise((resolve, reject) => {
     const data = JSON.stringify(body);
     const req = https.request({
-      hostname: 'dashscope.aliyuncs.com',
-      path: '/compatible-mode/v1/chat/completions',
+      hostname,
+      path,
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${DASHSCOPE_KEY}`,
+        'Authorization': `Bearer ${apiKey}`,
         'Content-Length': Buffer.byteLength(data)
       },
-      timeout: 120000
+      timeout
     }, (res) => {
       let raw = '';
       res.on('data', c => raw += c);
       res.on('end', () => {
         if (res.statusCode !== 200) {
-          reject(new Error(`DashScope HTTP ${res.statusCode}: ${raw.substring(0, 200)}`));
+          reject(new Error(`HTTP ${res.statusCode}: ${raw.substring(0, 200)}`));
           return;
         }
-        try {
-          const json = JSON.parse(raw);
-          resolve(json);
-        } catch (e) {
-          reject(new Error(`解析响应失败: ${e.message}`));
-        }
+        try { resolve(JSON.parse(raw)); }
+        catch (e) { reject(new Error(`解析失败: ${e.message}`)); }
       });
     });
     req.on('error', e => reject(new Error(`请求失败: ${e.message}`)));
-    req.on('timeout', () => { req.destroy(); reject(new Error('请求超时(120s)')); });
+    req.on('timeout', () => { req.destroy(); reject(new Error('请求超时')); });
     req.write(data);
     req.end();
+  });
+}
+
+// 百炼 API 请求（用于 OCR）
+function dashscopeRequest(body) {
+  return apiRequest({
+    hostname: 'dashscope.aliyuncs.com',
+    path: '/compatible-mode/v1/chat/completions',
+    apiKey: DASHSCOPE_KEY,
+    body
+  });
+}
+
+// DeepSeek API 请求（用于批改）
+function deepseekRequest(body) {
+  return apiRequest({
+    hostname: 'api.deepseek.com',
+    path: '/v1/chat/completions',
+    apiKey: DEEPSEEK_KEY,
+    body
   });
 }
 
@@ -136,20 +158,20 @@ function dashscopeRequest(body) {
 
 async function gradeText(text, topic) {
   const prompt = renderPrompt(GRADING_PROMPT, topic, text);
-  log('info', '文本批改', { model: MODEL_GRADING, promptVersion: PROMPT_VERSION, textLen: text.length });
+  log('info', '文本批改', { provider: 'DeepSeek', model: MODEL_GRADING, promptVersion: PROMPT_VERSION, textLen: text.length });
   
-  const result = await dashscopeRequest({
+  const result = await deepseekRequest({
     model: MODEL_GRADING,
     messages: [{ role: 'user', content: prompt }],
     temperature: 0.7,
-    max_tokens: 3000
+    max_tokens: 4000
   });
 
   return parseResult(result);
 }
 
 async function gradeImage(imageUrl, topic) {
-  log('info', '图片批改', { model: MODEL_OCR, promptVersion: PROMPT_VERSION });
+  log('info', '图片批改', { provider: 'DashScope', model: MODEL_OCR, promptVersion: PROMPT_VERSION });
   
   const result = await dashscopeRequest({
     model: MODEL_OCR,
@@ -186,9 +208,8 @@ function parseResult(result) {
     if (match) return JSON.parse(match[0]);
   } catch {}
 
-  // 尝试修复常见 JSON 问题
+  // 尝试修复常见 JSON 问题（尾部逗号）
   try {
-    // 移除尾部逗号
     let fixed = cleaned.replace(/,\s*}/g, '}').replace(/,\s*]/g, ']');
     return JSON.parse(fixed);
   } catch {}
@@ -225,7 +246,10 @@ const server = http.createServer(async (req, res) => {
     return json(res, 200, {
       status: 'ok',
       service: 'gaozhong-ai-api',
-      models: { ocr: MODEL_OCR, grading: MODEL_GRADING },
+      providers: {
+        ocr: { name: 'DashScope', model: MODEL_OCR },
+        grading: { name: 'DeepSeek', model: MODEL_GRADING }
+      },
       prompt: { version: PROMPT_VERSION, file: 'prompts/grading-v3.js' }
     });
   }
@@ -264,9 +288,9 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`🚀 gaozhong.online AI API 已启动 (直连百炼)`);
+  console.log(`🚀 gaozhong.online AI API 已启动`);
   console.log(`📍 端口: ${PORT}`);
   console.log(`🔍 健康检查: http://localhost:${PORT}/health`);
   console.log(`📝 批改接口: POST /analyze`);
-  console.log(`🤖 OCR: ${MODEL_OCR} | 批改: ${MODEL_GRADING} | Prompt: ${PROMPT_VERSION}`);
+  console.log(`🤖 OCR: ${MODEL_OCR} (DashScope) | 批改: ${MODEL_GRADING} (DeepSeek) | Prompt: ${PROMPT_VERSION}`);
 });
