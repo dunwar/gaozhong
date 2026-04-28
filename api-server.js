@@ -1,71 +1,214 @@
 #!/usr/bin/env node
 /**
  * gaozhong.online - AI 作文批改 API 服务
- * 运行在宿主机上，接收前端请求，调用 OpenClaw AI 服务进行批改
+ * 
+ * 架构：直连阿里云百炼 API，不经过 OpenClaw Gateway
+ * 模型分工：
+ *   - 图片识别/OCR: qwen-vl-plus
+ *   - 作文批改: qwen3.6-plus
+ * 
+ * Prompt 管理：prompts/ 目录下独立文件，方便迭代优化
+ * 环境变量：
+ *   DASHSCOPE_API_KEY - 百炼 API Key
+ *   MODEL_OCR - OCR 模型（默认 qwen-vl-plus）
+ *   MODEL_GRADING - 批改模型（默认 qwen3.6-plus）
  */
 
-const http = require('http');
-const fs = require('fs');
-const path = require('path');
-const { exec } = require('child_process');
+import http from 'http';
+import https from 'https';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
+// 导入 Prompt 模板
+import { GRADING_PROMPT, PROMPT_VERSION } from './prompts/grading-v3.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3001;
-const OPENCLAW_GATEWAY = 'http://127.0.0.1:18789';
 
-// 作文批改 Prompt 模板（上海高考标准）
-function createEssayPrompt(essayText, topic = '') {
-  return `依据以下上海高考语文作文评分标准，对以下作文进行严格评分：
+// 加载环境变量
+function loadEnv() {
+  const envPath = path.join(__dirname, '.env');
+  if (fs.existsSync(envPath)) {
+    fs.readFileSync(envPath, 'utf-8')
+      .split('\n')
+      .filter(line => line.trim() && !line.startsWith('#'))
+      .forEach(line => {
+        const [key, ...valParts] = line.split('=');
+        const val = valParts.join('=').trim();
+        if (!process.env[key.trim()]) process.env[key.trim()] = val;
+      });
+  }
+}
+loadEnv();
 
-【评分标准】
-上海高考语文作文满分 70 分，采用综合分档评分制，从内容、结构、语言、创新四大维度综合评定。
+const DASHSCOPE_KEY = process.env.DASHSCOPE_API_KEY;
+const MODEL_OCR = process.env.MODEL_OCR || 'qwen-vl-plus';
+const MODEL_GRADING = process.env.MODEL_GRADING || 'qwen3.6-plus';
 
-一类卷（63-70 分）：准确把握题意，立意深刻，选材恰当，中心突出，内容充实，感情真挚，结构严谨，有新意，有文采。
-二类卷（52-62 分）：符合题意，立意较深刻，选材较恰当，中心明确，内容较充实，感情真实，结构完整，语言通顺。
-三类卷（39-51 分）：基本符合题意，立意一般，选材尚恰当，中心尚明确，内容尚充实，结构基本完整，语言基本通顺。
-四类卷（21-38 分）：偏离题意，立意或选材不当，中心不明确，内容单薄，结构不够完整，语言欠通顺。
-五类卷（0-20 分）：脱离题意，内容空洞或不成文。
+// 验证 Key
+if (!DASHSCOPE_KEY) {
+  console.error('❌ 错误: DASHSCOPE_API_KEY 未设置，请创建 .env 文件');
+  process.exit(1);
+}
 
-${topic ? `【作文题目】\n${topic}\n` : ''}
+// 日志
+function log(level, msg, data = {}) {
+  console.log(JSON.stringify({ ts: new Date().toISOString(), level, msg, ...data }));
+}
 
-【作文内容】
-${essayText}
+// ========== Prompt 模板处理 ==========
 
-请按以下 JSON 格式返回评分结果（不要返回其他内容）：
+// 渲染 Prompt 模板（替换 {topic} 和 {text} 变量）
+function renderPrompt(template, topic = '', text = '') {
+  return template
+    .replace(/\{topic\}/g, topic || '(无)')
+    .replace(/\{text\}/g, text);
+}
+
+// 图片批改 Prompt
+function createVisionPrompt(topic = '') {
+  return `你是资深高中语文教师。请完成两个任务：
+
+任务1：仔细识别图片中的手写/印刷作文文字，尽量还原原文。
+任务2：依据上海高考作文评分标准进行批改（满分70分）。
+
+${topic ? `【作文题目】${topic}` : ''}
+
+严格返回以下JSON（不要其他文字）：
 {
-  "totalScore": 总分(0-70),
-  "grade": "档位(如：二类上)",
-  "dimensions": {
-    "内容": 分数(0-20),
-    "结构": 分数(0-20),
-    "语言": 分数(0-20),
-    "创新": 分数(0-20)
-  },
-  "strengths": ["亮点1", "亮点2", "亮点3"],
-  "weaknesses": ["不足1", "不足2"],
-  "suggestions": ["建议1", "建议2", "建议3"],
-  "overallComment": "总评文字"
+  "recognizedText": "识别出的原文",
+  "totalScore": 0-70,
+  "grade": "档位",
+  "essayType": "议论文/记叙文/其他",
+  "dimensions": {"内容": 0-20, "结构": 0-20, "语言": 0-20, "创新": 0-20},
+  "wordCount": 字数,
+  "strengths": ["亮点1","亮点2"],
+  "weaknesses": ["不足1","不足2"],
+  "suggestions": ["建议1","建议2"],
+  "overallComment": "总评",
+  "gradingReason": "定档依据",
+  "revisions": [
+    {"location": "位置", "original": "原文", "suggested": "修改后", "reason": "修改理由"}
+  ]
 }`;
 }
 
-// 解析请求体
+// ========== DashScope API 请求 ==========
+
+function dashscopeRequest(body) {
+  return new Promise((resolve, reject) => {
+    const data = JSON.stringify(body);
+    const req = https.request({
+      hostname: 'dashscope.aliyuncs.com',
+      path: '/compatible-mode/v1/chat/completions',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${DASHSCOPE_KEY}`,
+        'Content-Length': Buffer.byteLength(data)
+      },
+      timeout: 120000
+    }, (res) => {
+      let raw = '';
+      res.on('data', c => raw += c);
+      res.on('end', () => {
+        if (res.statusCode !== 200) {
+          reject(new Error(`DashScope HTTP ${res.statusCode}: ${raw.substring(0, 200)}`));
+          return;
+        }
+        try {
+          const json = JSON.parse(raw);
+          resolve(json);
+        } catch (e) {
+          reject(new Error(`解析响应失败: ${e.message}`));
+        }
+      });
+    });
+    req.on('error', e => reject(new Error(`请求失败: ${e.message}`)));
+    req.on('timeout', () => { req.destroy(); reject(new Error('请求超时(120s)')); });
+    req.write(data);
+    req.end();
+  });
+}
+
+// ========== 业务逻辑 ==========
+
+async function gradeText(text, topic) {
+  const prompt = renderPrompt(GRADING_PROMPT, topic, text);
+  log('info', '文本批改', { model: MODEL_GRADING, promptVersion: PROMPT_VERSION, textLen: text.length });
+  
+  const result = await dashscopeRequest({
+    model: MODEL_GRADING,
+    messages: [{ role: 'user', content: prompt }],
+    temperature: 0.7,
+    max_tokens: 3000
+  });
+
+  return parseResult(result);
+}
+
+async function gradeImage(imageUrl, topic) {
+  log('info', '图片批改', { model: MODEL_OCR, promptVersion: PROMPT_VERSION });
+  
+  const result = await dashscopeRequest({
+    model: MODEL_OCR,
+    messages: [{
+      role: 'user',
+      content: [
+        { type: 'text', text: createVisionPrompt(topic) },
+        { type: 'image_url', image_url: { url: imageUrl } }
+      ]
+    }],
+    temperature: 0.3,
+    max_tokens: 4000
+  });
+
+  return parseResult(result);
+}
+
+function parseResult(result) {
+  const content = result.choices?.[0]?.message?.content;
+  if (!content) throw new Error('AI 返回为空');
+
+  // 清理 markdown 代码块
+  let cleaned = content
+    .replace(/```json\s*/g, '')
+    .replace(/```\s*/g, '')
+    .trim();
+
+  // 尝试解析
+  try { return JSON.parse(cleaned); } catch {}
+
+  // 提取第一个 JSON 对象
+  try {
+    const match = cleaned.match(/\{[\s\S]*\}/);
+    if (match) return JSON.parse(match[0]);
+  } catch {}
+
+  // 尝试修复常见 JSON 问题
+  try {
+    // 移除尾部逗号
+    let fixed = cleaned.replace(/,\s*}/g, '}').replace(/,\s*]/g, ']');
+    return JSON.parse(fixed);
+  } catch {}
+
+  throw new Error('AI 返回格式错误，无法解析 JSON');
+}
+
+// ========== 路由 ==========
+
 function parseBody(req) {
   return new Promise((resolve, reject) => {
     let body = '';
-    req.on('data', chunk => body += chunk);
-    req.on('end', () => {
-      try {
-        resolve(JSON.parse(body));
-      } catch (e) {
-        reject(new Error('Invalid JSON'));
-      }
-    });
+    req.on('data', c => body += c);
+    req.on('end', () => { try { resolve(JSON.parse(body)); } catch(e) { reject(new Error('JSON 格式错误')); } });
     req.on('error', reject);
   });
 }
 
-// 发送 JSON 响应
-function sendJSON(res, statusCode, data) {
-  res.writeHead(statusCode, {
+function json(res, code, data) {
+  res.writeHead(code, {
     'Content-Type': 'application/json',
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
@@ -74,80 +217,56 @@ function sendJSON(res, statusCode, data) {
   res.end(JSON.stringify(data));
 }
 
-// 调用 OpenClaw AI 服务
-function callOpenClaw(prompt) {
-  return new Promise((resolve, reject) => {
-    const command = `curl -s -X POST ${OPENCLAW_GATEWAY}/chat -H 'Content-Type: application/json' -d '${JSON.stringify({ message: prompt }).replace(/'/g, "'\\''")}'`;
-    
-    exec(command, { timeout: 60000 }, (error, stdout, stderr) => {
-      if (error) {
-        reject(new Error(`AI 服务调用失败: ${error.message}`));
-        return;
-      }
-      
-      try {
-        const response = JSON.parse(stdout);
-        resolve(response.message || response.content || response);
-      } catch (e) {
-        // 尝试从文本中提取 JSON
-        const jsonMatch = stdout.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          resolve(JSON.parse(jsonMatch[0]));
-        } else {
-          reject(new Error('AI 返回格式解析失败'));
-        }
-      }
-    });
-  });
-}
-
-// 创建 HTTP 服务器
 const server = http.createServer(async (req, res) => {
-  // CORS 预检
-  if (req.method === 'OPTIONS') {
-    sendJSON(res, 200, { ok: true });
-    return;
-  }
+  if (req.method === 'OPTIONS') return json(res, 200, { ok: true });
 
-  // 健康检查
+  // GET /health
   if (req.method === 'GET' && req.url === '/health') {
-    sendJSON(res, 200, { status: 'ok', service: 'gaozhong-ai-api' });
-    return;
+    return json(res, 200, {
+      status: 'ok',
+      service: 'gaozhong-ai-api',
+      models: { ocr: MODEL_OCR, grading: MODEL_GRADING },
+      prompt: { version: PROMPT_VERSION, file: 'prompts/grading-v3.js' }
+    });
   }
 
-  // 作文批改接口
-  if (req.method === 'POST' && req.url === '/api/analyze') {
+  // POST /analyze 或 /api/analyze
+  if (req.method === 'POST' && (req.url === '/analyze' || req.url === '/api/analyze')) {
     try {
       const body = await parseBody(req);
-      
+      log('info', '收到请求', { hasFile: !!body.file, hasText: !!body.text, url: req.url });
+
       if (!body.file && !body.text) {
-        sendJSON(res, 400, { error: '请提供作文内容（file 或 text）' });
-        return;
+        return json(res, 400, { error: '请提供 text（文本）或 file（图片base64）' });
       }
 
-      // 如果有文件（base64），这里可以添加 OCR 处理
-      // 目前假设直接传入文本
-      const essayText = body.text || body.ocr_result || '[图片内容待 OCR 识别]';
       const topic = body.topic || '';
+      let result;
 
-      const prompt = createEssayPrompt(essayText, topic);
-      const result = await callOpenClaw(prompt);
+      if (body.file && body.file.startsWith('data:image')) {
+        result = await gradeImage(body.file, topic);
+      } else if (body.text) {
+        result = await gradeText(body.text, topic);
+      } else {
+        return json(res, 400, { error: '不支持的文件格式' });
+      }
 
-      sendJSON(res, 200, { success: true, result });
-    } catch (error) {
-      console.error('批改失败:', error);
-      sendJSON(res, 500, { error: error.message || '批改失败，请稍后重试' });
+      log('info', '批改完成', { score: result.totalScore, grade: result.grade, type: result.essayType });
+      return json(res, 200, { success: true, result });
+
+    } catch (err) {
+      log('error', '批改失败', { error: err.message });
+      return json(res, 500, { error: err.message });
     }
-    return;
   }
 
-  // 404
-  sendJSON(res, 404, { error: 'Not Found' });
+  json(res, 404, { error: 'Not Found', endpoints: ['/health', '/analyze'] });
 });
 
-// 启动服务
 server.listen(PORT, () => {
-  console.log(`🚀 gaozhong.online AI API 服务已启动`);
-  console.log(`📍 监听端口: ${PORT}`);
-  console.log(`🔗 健康检查: http://localhost:${PORT}/health`);
+  console.log(`🚀 gaozhong.online AI API 已启动 (直连百炼)`);
+  console.log(`📍 端口: ${PORT}`);
+  console.log(`🔍 健康检查: http://localhost:${PORT}/health`);
+  console.log(`📝 批改接口: POST /analyze`);
+  console.log(`🤖 OCR: ${MODEL_OCR} | 批改: ${MODEL_GRADING} | Prompt: ${PROMPT_VERSION}`);
 });

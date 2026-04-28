@@ -6,12 +6,65 @@
       <p class="text-lg text-gray-600">上传你的作文，AI 将根据上海高考标准进行专业批改</p>
     </div>
 
-    <!-- 上传区域 -->
+    <!-- 输入方式切换 -->
     <div class="bg-white rounded-2xl shadow-lg p-8">
-      <UploadArea @file-selected="onFileSelected" />
+      <!-- 切换按钮 -->
+      <div class="flex space-x-4 mb-6">
+        <button 
+          @click="inputMode = 'text'"
+          :class="inputMode === 'text' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'"
+          class="px-4 py-2 rounded-lg font-medium transition-all"
+        >
+          直接输入
+        </button>
+        <button 
+          @click="inputMode = 'file'"
+          :class="inputMode === 'file' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'"
+          class="px-4 py-2 rounded-lg font-medium transition-all"
+        >
+          上传文件
+        </button>
+      </div>
+
+      <!-- 文本输入模式 -->
+      <div v-if="inputMode === 'text'">
+        <label class="block text-sm font-medium text-gray-700 mb-2">作文内容</label>
+        <textarea 
+          v-model="essayText" 
+          rows="12" 
+          class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          placeholder="请在此粘贴或输入你的作文内容..."
+        ></textarea>
+        <p class="mt-2 text-sm text-gray-500">字数: {{ essayText.length }}</p>
+      </div>
+
+      <!-- 文件上传模式 -->
+      <div v-else>
+        <UploadArea @file-selected="onFileSelected" />
+        
+        <!-- 文件预览 -->
+        <div v-if="selectedFile" class="mt-4 p-4 bg-gray-50 rounded-lg">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+              <svg class="w-8 h-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+              </svg>
+              <div>
+                <p class="text-sm font-medium text-gray-900">{{ selectedFile.name }}</p>
+                <p class="text-xs text-gray-500">{{ formatFileSize(selectedFile.size) }}</p>
+              </div>
+            </div>
+            <button @click="clearFile" class="text-gray-400 hover:text-red-500">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
 
       <!-- 作文题目输入 -->
-      <div v-if="selectedFile" class="mt-6">
+      <div class="mt-6">
         <label class="block text-sm font-medium text-gray-700 mb-2">作文题目（选填）</label>
         <textarea 
           v-model="essayTopic" 
@@ -22,10 +75,10 @@
       </div>
 
       <!-- 提交按钮 -->
-      <div v-if="selectedFile" class="mt-6">
+      <div class="mt-6">
         <button 
           @click="submitEssay" 
-          :disabled="isAnalyzing"
+          :disabled="isAnalyzing || !canSubmit"
           class="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-medium py-4 rounded-xl transition-all"
         >
           <span v-if="isAnalyzing" class="flex items-center justify-center">
@@ -57,25 +110,46 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import UploadArea from '../components/UploadArea.vue'
 
 const router = useRouter()
 
+const inputMode = ref('text') // 'text' 或 'file'
+const essayText = ref('')
 const selectedFile = ref(null)
 const essayTopic = ref('')
 const isAnalyzing = ref(false)
 const errorMessage = ref('')
+
+const canSubmit = computed(() => {
+  if (inputMode.value === 'text') {
+    return essayText.value.trim().length > 0
+  }
+  return selectedFile.value !== null
+})
 
 const onFileSelected = (file) => {
   selectedFile.value = file
   errorMessage.value = ''
 }
 
+const clearFile = () => {
+  selectedFile.value = null
+}
+
+const formatFileSize = (bytes) => {
+  if (bytes === 0) return '0 Bytes'
+  const k = 1024
+  const sizes = ['Bytes', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+}
+
 const submitEssay = async () => {
-  if (!selectedFile.value) {
-    errorMessage.value = '请先选择要批改的文件'
+  if (!canSubmit.value) {
+    errorMessage.value = inputMode.value === 'text' ? '请输入作文内容' : '请先选择要批改的文件'
     return
   }
 
@@ -83,14 +157,19 @@ const submitEssay = async () => {
   errorMessage.value = ''
 
   try {
-    // 将文件转换为 base64
-    const base64Data = await fileToBase64(selectedFile.value)
+    let result
     
-    // 调用 AI 批改 API
-    const result = await analyzeEssay(base64Data, essayTopic.value)
+    if (inputMode.value === 'text') {
+      // 直接提交文本
+      result = await analyzeEssayByText(essayText.value.trim(), essayTopic.value)
+    } else {
+      // 文件模式：将文件转换为 base64
+      const base64Data = await fileToBase64(selectedFile.value)
+      result = await analyzeEssayByFile(base64Data, essayTopic.value)
+    }
     
     // 跳转到结果页
-    router.push({ name: 'Result', state: { result } })
+    router.push({ name: 'Result', state: { result: result.result } })
   } catch (error) {
     errorMessage.value = error.message || '批改失败，请稍后重试'
   } finally {
@@ -107,9 +186,26 @@ const fileToBase64 = (file) => {
   })
 }
 
-const analyzeEssay = async (base64Data, topic) => {
-  // 这里调用 OpenClaw 的 AI 批改接口
-  // 暂时使用模拟数据，后续接入真实 API
+const analyzeEssayByText = async (text, topic) => {
+  const response = await fetch('/api/analyze', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      text: text,
+      topic: topic,
+      region: 'shanghai'
+    })
+  })
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: '未知错误' }))
+    throw new Error(error.error || 'AI 批改服务暂时不可用')
+  }
+
+  return await response.json()
+}
+
+const analyzeEssayByFile = async (base64Data, topic) => {
   const response = await fetch('/api/analyze', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -121,7 +217,8 @@ const analyzeEssay = async (base64Data, topic) => {
   })
 
   if (!response.ok) {
-    throw new Error('AI 批改服务暂时不可用')
+    const error = await response.json().catch(() => ({ error: '未知错误' }))
+    throw new Error(error.error || 'AI 批改服务暂时不可用')
   }
 
   return await response.json()
