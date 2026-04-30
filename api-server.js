@@ -216,8 +216,8 @@ function parseMarkdownResult(content) {
     }
 
     // ===== 7. 提取加减分项 =====
-    // 加分项 - 兼容 **加分项：** 和 加分项：
-    const plusSection = content.match(/\*\*加分项[：:]?\*\*\s*([\s\S]*?)(?=\*\*扣分项|\*\*分数计算|扣分项|分数计算|$)/);
+    // v5 格式: **加分项：** 和 **扣分项：**
+    const plusSection = content.match(/\*\*加分项[：:]\*\*\s*([\s\S]*?)(?=\*\*扣分项|\*\*分数计算|\*\*加减分项|$)/);
     if (plusSection) {
       const plusItems = plusSection[1].match(/[•·\-\*]\s*([^\n]+)/g);
       if (plusItems) {
@@ -233,7 +233,7 @@ function parseMarkdownResult(content) {
     }
 
     // 扣分项
-    const minusSection = content.match(/\*\*扣分项[：:]?\*\*\s*([\s\S]*?)(?=\*\*分数计算|分数计算|具体修改|$)/);
+    const minusSection = content.match(/\*\*扣分项[：:]\*\*\s*([\s\S]*?)(?=\*\*分数计算|分数计算|具体修改|$)/);
     if (minusSection) {
       const minusItems = minusSection[1].match(/[•·\-\*]\s*([^\n]+)/g);
       if (minusItems) {
@@ -276,12 +276,12 @@ function parseMarkdownResult(content) {
     }
 
     // ===== 9. 提取具体修改建议 =====
-    // v6 格式: **修改1：[问题类别]**\n原文：...\n问题：...\n修改建议：...\n修改理由：...
+    // v5 格式: #### 修改1：[问题类别]\n**位置**：...\n**原文**：...\n**问题分析**：...\n**修改建议**：...\n**修改理由**：...
     const revisionPatterns = [
-      // 格式 1: "**修改1：[类别]**\n原文：...\n问题：...\n修改建议：...\n修改理由：..."
-      /\*\*修改\s*\d+[：:]([^*]*)\*\*\s*\n\s*原文[：:]\s*["""]?([^""\n]*)["""]?\s*\n\s*问题[：:]\s*([^\n]*)\s*\n\s*修改建议[：:]\s*["""]?([^""\n]*)["""]?\s*\n\s*修改理由[：:]\s*([^\n]*)/,
-      // 格式 2: "修改1：[类别]\n原文：...\n问题：...\n修改建议：...\n修改理由：..."
-      /修改\s*\d+[：:]\s*([^\n]+)\s*\n\s*原文[：:]\s*["""]?([^""\n]*)["""]?\s*\n\s*问题[：:]\s*([^\n]*)\s*\n\s*修改建议[：:]\s*["""]?([^""\n]*)["""]?\s*\n\s*修改理由[：:]\s*([^\n]*)/
+      // 格式 1: "#### 修改1：[类别]\n**位置**：...\n**原文**：...\n**问题分析**：...\n**修改建议**：...\n**修改理由**：..."
+      /####\s*修改\s*\d+[：:]\s*([^\n]+)\s*\n\s*\*\*位置\*\*[：:]\s*([^\n]+)\s*\n\s*\*\*原文\*\*[：:]\s*["""]?([^""\n]+)["""]?\s*\n\s*\*\*问题分析\*\*[：:]\s*([^\n]+)\s*\n\s*\*\*修改建议\*\*[：:]\s*["""]?([^""\n]+)["""]?\s*\n\s*\*\*修改理由\*\*[：:]\s*([^\n]+)/,
+      // 格式 2: 不带####的版本
+      /修改\s*\d+[：:]\s*([^\n]+)\s*\n\s*位置[：:]\s*([^\n]+)\s*\n\s*原文[：:]\s*["""]?([^""\n]+)["""]?\s*\n\s*问题分析[：:]\s*([^\n]+)\s*\n\s*修改建议[：:]\s*["""]?([^""\n]+)["""]?\s*\n\s*修改理由[：:]\s*([^\n]+)/
     ];
     for (const pattern of revisionPatterns) {
       let revMatch;
@@ -289,10 +289,10 @@ function parseMarkdownResult(content) {
       while ((revMatch = regex.exec(content)) !== null) {
         result.revisions.push({
           category: revMatch[1].trim(),
-          location: '',
-          original: revMatch[2] ? revMatch[2].trim() : '',
-          suggested: revMatch[4] ? revMatch[4].trim() : '',
-          reason: revMatch[5] ? revMatch[5].trim() : ''
+          location: revMatch[2] ? revMatch[2].trim() : '',
+          original: revMatch[3] ? revMatch[3].trim() : '',
+          suggested: revMatch[5] ? revMatch[5].trim() : '',
+          reason: revMatch[6] ? revMatch[6].trim() : ''
         });
       }
       if (result.revisions.length > 0) break;
@@ -368,8 +368,8 @@ function parseMarkdownResult(content) {
     }
 
     // ===== 12. 提取升格路径 =====
-    const upgrade2 = content.match(/进入二类卷需要[：:]\s*([^\n]+)/);
-    const upgrade1 = content.match(/进入一类卷需要[：:]\s*([^\n]+)/);
+    const upgrade2 = content.match(/要进入二类卷[，(（][^\n]*，需要[：:]\s*([^\n]+)/);
+    const upgrade1 = content.match(/要进入一类卷[，(（][^\n]*，需要[：:]\s*([^\n]+)/);
     if (upgrade2 || upgrade1) {
       result.upgradePath = {
         toClass2: upgrade2 ? upgrade2[1].trim() : '',
