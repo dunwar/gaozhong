@@ -825,7 +825,7 @@ app.get('/stats', (req, res) => {
 app.use((req, res) => {
   res.status(404).json({
     error: 'Not Found',
-    endpoints: ['GET /health', 'POST /analyze', 'GET /task/:taskId']
+    endpoints: ['GET /health', 'POST /analyze', 'GET /task/:taskId', 'POST /auth/login', 'POST /auth/register', 'GET /auth/me', 'PUT /auth/password', 'GET /history', 'GET /stats', 'GET /admin/users']
   });
 });
 
