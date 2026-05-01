@@ -15,7 +15,7 @@
 
 import { reactive } from 'vue'
 
-const API_BASE = '' // 同源，Nginx 反向代理
+const API_BASE = '/api' // 同源，Nginx 反向代理 strip /api → 3001
 const STORAGE_KEY = 'gaozhong_auth'
 
 // ========== 内部辅助 ==========
@@ -130,7 +130,7 @@ export const authStore = reactive({
   async verify() {
     if (!this.token) return false
     try {
-      const res = await authFetch('/auth/me')
+      const res = await authFetch('/api/auth/me')
       return res.ok
     } catch {
       return false

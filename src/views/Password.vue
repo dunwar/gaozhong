@@ -103,7 +103,7 @@ async function handleSubmit() {
 
   loading.value = true
   try {
-    const res = await authFetch('/auth/password', {
+    const res = await authFetch('/api/auth/password', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
