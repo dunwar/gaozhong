@@ -12,6 +12,7 @@ const routes = [
   { path: '/result/:taskId', name: 'ResultById', component: Result },
   { path: '/history', name: 'History', component: () => import('../views/History.vue') },
   { path: '/login', name: 'Login', component: Login },
+  { path: '/register', name: 'Register', component: () => import('../views/Register.vue') },
 ]
 
 const router = createRouter({
