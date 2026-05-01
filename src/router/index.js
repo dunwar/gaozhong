@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import Home from '../views/Home.vue'
 import Upload from '../views/Upload.vue'
 import Result from '../views/Result.vue'
+import Login from '../views/Login.vue'
 
 const routes = [
   { path: '/', name: 'Home', component: Home },
@@ -10,6 +11,7 @@ const routes = [
   { path: '/result', name: 'Result', component: Result },
   { path: '/result/:taskId', name: 'ResultById', component: Result },
   { path: '/history', name: 'History', component: () => import('../views/History.vue') },
+  { path: '/login', name: 'Login', component: Login },
 ]
 
 const router = createRouter({
