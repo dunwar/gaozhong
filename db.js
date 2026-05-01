@@ -321,6 +321,7 @@ function deserializeUser(row) {
     wechatOpenid: row.wechat_openid || null,
     mustChangePassword: !!row.must_change_password,
     grade: row.grade || '', school: row.school || '',
+    passwordHash: row.password_hash,
     createdAt: row.created_at, updatedAt: row.updated_at
   };
 }
