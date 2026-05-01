@@ -36,6 +36,7 @@ echo -e "\n${YELLOW}[3/4] 部署 API 服务...${NC}"
 cp "$PROD_DIR/api-server.js" "$PROD_DIR/api-server.js.bak.$(date +%Y%m%d_%H%M)" 2>/dev/null || true
 # 复制新文件
 cp "$DEV_DIR/api-server.js" "$PROD_DIR/"
+cp "$DEV_DIR/db.js" "$PROD_DIR/"
 cp -r "$DEV_DIR/prompts" "$PROD_DIR/"
 # 确保 .env 存在
 if [ ! -f "$PROD_DIR/.env" ] && [ -f "$DEV_DIR/.env" ]; then

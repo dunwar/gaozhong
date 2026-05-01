@@ -257,6 +257,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 
 // 模拟数据（开发用）
 const mockData = {
@@ -425,8 +426,32 @@ const renderMarkdown = (text) => {
     .replace(/\n/g, '<br>')
 }
 
-onMounted(() => {
-  result.value = history.state?.result || mockData
+onMounted(async () => {
+  const route = useRoute()
+
+  // 优先从路由 state 获取（Upload 页跳转过来）
+  if (history.state?.result) {
+    result.value = history.state.result
+  }
+  // 其次从路由参数 taskId 从数据库加载（分享链接 /result/:taskId）
+  else if (route.params.taskId) {
+    try {
+      const res = await fetch(`/api/result/${route.params.taskId}`)
+      if (res.ok) {
+        const data = await res.json()
+        result.value = data.result
+      } else {
+        result.value = mockData
+      }
+    } catch {
+      result.value = mockData
+    }
+  }
+  // 最后用 mock 数据
+  else {
+    result.value = mockData
+  }
+
   // 默认打开第一个维度
   const firstKey = Object.keys(result.value?.dimensions || {})[0]
   if (firstKey) {

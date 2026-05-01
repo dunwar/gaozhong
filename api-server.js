@@ -19,6 +19,7 @@ import path from 'path';
 import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import { GRADING_PROMPT, PROMPT_VERSION } from './prompts/grading-v5.js';
+import { initDB, saveDB, saveRecord, getRecord, getHistory, getStats } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3001;
@@ -428,14 +429,58 @@ async function executeTask(task) {
       updateTask(task.id, { progress: { stage: 'grading', message: 'AI 正在批改作文...' } });
       result = await gradeText(input.text, input.topic);
     }
+
+    // ✅ 先写入数据库，再更新 task 状态（保证数据不丢失）
+    try {
+      saveRecord({
+        id: task.id,
+        status: 'done',
+        essayText: input.text || '',
+        essayTopic: input.topic || '',
+        inputType: input.type || 'text',
+        totalScore: result.totalScore || 0,
+        grade: result.grade || '',
+        wordCount: result.wordCount || 0,
+        dimensions: result.dimensions || {},
+        adjustments: result.adjustments || { plus: [], minus: [] },
+        revisions: result.revisions || [],
+        suggestions: result.suggestions || [],
+        rawMarkdown: result.rawMarkdown || result.fullCommentary || '',
+        rawScore: result.rawScore || 0,
+        adjustedScore: result.adjustedScore || 0,
+        gradingReason: result.gradingReason || '',
+        oneSentenceSummary: result.oneSentenceSummary || '',
+        upgradePath: result.upgradePath || {},
+        createdAt: task.createdAt
+      });
+      log('info', 'DB 保存成功', { taskId: task.id });
+    } catch (dbErr) {
+      log('error', 'DB 保存失败，但结果仍可在内存中获取', { taskId: task.id, error: dbErr.message });
+    }
+
     updateTask(task.id, {
       status: 'done',
       result,
+      persisted: true,
       progress: { stage: 'done', message: '批改完成' }
     });
     log('info', 'task 完成', { taskId: task.id, score: result.totalScore, grade: result.grade });
   } catch (err) {
     log('error', 'task 失败', { taskId: task.id, error: err.message });
+
+    // 失败也记录到数据库
+    try {
+      saveRecord({
+        id: task.id,
+        status: 'failed',
+        essayText: input.text || '',
+        essayTopic: input.topic || '',
+        inputType: input.type || 'text',
+        error: err.message,
+        createdAt: task.createdAt
+      });
+    } catch (_) {}
+
     updateTask(task.id, {
       status: 'failed',
       error: err.message,
@@ -468,7 +513,7 @@ app.get('/health', (req, res) => {
     providers: { ocr: { name: 'DashScope', model: MODEL_OCR }, grading: { name: 'DeepSeek', model: MODEL_GRADING } },
     prompt: { version: PROMPT_VERSION, file: 'prompts/grading-v5.js' },
     queue: { active: gradingQueue.active, pending: gradingQueue.pending, maxConcurrent: MAX_CONCURRENT },
-    tasks: { total: tasks.size },
+    tasks: { memory: tasks.size, persistent: getStats() },
     uptime: Math.floor(process.uptime())
   });
 });
@@ -548,6 +593,48 @@ app.post('/api/analyze', (req, res) => {
   });
 });
 
+// 查询任务结果（DB 优先，内存回退）
+app.get('/result/:taskId', (req, res) => {
+  const { taskId } = req.params;
+
+  // 先从数据库查
+  const record = getRecord(taskId);
+  if (record) {
+    return res.json({
+      success: true,
+      source: 'database',
+      result: record
+    });
+  }
+
+  // 回退到内存（任务刚完成尚未被清理）
+  const task = tasks.get(taskId);
+  if (task && task.status === 'done') {
+    return res.json({
+      success: true,
+      source: 'memory',
+      result: task.result
+    });
+  }
+
+  return res.status(404).json({ error: '记录不存在或已过期' });
+});
+
+// 历史记录
+app.get('/history', (req, res) => {
+  const page = Math.max(1, parseInt(req.query.page) || 1);
+  const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+
+  const result = getHistory(page, limit);
+  res.json({ success: true, ...result });
+});
+
+// 统计
+app.get('/stats', (req, res) => {
+  const stats = getStats();
+  res.json({ success: true, ...stats, memoryTasks: tasks.size });
+});
+
 // 404
 app.use((req, res) => {
   res.status(404).json({
@@ -566,11 +653,25 @@ app.use((err, req, res, next) => {
 });
 
 // ========== 启动 ==========
-app.listen(PORT, () => {
-  console.log(`🚀 gaozhong.online AI API v2 (异步队列) 已启动`);
-  console.log(`📍 端口: ${PORT}`);
-  console.log(`🔍 健康检查: http://localhost:${PORT}/health`);
-  console.log(`📝 提交: POST /analyze → taskId → GET /task/:taskId`);
-  console.log(`⚡ 并发: ${MAX_CONCURRENT} | 队列上限: ${MAX_QUEUE_DEPTH} | TTL: ${TASK_TTL_MS / 60000}min`);
-  console.log(`🤖 OCR: ${MODEL_OCR} | 批改: ${MODEL_GRADING} | Prompt: ${PROMPT_VERSION}`);
-});
+const startup = async () => {
+  // 初始化数据库
+  await initDB();
+
+  // 清理启动前可能遗留的 processing 状态
+  const dbStats = getStats();
+  if (dbStats.total > 0) {
+    log('info', 'DB 统计', dbStats);
+  }
+
+  app.listen(PORT, () => {
+    console.log(`🚀 gaozhong.online AI API v2 (异步队列) 已启动`);
+    console.log(`📍 端口: ${PORT}`);
+    console.log(`🔍 健康检查: http://localhost:${PORT}/health`);
+    console.log(`📝 提交: POST /analyze → taskId → GET /task/:taskId`);
+    console.log(`💾 结果: GET /result/:taskId | 历史: GET /history`);
+    console.log(`⚡ 并发: ${MAX_CONCURRENT} | 队列上限: ${MAX_QUEUE_DEPTH} | TTL: ${TASK_TTL_MS / 60000}min`);
+    console.log(`🤖 OCR: ${MODEL_OCR} | 批改: ${MODEL_GRADING} | Prompt: ${PROMPT_VERSION}`);
+  });
+};
+
+startup();
