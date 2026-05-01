@@ -86,7 +86,7 @@
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
-            AI 正在批改中...
+            {{ progressMessage || 'AI 正在批改中...' }}
           </span>
           <span v-else>提交批改</span>
         </button>
@@ -122,6 +122,7 @@ const selectedFile = ref(null)
 const essayTopic = ref('')
 const isAnalyzing = ref(false)
 const errorMessage = ref('')
+const progressMessage = ref('')
 
 const canSubmit = computed(() => {
   if (inputMode.value === 'text') {
@@ -147,6 +148,9 @@ const formatFileSize = (bytes) => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
 }
 
+const POLL_INTERVAL = 3000  // 每 3 秒轮询一次
+const POLL_TIMEOUT = 300000 // 最多等 5 分钟
+
 const submitEssay = async () => {
   if (!canSubmit.value) {
     errorMessage.value = inputMode.value === 'text' ? '请输入作文内容' : '请先选择要批改的文件'
@@ -155,26 +159,94 @@ const submitEssay = async () => {
 
   isAnalyzing.value = true
   errorMessage.value = ''
+  progressMessage.value = '正在提交...'
 
   try {
-    let result
+    let taskId
     
     if (inputMode.value === 'text') {
-      // 直接提交文本
-      result = await analyzeEssayByText(essayText.value.trim(), essayTopic.value)
+      taskId = await submitTextTask(essayText.value.trim(), essayTopic.value)
     } else {
-      // 文件模式：将文件转换为 base64
       const base64Data = await fileToBase64(selectedFile.value)
-      result = await analyzeEssayByFile(base64Data, essayTopic.value)
+      taskId = await submitFileTask(base64Data, essayTopic.value)
     }
     
+    // 轮询等待结果
+    const result = await pollTask(taskId)
+    
     // 跳转到结果页
-    router.push({ name: 'Result', state: { result: result.result } })
+    router.push({ name: 'Result', state: { result, taskId } })
   } catch (error) {
     errorMessage.value = error.message || '批改失败，请稍后重试'
   } finally {
     isAnalyzing.value = false
+    progressMessage.value = ''
   }
+}
+
+// 提交文本批改任务
+const submitTextTask = async (text, topic) => {
+  const response = await fetch('/api/analyze', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text, topic })
+  })
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ error: '提交失败' }))
+    throw new Error(err.error || 'AI 批改服务暂时不可用')
+  }
+  const data = await response.json()
+  return data.taskId
+}
+
+// 提交图片批改任务
+const submitFileTask = async (base64Data, topic) => {
+  const response = await fetch('/api/analyze', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ file: base64Data, topic })
+  })
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ error: '提交失败' }))
+    throw new Error(err.error || 'AI 批改服务暂时不可用')
+  }
+  const data = await response.json()
+  return data.taskId
+}
+
+// 轮询任务结果
+const pollTask = async (taskId) => {
+  const startTime = Date.now()
+  
+  while (Date.now() - startTime < POLL_TIMEOUT) {
+    const response = await fetch(`/api/task/${taskId}`)
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({ error: '查询失败' }))
+      throw new Error(err.error || '查询任务状态失败')
+    }
+    
+    const task = await response.json()
+    
+    if (task.status === 'done') {
+      return task.result
+    }
+    
+    if (task.status === 'failed') {
+      throw new Error(task.error || '批改失败')
+    }
+    
+    // 更新进度提示
+    if (task.progress) {
+      progressMessage.value = task.progress.message
+    }
+    if (task.status === 'queued' && task.queuePosition > 0) {
+      progressMessage.value = `排队中...前方 ${task.queuePosition} 人`
+    }
+    
+    await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL))
+  }
+  
+  throw new Error('批改超时，请稍后重试')
 }
 
 const fileToBase64 = (file) => {
@@ -186,41 +258,6 @@ const fileToBase64 = (file) => {
   })
 }
 
-const analyzeEssayByText = async (text, topic) => {
-  const response = await fetch('/api/analyze', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      text: text,
-      topic: topic,
-      region: 'shanghai'
-    })
-  })
-
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: '未知错误' }))
-    throw new Error(error.error || 'AI 批改服务暂时不可用')
-  }
-
-  return await response.json()
-}
-
-const analyzeEssayByFile = async (base64Data, topic) => {
-  const response = await fetch('/api/analyze', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      file: base64Data,
-      topic: topic,
-      region: 'shanghai'
-    })
-  })
-
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: '未知错误' }))
-    throw new Error(error.error || 'AI 批改服务暂时不可用')
-  }
-
-  return await response.json()
-}
+// ========== 旧同步接口（已移除） ==========
+// 现已升级为异步队列模式：submitTextTask / submitFileTask / pollTask
 </script>
