@@ -21,7 +21,7 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { fileURLToPath } from 'url';
 import { GRADING_PROMPT, PROMPT_VERSION } from './prompts/grading-v5.js';
-import { initDB, saveDB, saveRecord, getRecord, getHistory, getStats, createUser, getUserByEmail, getUserById, updateUser } from './db.js';
+import { initDB, saveDB, saveRecord, getRecord, getHistory, getStats, createUser, getUserByEmail, getUserById, updateUser, changePassword, listUsers } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3001;
@@ -446,6 +446,7 @@ async function executeTask(task) {
     try {
       saveRecord({
         id: task.id,
+        userId: input.userId || null,
         status: 'done',
         essayText: input.text || '',
         essayTopic: input.topic || '',
@@ -484,6 +485,7 @@ async function executeTask(task) {
     try {
       saveRecord({
         id: task.id,
+        userId: input.userId || null,
         status: 'failed',
         essayText: input.text || '',
         essayTopic: input.topic || '',
@@ -514,6 +516,34 @@ app.use((req, res, next) => {
   next();
 });
 
+// ========== Auth 中间件 ==========
+
+function authMiddleware(req, res, next) {
+  const header = req.headers.authorization;
+  if (!header || !header.startsWith('Bearer ')) {
+    return res.status(401).json({ error: '未登录，请先登录' });
+  }
+  try {
+    const payload = jwt.verify(header.slice(7), JWT_SECRET);
+    const user = getUserById(payload.sub);
+    if (!user) return res.status(401).json({ error: '用户不存在' });
+    req.user = user;
+    next();
+  } catch (err) {
+    if (err.name === 'TokenExpiredError') {
+      return res.status(401).json({ error: '登录已过期，请重新登录' });
+    }
+    return res.status(401).json({ error: 'Token 无效' });
+  }
+}
+
+function adminMiddleware(req, res, next) {
+  if (!req.user || req.user.role !== 'admin') {
+    return res.status(403).json({ error: '无权访问，需要管理员权限' });
+  }
+  next();
+}
+
 // ========== 路由 ==========
 
 // 健康检查
@@ -528,6 +558,138 @@ app.get('/health', (req, res) => {
     tasks: { memory: tasks.size, persistent: getStats() },
     uptime: Math.floor(process.uptime())
   });
+});
+
+// ========== 认证路由 ==========
+
+// 注册
+app.post('/auth/register', (req, res) => {
+  const { email, password, nickname, region, grade, school } = req.body;
+
+  if (!email || !password) {
+    return res.status(400).json({ error: '邮箱和密码为必填项' });
+  }
+  if (password.length < 6) {
+    return res.status(400).json({ error: '密码长度不能少于6位' });
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(400).json({ error: '邮箱格式不正确' });
+  }
+
+  // 查重
+  if (getUserByEmail(email)) {
+    return res.status(409).json({ error: '该邮箱已被注册' });
+  }
+
+  const passwordHash = bcrypt.hashSync(password, BCRYPT_ROUNDS);
+  const user = createUser({
+    email,
+    passwordHash,
+    nickname: nickname || email.split('@')[0],
+    region: region || '上海',
+    grade: grade || '',
+    school: school || ''
+  });
+
+  const token = jwt.sign({ sub: user.id, role: user.role }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+
+  log('info', '用户注册', { userId: user.id, email: user.email, region: user.region });
+
+  res.status(201).json({
+    success: true,
+    token,
+    user: { id: user.id, email: user.email, nickname: user.nickname, region: user.region, grade: user.grade, school: user.school, role: user.role, mustChangePassword: user.mustChangePassword }
+  });
+});
+
+// 登录
+app.post('/auth/login', (req, res) => {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    return res.status(400).json({ error: '邮箱和密码为必填项' });
+  }
+
+  const user = getUserByEmail(email);
+  if (!user) {
+    return res.status(401).json({ error: '邮箱或密码错误' });
+  }
+
+  if (!bcrypt.compareSync(password, user.passwordHash)) {
+    return res.status(401).json({ error: '邮箱或密码错误' });
+  }
+
+  const token = jwt.sign({ sub: user.id, role: user.role }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+
+  log('info', '用户登录', { userId: user.id, email: user.email });
+
+  res.json({
+    success: true,
+    token,
+    user: { id: user.id, email: user.email, nickname: user.nickname, region: user.region, grade: user.grade, school: user.school, role: user.role, mustChangePassword: user.mustChangePassword }
+  });
+});
+
+// 获取当前用户信息
+app.get('/auth/me', authMiddleware, (req, res) => {
+  res.json({
+    success: true,
+    user: { id: req.user.id, email: req.user.email, nickname: req.user.nickname, region: req.user.region, grade: req.user.grade, school: req.user.school, role: req.user.role, mustChangePassword: req.user.mustChangePassword, createdAt: req.user.createdAt }
+  });
+});
+
+// 更新个人信息
+app.put('/auth/me', authMiddleware, (req, res) => {
+  const allowed = ['nickname', 'region', 'grade', 'school'];
+  const fields = {};
+  for (const k of allowed) {
+    if (req.body[k] !== undefined) fields[k] = req.body[k];
+  }
+  if (Object.keys(fields).length === 0) {
+    return res.status(400).json({ error: '没有需要更新的字段' });
+  }
+  const user = updateUser(req.user.id, fields);
+  log('info', '用户更新资料', { userId: user.id, fields: Object.keys(fields) });
+  res.json({
+    success: true,
+    user: { id: user.id, email: user.email, nickname: user.nickname, region: user.region, grade: user.grade, school: user.school, role: user.role, mustChangePassword: user.mustChangePassword }
+  });
+});
+
+// 修改密码
+app.put('/auth/password', authMiddleware, (req, res) => {
+  const { oldPassword, newPassword } = req.body;
+  if (!oldPassword || !newPassword) {
+    return res.status(400).json({ error: '请提供旧密码和新密码' });
+  }
+  if (newPassword.length < 6) {
+    return res.status(400).json({ error: '新密码长度不能少于6位' });
+  }
+
+  // 重新从 DB 读取，确保拿到 passwordHash
+  const fresh = getUserById(req.user.id);
+  if (!bcrypt.compareSync(oldPassword, fresh.passwordHash)) {
+    return res.status(401).json({ error: '旧密码错误' });
+  }
+
+  const newHash = bcrypt.hashSync(newPassword, BCRYPT_ROUNDS);
+  changePassword(req.user.id, newHash);
+  log('info', '用户修改密码', { userId: req.user.id });
+  res.json({ success: true, message: '密码修改成功' });
+});
+
+// 管理员：用户列表
+app.get('/admin/users', authMiddleware, adminMiddleware, (req, res) => {
+  const page = Math.max(1, parseInt(req.query.page) || 1);
+  const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 50));
+  const result = listUsers(page, limit);
+  // 脱敏——不返回 passwordHash
+  result.users = result.users.map(u => ({
+    id: u.id, email: u.email, nickname: u.nickname, region: u.region,
+    role: u.role, grade: u.grade, school: u.school,
+    mustChangePassword: u.mustChangePassword, createdAt: u.createdAt
+  }));
+  res.json({ success: true, ...result });
 });
 
 // 提交批改任务（立即返回 taskId）
@@ -547,15 +709,25 @@ app.post('/analyze', (req, res) => {
 
   const { text, file, topic = '' } = req.body;
 
+  // 可选认证：有 token 则绑定用户
+  let userId = null;
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    try {
+      const payload = jwt.verify(authHeader.slice(7), JWT_SECRET);
+      userId = payload.sub;
+    } catch (_) { /* token 无效也允许匿名提交 */ }
+  }
+
   if (!file && !text) {
     return res.status(400).json({ error: '请提供 text（文本）或 file（图片base64）' });
   }
 
   let input;
   if (file && file.startsWith('data:image')) {
-    input = { type: 'image', file, topic };
+    input = { type: 'image', file, topic, userId };
   } else if (text) {
-    input = { type: 'text', text, topic };
+    input = { type: 'text', text, topic, userId };
   } else {
     return res.status(400).json({ error: '不支持的文件格式' });
   }
@@ -633,11 +805,13 @@ app.get('/result/:taskId', (req, res) => {
 });
 
 // 历史记录
-app.get('/history', (req, res) => {
+app.get('/history', authMiddleware, (req, res) => {
   const page = Math.max(1, parseInt(req.query.page) || 1);
   const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
 
-  const result = getHistory(page, limit);
+  // 管理员看全部，普通用户只看自己的
+  const userId = req.user.role === 'admin' ? null : req.user.id;
+  const result = getHistory(userId, page, limit);
   res.json({ success: true, ...result });
 });
 
@@ -664,10 +838,31 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: '服务器内部错误' });
 });
 
+// ========== 管理员播种 ==========
+function ensureAdmin() {
+  const adminEmail = 'admin@gaozhong.online';
+  const exists = getUserByEmail(adminEmail);
+  if (exists) return;
+
+  const passwordHash = bcrypt.hashSync('123456', BCRYPT_ROUNDS);
+  createUser({
+    email: adminEmail,
+    passwordHash,
+    nickname: '管理员',
+    role: 'admin',
+    mustChangePassword: 1
+  });
+  log('info', '管理员账号已创建', { email: adminEmail });
+  console.log('🔑 管理员账号: admin@gaozhong.online / 123456（登录后需修改密码）');
+}
+
 // ========== 启动 ==========
 const startup = async () => {
   // 初始化数据库
   await initDB();
+
+  // 确保管理员存在
+  ensureAdmin();
 
   // 清理启动前可能遗留的 processing 状态
   const dbStats = getStats();
