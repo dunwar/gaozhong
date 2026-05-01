@@ -233,7 +233,7 @@ function parseMarkdownResult(content) {
     dimensions: {}, rawScore: 0,
     adjustments: { plus: [], minus: [] }, adjustedScore: 0,
     strengths: [], weaknesses: [], suggestions: [],
-    overallComment: '', gradingReason: '', revisions: [],
+    overall: '', gradingReason: '', revisions: [],
     oneSentenceSummary: '', fullCommentary: content, rawMarkdown: content
   };
 
@@ -273,9 +273,16 @@ function parseMarkdownResult(content) {
       if (m) { result.gradingReason = m[1].trim().substring(0, 500); break; }
     }
 
+    // 整体评价（3-4 句总评）
+    const overallPatterns = [/整体评价[\s\n]*([\s\S]*?)(?=\n---|\n###\s|$)/, /总评[：:][\s\n]*([\s\S]*?)(?=\n---|\n###\s|$)/];
+    for (const p of overallPatterns) {
+      const m = content.match(p);
+      if (m) { result.overall = m[1].trim().substring(0, 500); break; }
+    }
+
     // 五维得分
     const dimKeys = ['审题立意', '思辨深度', '结构布局', '语言表达', '素材运用'];
-    const dimFullNames = { '审题立意': 20, '思辨深度': 30, '结构布局': 20, '语言表达': 15, '素材运用': 15 };
+    const dimFullNames = { '审题立意': 20, '思辨深度': 20, '结构布局': 20, '语言表达': 20, '素材运用': 20 };
     for (const dimKey of dimKeys) {
       const dimRegex = new RegExp(`####\\s*${dimKey}[（(](\\d+)/(\\d+)分?[）)]`, 'g');
       const dimMatch = dimRegex.exec(content);
