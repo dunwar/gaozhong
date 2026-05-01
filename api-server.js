@@ -17,9 +17,11 @@ import https from 'https';
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
+import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
 import { fileURLToPath } from 'url';
 import { GRADING_PROMPT, PROMPT_VERSION } from './prompts/grading-v5.js';
-import { initDB, saveDB, saveRecord, getRecord, getHistory, getStats } from './db.js';
+import { initDB, saveDB, saveRecord, getRecord, getHistory, getStats, createUser, getUserByEmail, getUserById, updateUser } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3001;
@@ -52,6 +54,9 @@ const DASHSCOPE_KEY = process.env.DASHSCOPE_API_KEY;
 const DEEPSEEK_KEY = process.env.DEEPSEEK_API_KEY;
 const MODEL_OCR = process.env.MODEL_OCR || 'qwen-vl-plus';
 const MODEL_GRADING = process.env.MODEL_GRADING || 'deepseek-v4-pro';
+const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex');
+const JWT_EXPIRES_IN = '7d';
+const BCRYPT_ROUNDS = 10;
 
 if (!DEEPSEEK_KEY) {
   console.error('❌ 错误: DEEPSEEK_API_KEY 未设置');

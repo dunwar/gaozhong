@@ -10,6 +10,7 @@ import initSqlJs from 'sql.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import crypto from 'crypto';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DB_DIR = path.join(__dirname, 'data');
@@ -21,14 +22,12 @@ let saveTimer = null;
 // ========== 初始化 ==========
 
 export async function initDB() {
-  // 确保目录存在
   if (!fs.existsSync(DB_DIR)) {
     fs.mkdirSync(DB_DIR, { recursive: true });
   }
 
   const SQL = await initSqlJs();
 
-  // 尝试从磁盘加载
   if (fs.existsSync(DB_PATH)) {
     try {
       const buffer = fs.readFileSync(DB_PATH);
@@ -47,6 +46,7 @@ export async function initDB() {
   db.run(`
     CREATE TABLE IF NOT EXISTS grading_records (
       id            TEXT PRIMARY KEY,
+      user_id       TEXT,
       status        TEXT NOT NULL DEFAULT 'done',
       essay_text    TEXT NOT NULL,
       essay_topic   TEXT DEFAULT '',
@@ -70,13 +70,31 @@ export async function initDB() {
     );
   `);
 
+  // 用户表
+  db.run(`
+    CREATE TABLE IF NOT EXISTS users (
+      id            TEXT PRIMARY KEY,
+      email         TEXT UNIQUE NOT NULL,
+      password_hash TEXT NOT NULL,
+      nickname      TEXT DEFAULT '',
+      region        TEXT NOT NULL DEFAULT '上海',
+      grade         TEXT DEFAULT '',
+      school        TEXT DEFAULT '',
+      created_at    INTEGER NOT NULL,
+      updated_at    INTEGER NOT NULL
+    );
+  `);
+
+  // 迁移：旧表补 user_id 列
+  try { db.run(`ALTER TABLE grading_records ADD COLUMN user_id TEXT;`); } catch (_) {}
+
   // 索引
   db.run(`CREATE INDEX IF NOT EXISTS idx_created_at ON grading_records(created_at DESC);`);
+  db.run(`CREATE INDEX IF NOT EXISTS idx_user_id ON grading_records(user_id);`);
+  db.run(`CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);`);
 
-  // 立即保存表结构
   saveDB();
   console.log('✅ 数据库就绪');
-
   return db;
 }
 
@@ -84,9 +102,7 @@ export async function initDB() {
 
 export function saveDB() {
   if (!db) return;
-  // 清除待处理的定时器
   if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
-
   try {
     const data = db.export();
     const buffer = Buffer.from(data.buffer, data.byteOffset, data.byteLength);
@@ -96,30 +112,76 @@ export function saveDB() {
   }
 }
 
-// 延迟保存（合并短时间内的多次写操作）
 export function saveDBDeferred(ms = 200) {
   if (saveTimer) clearTimeout(saveTimer);
   saveTimer = setTimeout(saveDB, ms);
 }
 
-// ========== CRUD ==========
+// ========== 用户 CRUD ==========
 
-/**
- * 保存批改记录
- */
+export function createUser({ email, passwordHash, nickname, region = '上海', grade = '', school = '' }) {
+  if (!db) throw new Error('数据库未初始化');
+  const id = crypto.randomUUID();
+  const now = Date.now();
+  db.run(
+    `INSERT INTO users (id, email, password_hash, nickname, region, grade, school, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, email.toLowerCase().trim(), passwordHash, nickname || email.split('@')[0], region, grade, school, now, now]
+  );
+  saveDBDeferred();
+  return getUserById(id);
+}
+
+export function getUserByEmail(email) {
+  if (!db) return null;
+  const stmt = db.prepare('SELECT * FROM users WHERE email = ?');
+  stmt.bind([email.toLowerCase().trim()]);
+  if (!stmt.step()) { stmt.free(); return null; }
+  const row = stmt.getAsObject();
+  stmt.free();
+  return deserializeUser(row);
+}
+
+export function getUserById(id) {
+  if (!db) return null;
+  const stmt = db.prepare('SELECT * FROM users WHERE id = ?');
+  stmt.bind([id]);
+  if (!stmt.step()) { stmt.free(); return null; }
+  const row = stmt.getAsObject();
+  stmt.free();
+  return deserializeUser(row);
+}
+
+export function updateUser(id, fields) {
+  if (!db) return null;
+  const sets = [];
+  const vals = [];
+  for (const [k, v] of Object.entries(fields)) {
+    sets.push(`${k} = ?`);
+    vals.push(v);
+  }
+  if (sets.length === 0) return getUserById(id);
+  vals.push(Date.now(), id);
+  db.run(`UPDATE users SET ${sets.join(', ')}, updated_at = ? WHERE id = ?`, vals);
+  saveDBDeferred();
+  return getUserById(id);
+}
+
+// ========== 批改记录 CRUD ==========
+
 export function saveRecord(record) {
   if (!db) throw new Error('数据库未初始化');
 
   const stmt = db.prepare(`
     INSERT OR REPLACE INTO grading_records (
-      id, status, essay_text, essay_topic, input_type,
+      id, user_id, status, essay_text, essay_topic, input_type,
       total_score, grade, word_count,
       dimensions, adjustments, revisions, suggestions,
       raw_markdown, raw_score, adjusted_score,
       grading_reason, one_sentence_summary, upgrade_path,
       error_message, created_at, updated_at
     ) VALUES (
-      ?, ?, ?, ?, ?,
+      ?, ?, ?, ?, ?, ?,
       ?, ?, ?,
       ?, ?, ?, ?,
       ?, ?, ?,
@@ -130,6 +192,7 @@ export function saveRecord(record) {
 
   stmt.run([
     record.id,
+    record.userId || null,
     record.status || 'done',
     record.essayText || '',
     record.essayTopic || '',
@@ -153,113 +216,97 @@ export function saveRecord(record) {
   ]);
 
   stmt.free();
-
-  // 异步延迟保存（合并高频写入）
   saveDBDeferred();
 }
 
-/**
- * 查询单条记录
- */
-export function getRecord(taskId) {
+export function getRecord(taskId, userId = null) {
   if (!db) return null;
-
-  const stmt = db.prepare('SELECT * FROM grading_records WHERE id = ?');
-  stmt.bind([taskId]);
-
-  if (!stmt.step()) {
-    stmt.free();
-    return null;
-  }
-
+  let query = 'SELECT * FROM grading_records WHERE id = ?';
+  const params = [taskId];
+  if (userId) { query += ' AND user_id = ?'; params.push(userId); }
+  const stmt = db.prepare(query);
+  stmt.bind(params);
+  if (!stmt.step()) { stmt.free(); return null; }
   const row = stmt.getAsObject();
   stmt.free();
   return deserializeRecord(row);
 }
 
-/**
- * 分页查询历史（按时间倒序）
- */
-export function getHistory(page = 1, limit = 20) {
-  if (!db) return { records: [], total: 0, page, limit };
+export function getHistory(userId = null, page = 1, limit = 20) {
+  if (!db) return { records: [], total: 0, page, limit, totalPages: 0 };
+  const conditions = ['status = ?'];
+  const params = ['done'];
+  if (userId) { conditions.push('user_id = ?'); params.push(userId); }
+  const where = conditions.join(' AND ');
 
-  // 总数
-  const countStmt = db.prepare('SELECT COUNT(*) as total FROM grading_records WHERE status = ?');
-  countStmt.bind(['done']);
+  const countStmt = db.prepare(`SELECT COUNT(*) as total FROM grading_records WHERE ${where}`);
+  countStmt.bind(params);
   countStmt.step();
   const total = countStmt.getAsObject().total;
   countStmt.free();
 
-  // 分页
   const offset = (page - 1) * limit;
   const stmt = db.prepare(`
     SELECT id, essay_topic, input_type, total_score, grade, word_count,
            one_sentence_summary, created_at
-    FROM grading_records
-    WHERE status = 'done'
-    ORDER BY created_at DESC
-    LIMIT ? OFFSET ?
+    FROM grading_records WHERE ${where}
+    ORDER BY created_at DESC LIMIT ? OFFSET ?
   `);
-  stmt.bind([limit, offset]);
+  stmt.bind([...params, limit, offset]);
 
   const records = [];
-  while (stmt.step()) {
-    records.push(stmt.getAsObject());
-  }
+  while (stmt.step()) records.push(stmt.getAsObject());
   stmt.free();
 
   return { records, total, page, limit, totalPages: Math.ceil(total / limit) };
 }
 
-/**
- * 获取统计信息
- */
-export function getStats() {
+export function getStats(userId = null) {
   if (!db) return { total: 0, avgScore: 0, todayCount: 0 };
+  const userClause = userId ? ' AND user_id = ?' : '';
+  const userParam = userId ? [userId] : [];
 
-  const total = db.exec('SELECT COUNT(*) as c FROM grading_records WHERE status = ?', ['done'])[0]?.values[0]?.[0] || 0;
-  const avgScore = db.exec('SELECT ROUND(AVG(total_score), 1) as s FROM grading_records WHERE status = ? AND total_score > 0', ['done'])[0]?.values[0]?.[0] || 0;
+  const total = db.exec(`SELECT COUNT(*) as c FROM grading_records WHERE status = ?${userClause}`, ['done', ...userParam])[0]?.values[0]?.[0] || 0;
+  const avgScore = db.exec(`SELECT ROUND(AVG(total_score), 1) as s FROM grading_records WHERE status = ? AND total_score > 0${userClause}`, ['done', ...userParam])[0]?.values[0]?.[0] || 0;
 
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
-  const todayCount = db.exec('SELECT COUNT(*) as c FROM grading_records WHERE created_at >= ?', [todayStart.getTime()])[0]?.values[0]?.[0] || 0;
+  const todayCount = db.exec(`SELECT COUNT(*) as c FROM grading_records WHERE created_at >= ?${userClause}`, [todayStart.getTime(), ...userParam])[0]?.values[0]?.[0] || 0;
 
   return { total, avgScore, todayCount };
 }
 
 // ========== 工具 ==========
 
+function deserializeUser(row) {
+  return {
+    id: row.id, email: row.email, nickname: row.nickname,
+    region: row.region || '上海', grade: row.grade || '', school: row.school || '',
+    createdAt: row.created_at, updatedAt: row.updated_at
+  };
+}
+
 function deserializeRecord(row) {
   return {
-    id: row.id,
-    status: row.status,
-    essayText: row.essay_text,
-    essayTopic: row.essay_topic,
-    inputType: row.input_type,
-    totalScore: row.total_score,
-    grade: row.grade,
-    wordCount: row.word_count,
+    id: row.id, userId: row.user_id, status: row.status,
+    essayText: row.essay_text, essayTopic: row.essay_topic,
+    inputType: row.input_type, totalScore: row.total_score,
+    grade: row.grade, wordCount: row.word_count,
     dimensions: safeParse(row.dimensions, {}),
     adjustments: safeParse(row.adjustments, { plus: [], minus: [] }),
     revisions: safeParse(row.revisions, []),
     suggestions: safeParse(row.suggestions, []),
     rawMarkdown: row.raw_markdown,
-    rawScore: row.raw_score,
-    adjustedScore: row.adjusted_score,
+    rawScore: row.raw_score, adjustedScore: row.adjusted_score,
     gradingReason: row.grading_reason,
     oneSentenceSummary: row.one_sentence_summary,
     upgradePath: safeParse(row.upgrade_path, {}),
     error: row.error_message,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at
+    createdAt: row.created_at, updatedAt: row.updated_at
   };
 }
 
 function safeParse(str, fallback) {
-  try {
-    if (!str || str === '') return fallback;
-    return JSON.parse(str);
-  } catch {
-    return fallback;
-  }
+  try { return str && str !== '' ? JSON.parse(str) : fallback; }
+  catch { return fallback; }
 }
