@@ -104,6 +104,17 @@
       </div>
     </div>
 
+    <!-- 游客提示 -->
+    <div v-if="!authStore.isLoggedIn" class="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-xl flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <svg class="w-5 h-5 text-blue-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+        <span class="text-sm text-blue-700">登录后可保存批改记录，查看历史</span>
+      </div>
+      <router-link to="/login" class="text-sm text-blue-600 font-medium hover:text-blue-700 flex-shrink-0 ml-3">登录 →</router-link>
+    </div>
+
     <!-- 进行中的任务 -->
     <div v-if="activeTasks.length > 0" class="mt-8">
       <div class="flex items-center justify-between mb-4">
@@ -183,6 +194,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import UploadArea from '../components/UploadArea.vue'
 import { addTask, updateTask, loadTasks } from '../utils/taskStore.js'
+import { authStore, authFetch } from '../utils/authStore.js'
 
 const inputMode = ref('text')
 const essayText = ref('')
@@ -314,7 +326,7 @@ async function refreshActiveTasks() {
 }
 
 const submitTextTask = async (text, topic) => {
-  const response = await fetch('/api/analyze', {
+  const response = await authFetch('/api/analyze', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ text, topic })
@@ -328,7 +340,7 @@ const submitTextTask = async (text, topic) => {
 }
 
 const submitFileTask = async (base64Data, topic) => {
-  const response = await fetch('/api/analyze', {
+  const response = await authFetch('/api/analyze', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ file: base64Data, topic })
