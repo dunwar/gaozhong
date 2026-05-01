@@ -78,6 +78,9 @@ export async function initDB() {
       password_hash TEXT NOT NULL,
       nickname      TEXT DEFAULT '',
       region        TEXT NOT NULL DEFAULT '上海',
+      role          TEXT NOT NULL DEFAULT 'user',
+      wechat_openid TEXT,
+      must_change_password INTEGER NOT NULL DEFAULT 0,
       grade         TEXT DEFAULT '',
       school        TEXT DEFAULT '',
       created_at    INTEGER NOT NULL,
@@ -85,13 +88,18 @@ export async function initDB() {
     );
   `);
 
-  // 迁移：旧表补 user_id 列
+  // 迁移：补旧表缺失列
+  try { db.run(`ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'user';`); } catch (_) {}
+  try { db.run(`ALTER TABLE users ADD COLUMN wechat_openid TEXT;`); } catch (_) {}
+  try { db.run(`ALTER TABLE users ADD COLUMN must_change_password INTEGER NOT NULL DEFAULT 0;`); } catch (_) {}
   try { db.run(`ALTER TABLE grading_records ADD COLUMN user_id TEXT;`); } catch (_) {}
+  try { db.run(`ALTER TABLE grading_records ADD COLUMN is_guest INTEGER NOT NULL DEFAULT 0;`); } catch (_) {}
 
   // 索引
   db.run(`CREATE INDEX IF NOT EXISTS idx_created_at ON grading_records(created_at DESC);`);
   db.run(`CREATE INDEX IF NOT EXISTS idx_user_id ON grading_records(user_id);`);
   db.run(`CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);`);
+  db.run(`CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);`);
 
   saveDB();
   console.log('✅ 数据库就绪');
@@ -119,14 +127,14 @@ export function saveDBDeferred(ms = 200) {
 
 // ========== 用户 CRUD ==========
 
-export function createUser({ email, passwordHash, nickname, region = '上海', grade = '', school = '' }) {
+export function createUser({ email, passwordHash, nickname, region = '上海', role = 'user', wechatOpenid = null, mustChangePassword = 0, grade = '', school = '' }) {
   if (!db) throw new Error('数据库未初始化');
   const id = crypto.randomUUID();
   const now = Date.now();
   db.run(
-    `INSERT INTO users (id, email, password_hash, nickname, region, grade, school, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [id, email.toLowerCase().trim(), passwordHash, nickname || email.split('@')[0], region, grade, school, now, now]
+    `INSERT INTO users (id, email, password_hash, nickname, region, role, wechat_openid, must_change_password, grade, school, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, email.toLowerCase().trim(), passwordHash, nickname || email.split('@')[0], region, role, wechatOpenid, mustChangePassword, grade, school, now, now]
   );
   saveDBDeferred();
   return getUserById(id);
@@ -154,10 +162,17 @@ export function getUserById(id) {
 
 export function updateUser(id, fields) {
   if (!db) return null;
+  // 字段名映射（JS camelCase → DB snake_case）
+  const fieldMap = {
+    nickname: 'nickname', region: 'region', grade: 'grade', school: 'school',
+    role: 'role', wechatOpenid: 'wechat_openid', mustChangePassword: 'must_change_password',
+    passwordHash: 'password_hash'
+  };
   const sets = [];
   const vals = [];
   for (const [k, v] of Object.entries(fields)) {
-    sets.push(`${k} = ?`);
+    const col = fieldMap[k] || k;
+    sets.push(`${col} = ?`);
     vals.push(v);
   }
   if (sets.length === 0) return getUserById(id);
@@ -165,6 +180,27 @@ export function updateUser(id, fields) {
   db.run(`UPDATE users SET ${sets.join(', ')}, updated_at = ? WHERE id = ?`, vals);
   saveDBDeferred();
   return getUserById(id);
+}
+
+/** 修改密码 + 清除强制修改标记 */
+export function changePassword(id, newPasswordHash) {
+  return updateUser(id, { passwordHash: newPasswordHash, mustChangePassword: 0 });
+}
+
+/** 管理员：列出所有用户 */
+export function listUsers(page = 1, limit = 50) {
+  if (!db) return { users: [], total: 0 };
+  const countStmt = db.prepare('SELECT COUNT(*) as total FROM users');
+  countStmt.step();
+  const total = countStmt.getAsObject().total;
+  countStmt.free();
+  const offset = (page - 1) * limit;
+  const stmt = db.prepare('SELECT * FROM users ORDER BY created_at DESC LIMIT ? OFFSET ?');
+  stmt.bind([limit, offset]);
+  const users = [];
+  while (stmt.step()) users.push(deserializeUser(stmt.getAsObject()));
+  stmt.free();
+  return { users, total, page, limit, totalPages: Math.ceil(total / limit) };
 }
 
 // ========== 批改记录 CRUD ==========
@@ -281,7 +317,10 @@ export function getStats(userId = null) {
 function deserializeUser(row) {
   return {
     id: row.id, email: row.email, nickname: row.nickname,
-    region: row.region || '上海', grade: row.grade || '', school: row.school || '',
+    region: row.region || '上海', role: row.role || 'user',
+    wechatOpenid: row.wechat_openid || null,
+    mustChangePassword: !!row.must_change_password,
+    grade: row.grade || '', school: row.school || '',
     createdAt: row.created_at, updatedAt: row.updated_at
   };
 }
