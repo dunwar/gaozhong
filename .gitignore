@@ -25,3 +25,4 @@ dist-ssr
 .env
 *.bak.*
 api-server.pid
+data/
