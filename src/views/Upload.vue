@@ -6,7 +6,7 @@
       <p class="text-lg text-gray-600">上传你的作文，AI 将根据上海高考标准进行专业批改</p>
     </div>
 
-    <!-- 输入方式切换 -->
+    <!-- 输入区域 -->
     <div class="bg-white rounded-2xl shadow-lg p-8">
       <!-- 切换按钮 -->
       <div class="flex space-x-4 mb-6">
@@ -78,18 +78,24 @@
       <div class="mt-6">
         <button 
           @click="submitEssay" 
-          :disabled="isAnalyzing || !canSubmit"
+          :disabled="isSubmitting || !canSubmit"
           class="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-medium py-4 rounded-xl transition-all"
         >
-          <span v-if="isAnalyzing" class="flex items-center justify-center">
+          <span v-if="isSubmitting" class="flex items-center justify-center">
             <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
-            {{ progressMessage || 'AI 正在批改中...' }}
+            正在提交...
           </span>
           <span v-else>提交批改</span>
         </button>
+      </div>
+
+      <!-- 提交成功提示 -->
+      <div v-if="justSubmitted" class="mt-4 p-4 bg-green-50 text-green-700 rounded-lg flex items-center justify-between">
+        <span>✅ 已提交，任务正在排队处理中</span>
+        <router-link to="/tasks" class="text-green-700 underline font-medium text-sm">查看任务 →</router-link>
       </div>
 
       <!-- 错误提示 -->
@@ -98,11 +104,75 @@
       </div>
     </div>
 
+    <!-- 进行中的任务 -->
+    <div v-if="activeTasks.length > 0" class="mt-8">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-semibold text-gray-900">
+          进行中的任务
+          <span class="ml-2 px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded-full">{{ activeTasks.length }}</span>
+        </h3>
+        <router-link to="/tasks" class="text-sm text-blue-600 hover:text-blue-700">查看全部 →</router-link>
+      </div>
+
+      <div class="space-y-3">
+        <div
+          v-for="task in activeTasks"
+          :key="task.taskId"
+          class="bg-white rounded-xl border border-gray-100 shadow-sm p-4"
+        >
+          <!-- 进行中 -->
+          <div v-if="task.status === 'queued' || task.status === 'processing'" class="flex items-center justify-between">
+            <div class="flex items-center gap-3 min-w-0">
+              <span class="relative flex h-2.5 w-2.5 flex-shrink-0">
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75"
+                  :class="task.status === 'processing' ? 'bg-blue-400' : 'bg-yellow-400'"
+                ></span>
+                <span class="relative inline-flex rounded-full h-2.5 w-2.5"
+                  :class="task.status === 'processing' ? 'bg-blue-500' : 'bg-yellow-500'"
+                ></span>
+              </span>
+              <span class="text-sm text-gray-700 truncate">{{ task.topic || '(无题目)' }}</span>
+              <span class="text-xs flex-shrink-0"
+                :class="task.status === 'processing' ? 'text-blue-500' : 'text-yellow-500'"
+              >{{ task.status === 'processing' ? '批改中...' : '排队...' }}</span>
+            </div>
+            <router-link
+              :to="`/result/${task.taskId}`"
+              v-if="task.status === 'done'"
+              class="ml-3 text-sm text-green-600 font-medium hover:text-green-700 flex-shrink-0"
+            >查看结果 →</router-link>
+          </div>
+
+          <!-- 已完成 -->
+          <div v-else-if="task.status === 'done'" class="flex items-center justify-between">
+            <div class="flex items-center gap-3 min-w-0">
+              <span class="w-2.5 h-2.5 bg-green-500 rounded-full flex-shrink-0"></span>
+              <span class="text-sm text-gray-700 truncate">{{ task.topic || '(无题目)' }}</span>
+              <span class="text-sm font-bold flex-shrink-0" :class="getScoreColor(task.totalScore)">
+                {{ task.totalScore || '—' }}分
+              </span>
+            </div>
+            <router-link
+              :to="`/result/${task.taskId}`"
+              class="ml-3 px-3 py-1.5 bg-green-50 text-green-700 rounded-lg text-sm font-medium hover:bg-green-100 flex-shrink-0"
+            >查看结果 →</router-link>
+          </div>
+
+          <!-- 失败 -->
+          <div v-else-if="task.status === 'failed'" class="flex items-center gap-3 text-sm text-red-600">
+            <span class="w-2.5 h-2.5 bg-red-500 rounded-full flex-shrink-0"></span>
+            <span>{{ task.topic || '(无题目)' }}</span>
+            <span class="text-xs text-red-400">失败</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- 评分标准说明 -->
     <div class="mt-8 bg-gray-50 rounded-xl p-6">
       <h3 class="text-lg font-semibold text-gray-900 mb-4">评分标准</h3>
       <p class="text-gray-600 text-sm">
-        依据上海高考语文作文评分标准，满分 70 分，从内容、结构、语言、创新四大维度综合评定。
+        依据上海高考语文作文评分标准，满分 70 分，从审题立意、思辨深度、结构布局、语言表达、素材运用五大维度综合评定。
         AI 将给出详细评分和改进建议。
       </p>
     </div>
@@ -110,19 +180,21 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import UploadArea from '../components/UploadArea.vue'
+import { addTask, updateTask, loadTasks } from '../utils/taskStore.js'
 
-const router = useRouter()
-
-const inputMode = ref('text') // 'text' 或 'file'
+const inputMode = ref('text')
 const essayText = ref('')
 const selectedFile = ref(null)
 const essayTopic = ref('')
-const isAnalyzing = ref(false)
+const isSubmitting = ref(false)
 const errorMessage = ref('')
-const progressMessage = ref('')
+const justSubmitted = ref(false)
+
+// 进行中的任务列表
+const activeTasks = ref([])
+let pollTimer = null
 
 const canSubmit = computed(() => {
   if (inputMode.value === 'text') {
@@ -148,8 +220,7 @@ const formatFileSize = (bytes) => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
 }
 
-const POLL_INTERVAL = 3000  // 每 3 秒轮询一次
-const POLL_TIMEOUT = 300000 // 最多等 5 分钟
+const POLL_INTERVAL = 3000
 
 const submitEssay = async () => {
   if (!canSubmit.value) {
@@ -157,9 +228,9 @@ const submitEssay = async () => {
     return
   }
 
-  isAnalyzing.value = true
+  isSubmitting.value = true
   errorMessage.value = ''
-  progressMessage.value = '正在提交...'
+  justSubmitted.value = false
 
   try {
     let taskId
@@ -171,20 +242,77 @@ const submitEssay = async () => {
       taskId = await submitFileTask(base64Data, essayTopic.value)
     }
     
-    // 轮询等待结果
-    const result = await pollTask(taskId)
+    // 注册到 localStorage 任务追踪
+    addTask({
+      taskId,
+      topic: essayTopic.value || essayText.value.trim().slice(0, 50),
+      inputType: inputMode.value
+    })
     
-    // 跳转到结果页
-    router.push({ name: 'Result', state: { result, taskId } })
+    // 刷新进行中任务列表
+    await refreshActiveTasks()
+    
+    justSubmitted.value = true
+    
+    // 清空表单，允许继续提交
+    essayText.value = ''
+    selectedFile.value = null
+    essayTopic.value = ''
+    
+    // 后台轮询该任务
+    pollSingleTask(taskId)
   } catch (error) {
-    errorMessage.value = error.message || '批改失败，请稍后重试'
+    errorMessage.value = error.message || '提交失败，请稍后重试'
   } finally {
-    isAnalyzing.value = false
-    progressMessage.value = ''
+    isSubmitting.value = false
   }
 }
 
-// 提交文本批改任务
+// 后台轮询单个任务直到完成
+async function pollSingleTask(taskId) {
+  const maxTime = 300000
+  const startTime = Date.now()
+  
+  while (Date.now() - startTime < maxTime) {
+    await new Promise(r => setTimeout(r, POLL_INTERVAL))
+    
+    try {
+      const res = await fetch(`/api/task/${taskId}`)
+      if (!res.ok) break
+      
+      const data = await res.json()
+      if (data.status === 'done') {
+        updateTask(taskId, {
+          status: 'done',
+          totalScore: data.result?.totalScore,
+          grade: data.result?.grade,
+          summary: data.result?.oneSentenceSummary
+        })
+        await refreshActiveTasks()
+        return
+      }
+      if (data.status === 'failed') {
+        updateTask(taskId, { status: 'failed', error: data.error })
+        await refreshActiveTasks()
+        return
+      }
+      if (data.progress?.message) {
+        updateTask(taskId, { progress: data.progress.message, status: data.status })
+      }
+    } catch {
+      break
+    }
+  }
+}
+
+// 刷新进行中/刚完成的任务
+async function refreshActiveTasks() {
+  const all = loadTasks()
+  activeTasks.value = all.filter(t =>
+    t.status === 'queued' || t.status === 'processing' || t.status === 'done'
+  ).slice(0, 5)
+}
+
 const submitTextTask = async (text, topic) => {
   const response = await fetch('/api/analyze', {
     method: 'POST',
@@ -199,7 +327,6 @@ const submitTextTask = async (text, topic) => {
   return data.taskId
 }
 
-// 提交图片批改任务
 const submitFileTask = async (base64Data, topic) => {
   const response = await fetch('/api/analyze', {
     method: 'POST',
@@ -214,41 +341,6 @@ const submitFileTask = async (base64Data, topic) => {
   return data.taskId
 }
 
-// 轮询任务结果
-const pollTask = async (taskId) => {
-  const startTime = Date.now()
-  
-  while (Date.now() - startTime < POLL_TIMEOUT) {
-    const response = await fetch(`/api/task/${taskId}`)
-    if (!response.ok) {
-      const err = await response.json().catch(() => ({ error: '查询失败' }))
-      throw new Error(err.error || '查询任务状态失败')
-    }
-    
-    const task = await response.json()
-    
-    if (task.status === 'done') {
-      return task.result
-    }
-    
-    if (task.status === 'failed') {
-      throw new Error(task.error || '批改失败')
-    }
-    
-    // 更新进度提示
-    if (task.progress) {
-      progressMessage.value = task.progress.message
-    }
-    if (task.status === 'queued' && task.queuePosition > 0) {
-      progressMessage.value = `排队中...前方 ${task.queuePosition} 人`
-    }
-    
-    await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL))
-  }
-  
-  throw new Error('批改超时，请稍后重试')
-}
-
 const fileToBase64 = (file) => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
@@ -258,6 +350,20 @@ const fileToBase64 = (file) => {
   })
 }
 
-// ========== 旧同步接口（已移除） ==========
-// 现已升级为异步队列模式：submitTextTask / submitFileTask / pollTask
+const getScoreColor = (score) => {
+  if (!score && score !== 0) return 'text-gray-400'
+  if (score >= 56) return 'text-green-600'
+  if (score >= 42) return 'text-yellow-600'
+  return 'text-red-600'
+}
+
+onMounted(() => {
+  refreshActiveTasks()
+  // 轮询进行中任务
+  pollTimer = setInterval(refreshActiveTasks, 5000)
+})
+
+onUnmounted(() => {
+  if (pollTimer) clearInterval(pollTimer)
+})
 </script>

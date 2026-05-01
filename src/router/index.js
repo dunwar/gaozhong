@@ -6,6 +6,7 @@ import Result from '../views/Result.vue'
 const routes = [
   { path: '/', name: 'Home', component: Home },
   { path: '/upload', name: 'Upload', component: Upload },
+  { path: '/tasks', name: 'Tasks', component: () => import('../views/Tasks.vue') },
   { path: '/result', name: 'Result', component: Result },
   { path: '/result/:taskId', name: 'ResultById', component: Result },
   { path: '/history', name: 'History', component: () => import('../views/History.vue') },

@@ -13,29 +13,63 @@
         </router-link>
 
         <!-- Navigation -->
-        <nav class="hidden md:flex space-x-8">
+        <nav class="hidden md:flex items-center space-x-8">
           <router-link to="/" class="text-gray-600 hover:text-blue-600 transition-colors">首页</router-link>
           <router-link to="/upload" class="text-gray-600 hover:text-blue-600 transition-colors">作文批改</router-link>
+          <router-link to="/tasks" class="text-gray-600 hover:text-blue-600 transition-colors relative flex items-center gap-1">
+            我的任务
+            <span
+              v-if="unreadCount > 0"
+              class="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold bg-red-500 text-white rounded-full"
+            >{{ unreadCount > 9 ? '9+' : unreadCount }}</span>
+          </router-link>
+          <router-link to="/history" class="text-gray-600 hover:text-blue-600 transition-colors">历史记录</router-link>
         </nav>
 
         <!-- Mobile menu button -->
-        <button @click="mobileMenuOpen = !mobileMenuOpen" class="md:hidden p-2">
+        <button @click="mobileMenuOpen = !mobileMenuOpen" class="md:hidden p-2 relative">
           <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
           </svg>
+          <span
+            v-if="unreadCount > 0"
+            class="absolute top-0 right-0 w-4 h-4 text-[9px] font-bold bg-red-500 text-white rounded-full flex items-center justify-center"
+          >{{ unreadCount > 9 ? '!' : unreadCount }}</span>
         </button>
       </div>
 
       <!-- Mobile menu -->
-      <div v-if="mobileMenuOpen" class="md:hidden py-4 border-t">
+      <div v-if="mobileMenuOpen" class="md:hidden py-4 border-t space-y-1">
         <router-link to="/" class="block py-2 text-gray-600 hover:text-blue-600" @click="mobileMenuOpen = false">首页</router-link>
         <router-link to="/upload" class="block py-2 text-gray-600 hover:text-blue-600" @click="mobileMenuOpen = false">作文批改</router-link>
+        <router-link to="/tasks" class="block py-2 text-gray-600 hover:text-blue-600" @click="mobileMenuOpen = false">
+          我的任务
+          <span v-if="unreadCount > 0" class="ml-1 text-xs text-red-500">({{ unreadCount }})</span>
+        </router-link>
+        <router-link to="/history" class="block py-2 text-gray-600 hover:text-blue-600" @click="mobileMenuOpen = false">历史记录</router-link>
       </div>
     </div>
   </header>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { loadTasks, getUnreadCount } from '../utils/taskStore.js'
+
 const mobileMenuOpen = ref(false)
+const unreadCount = ref(0)
+let pollTimer = null
+
+function refreshBadge() {
+  unreadCount.value = getUnreadCount()
+}
+
+onMounted(() => {
+  refreshBadge()
+  pollTimer = setInterval(refreshBadge, 3000)
+})
+
+onUnmounted(() => {
+  if (pollTimer) clearInterval(pollTimer)
+})
 </script>
