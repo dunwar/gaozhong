@@ -136,6 +136,31 @@ export async function initDB() {
     );
   `);
 
+  // ========== V2 新增：试卷会话表 ==========
+  db.run(`
+    CREATE TABLE IF NOT EXISTS paper_sessions (
+      id          TEXT PRIMARY KEY,
+      user_id     TEXT NOT NULL,
+      subject     TEXT NOT NULL,
+      title       TEXT DEFAULT '',
+      image_count INTEGER DEFAULT 1,
+      status      TEXT NOT NULL DEFAULT 'pending',
+      ai_raw      TEXT DEFAULT '',
+      error_count INTEGER DEFAULT 0,
+      created_at  INTEGER NOT NULL,
+      updated_at  INTEGER NOT NULL
+    );
+  `);
+
+  // 迁移：error_problems 增加 session 关联字段
+  try { db.run(`ALTER TABLE error_problems ADD COLUMN session_id TEXT REFERENCES paper_sessions(id);`); } catch (_) {}
+  try { db.run(`ALTER TABLE error_problems ADD COLUMN paper_index INTEGER DEFAULT 1;`); } catch (_) {}
+
+  // 索引
+  db.run(`CREATE INDEX IF NOT EXISTS idx_paper_sessions_user ON paper_sessions(user_id, created_at DESC);`);
+  db.run(`CREATE INDEX IF NOT EXISTS idx_paper_sessions_subject ON paper_sessions(subject);`);
+  db.run(`CREATE INDEX IF NOT EXISTS idx_error_session ON error_problems(session_id);`);
+
   // 种子：知识点数据（幂等）
   seedKnowledgePoints(db);
 
@@ -402,6 +427,13 @@ function seedKnowledgePoints(database) {
       { name: '阅读', items: ['主旨大意', '细节理解', '推理判断', '词义猜测'] },
       { name: '写作', items: ['应用文', '读后续写', '概要写作'] }
     ],
+    '生物': [
+      { name: '细胞生物学', items: ['细胞结构与功能', '细胞代谢', '细胞分裂', '细胞分化'] },
+      { name: '遗传与进化', items: ['遗传规律', '变异与育种', '基因表达', '生物进化'] },
+      { name: '稳态与调节', items: ['内环境稳态', '神经调节', '体液调节', '免疫调节'] },
+      { name: '生态学', items: ['种群与群落', '生态系统', '生态平衡', '生物多样性'] },
+      { name: '生物技术', items: ['基因工程', '细胞工程', '发酵工程', '实验设计'] }
+    ],
     '语文': [
       { name: '基础知识', items: ['字音字形', '词语成语', '病句辨析', '修辞手法'] },
       { name: '文言文', items: ['实词虚词', '文言句式', '翻译', '内容理解'] },
@@ -433,8 +465,9 @@ export function saveErrorProblem(record) {
     INSERT OR REPLACE INTO error_problems (
       id, user_id, subject, topic, question_text, wrong_answer,
       error_type, correct_solution, difficulty, notes, source, ai_raw, status,
+      session_id, paper_index,
       created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   stmt.run([
     record.id,
@@ -450,6 +483,8 @@ export function saveErrorProblem(record) {
     record.source || '',
     record.aiRaw || '',
     record.status || 'done',
+    record.sessionId || null,
+    record.paperIndex || 1,
     record.createdAt || Date.now(),
     Date.now()
   ]);
@@ -566,6 +601,178 @@ export function searchKnowledgePoints(q, subject = null) {
   return results;
 }
 
+// ========== V2 试卷会话 CRUD ==========
+
+export function createPaperSession({ id, userId, subject, title, imageCount = 1, status = 'pending' }) {
+  if (!db) throw new Error('数据库未初始化');
+  const now = Date.now();
+  db.run(
+    `INSERT INTO paper_sessions (id, user_id, subject, title, image_count, status, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, userId, subject, title || '', imageCount, status, now, now]
+  );
+  saveDBDeferred();
+  return getPaperSession(id);
+}
+
+export function updatePaperSession(id, fields) {
+  if (!db) return null;
+  const fieldMap = { status: 'status', errorCount: 'error_count', aiRaw: 'ai_raw', imageCount: 'image_count', title: 'title' };
+  const sets = [];
+  const vals = [];
+  for (const [k, v] of Object.entries(fields)) {
+    const col = fieldMap[k] || k;
+    sets.push(`${col} = ?`);
+    vals.push(v);
+  }
+  if (sets.length === 0) return getPaperSession(id);
+  vals.push(Date.now(), id);
+  db.run(`UPDATE paper_sessions SET ${sets.join(', ')}, updated_at = ? WHERE id = ?`, vals);
+  saveDBDeferred();
+  return getPaperSession(id);
+}
+
+export function getPaperSession(id) {
+  if (!db) return null;
+  const stmt = db.prepare('SELECT * FROM paper_sessions WHERE id = ?');
+  stmt.bind([id]);
+  if (!stmt.step()) { stmt.free(); return null; }
+  const row = stmt.getAsObject();
+  stmt.free();
+  return deserializePaper(row);
+}
+
+export function listPaperSessions(userId, { page = 1, limit = 20, subject = null } = {}) {
+  if (!db) return { sessions: [], total: 0 };
+  const conditions = ['user_id = ?'];
+  const params = [userId];
+  if (subject && subject !== 'all') { conditions.push('subject = ?'); params.push(subject); }
+  const where = `WHERE ${conditions.join(' AND ')}`;
+
+  const countStmt = db.prepare(`SELECT COUNT(*) as total FROM paper_sessions ${where}`);
+  countStmt.bind(params);
+  countStmt.step();
+  const total = countStmt.getAsObject().total;
+  countStmt.free();
+
+  const offset = (page - 1) * limit;
+  const stmt = db.prepare(`SELECT * FROM paper_sessions ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`);
+  stmt.bind([...params, limit, offset]);
+  const sessions = [];
+  while (stmt.step()) sessions.push(deserializePaper(stmt.getAsObject()));
+  stmt.free();
+  return { sessions, total, page, limit, totalPages: Math.ceil(total / limit) };
+}
+
+function deserializePaper(row) {
+  return {
+    id: row.id, userId: row.user_id, subject: row.subject,
+    title: row.title, imageCount: row.image_count, status: row.status,
+    aiRaw: row.ai_raw, errorCount: row.error_count,
+    createdAt: row.created_at, updatedAt: row.updated_at
+  };
+}
+
+// ========== V2 错题视图查询 ==========
+
+/** 按试卷分组：返回试卷列表，每份试卷包含错题汇总 */
+export function listErrorsByPaper(userId, { page = 1, limit = 20 } = {}) {
+  if (!db) return { papers: [], total: 0 };
+  const countStmt = db.prepare('SELECT COUNT(*) as total FROM paper_sessions WHERE user_id = ?');
+  countStmt.bind([userId]);
+  countStmt.step();
+  const total = countStmt.getAsObject().total;
+  countStmt.free();
+
+  const offset = (page - 1) * limit;
+  const stmt = db.prepare(`
+    SELECT ps.*, 
+      COUNT(ep.id) as error_count,
+      SUM(CASE WHEN ep.error_type = '概念不清' THEN 1 ELSE 0 END) as concept_errors,
+      SUM(CASE WHEN ep.error_type = '计算失误' THEN 1 ELSE 0 END) as calc_errors,
+      SUM(CASE WHEN ep.error_type = '审题偏差' THEN 1 ELSE 0 END) as reading_errors,
+      SUM(CASE WHEN ep.error_type = '方法错误' THEN 1 ELSE 0 END) as method_errors,
+      SUM(CASE WHEN ep.error_type = '知识盲区' THEN 1 ELSE 0 END) as knowledge_errors
+    FROM paper_sessions ps
+    LEFT JOIN error_problems ep ON ps.id = ep.session_id
+    WHERE ps.user_id = ?
+    GROUP BY ps.id
+    ORDER BY ps.created_at DESC LIMIT ? OFFSET ?
+  `);
+  stmt.bind([userId, limit, offset]);
+  const papers = [];
+  while (stmt.step()) papers.push(stmt.getAsObject());
+  stmt.free();
+  return { papers, total, page, limit, totalPages: Math.ceil(total / limit) };
+}
+
+/** 按时间段分组：返回各时间段的错题统计 */
+export function listErrorsByTime(userId, { period = 'month' } = {}) {
+  if (!db) return [];
+  let groupExpr, labelExpr;
+  if (period === 'semester') {
+    // 简单学期划分：9-2月为上，3-8月为下
+    groupExpr = `CASE WHEN CAST(strftime('%m', ep.created_at / 1000, 'unixepoch') AS INTEGER) BETWEEN 3 AND 8 THEN strftime('%Y', ep.created_at / 1000, 'unixepoch') || '-下' ELSE strftime('%Y', ep.created_at / 1000, 'unixepoch') || '-上' END`;
+  } else if (period === 'year') {
+    groupExpr = `strftime('%Y', ep.created_at / 1000, 'unixepoch')`;
+  } else {
+    // month
+    groupExpr = `strftime('%Y-%m', ep.created_at / 1000, 'unixepoch')`;
+  }
+  const rows = db.exec(`
+    SELECT ${groupExpr} as time_label, MIN(ep.created_at) as start_ts, MAX(ep.created_at) as end_ts,
+      COUNT(*) as error_count,
+      COUNT(DISTINCT ep.subject) as subject_count,
+      COUNT(DISTINCT ep.session_id) as paper_count
+    FROM error_problems ep
+    WHERE ep.user_id = '${userId.replace(/'/g, "''")}'
+    GROUP BY time_label
+    ORDER BY start_ts DESC
+    LIMIT 50
+  `);
+  if (!rows[0]) return [];
+  return rows[0].values.map(row => ({
+    timeLabel: row[0], startTs: row[1], endTs: row[2],
+    errorCount: row[3], subjectCount: row[4], paperCount: row[5]
+  }));
+}
+
+/** 按科目分组：返回各科目的错题统计 */
+export function listErrorsBySubject(userId) {
+  if (!db) return [];
+  const rows = db.exec(`
+    SELECT ep.subject, COUNT(*) as error_count,
+      COUNT(DISTINCT ep.session_id) as paper_count,
+      GROUP_CONCAT(DISTINCT ep.error_type) as error_types
+    FROM error_problems ep
+    WHERE ep.user_id = '${(userId || '').replace(/'/g, "''")}'
+    GROUP BY ep.subject
+    ORDER BY error_count DESC
+  `);
+  if (!rows[0]) return [];
+  return rows[0].values.map(row => ({
+    subject: row[0], errorCount: row[1], paperCount: row[2],
+    errorTypes: row[3] ? row[3].split(',') : []
+  }));
+}
+
+/** 获取某科目的错题列表（用于 AI 学习指导） */
+export function listErrorsForGuidance(userId, subject, fromTs, toTs) {
+  if (!db) return [];
+  const conditions = ['user_id = ?'];
+  const params = [userId];
+  if (subject) { conditions.push('subject = ?'); params.push(subject); }
+  if (fromTs) { conditions.push('created_at >= ?'); params.push(fromTs); }
+  if (toTs) { conditions.push('created_at <= ?'); params.push(toTs); }
+  const where = conditions.join(' AND ');
+  const stmt = db.prepare(`SELECT * FROM error_problems WHERE ${where} ORDER BY created_at DESC LIMIT 200`);
+  stmt.bind(params);
+  const errors = [];
+  while (stmt.step()) errors.push(deserializeError(stmt.getAsObject()));
+  stmt.free();
+  return errors;
+}
+
 function getErrorTags(errorId) {
   if (!db) return [];
   const stmt = db.prepare(`
@@ -626,6 +833,7 @@ function deserializeError(row) {
     wrongAnswer: row.wrong_answer, errorType: row.error_type,
     correctSolution: row.correct_solution, difficulty: row.difficulty,
     notes: row.notes, source: row.source, aiRaw: row.ai_raw,
-    status: row.status, createdAt: row.created_at, updatedAt: row.updated_at
+    status: row.status, sessionId: row.session_id, paperIndex: row.paper_index,
+    createdAt: row.created_at, updatedAt: row.updated_at
   };
 }

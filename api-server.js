@@ -22,7 +22,9 @@ import bcrypt from 'bcryptjs';
 import { fileURLToPath } from 'url';
 import { GRADING_PROMPT, PROMPT_VERSION } from './prompts/grading-v5.js';
 import { ERROR_DIAGNOSIS_PROMPT } from './prompts/error-diagnosis.js';
-import { initDB, saveDB, saveRecord, getRecord, getHistory, getStats, createUser, getUserByEmail, getUserById, updateUser, changePassword, listUsers, saveErrorProblem, saveErrorKnowledgeTags, getErrorProblem, listErrorProblems, getErrorStats, getKnowledgeStats, searchKnowledgePoints } from './db.js';
+import { renderPaperAnalysisPrompt } from './prompts/paper-analysis-v1.js';
+import { STUDY_GUIDANCE_PROMPT_V1 } from './prompts/study-guidance-v1.js';
+import { initDB, saveDB, saveRecord, getRecord, getHistory, getStats, createUser, getUserByEmail, getUserById, updateUser, changePassword, listUsers, saveErrorProblem, saveErrorKnowledgeTags, getErrorProblem, listErrorProblems, getErrorStats, getKnowledgeStats, searchKnowledgePoints, createPaperSession, updatePaperSession, getPaperSession, listPaperSessions, listErrorsByPaper, listErrorsByTime, listErrorsBySubject, listErrorsForGuidance } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3001;
@@ -144,17 +146,18 @@ const errorQueue = new ConcurrencyQueue(MAX_CONCURRENT);
 const ERROR_TASK_TTL_MS = 60 * 60 * 1000;
 const errorTasks = new Map();
 
+// V2 队列
+const paperTasks = new Map();
+const PAPER_TASK_TTL_MS = 2 * 60 * 60 * 1000;
+const guidanceTasks = new Map();
+const GUIDANCE_TASK_TTL_MS = 60 * 60 * 1000;
+
 // ========== 定期清理过期 task ==========
 setInterval(() => {
   const now = Date.now();
-  let cleaned = 0;
-  for (const [id, task] of tasks) {
-    if (now - task.createdAt > TASK_TTL_MS) {
-      tasks.delete(id);
-      cleaned++;
-    }
+  for (const [m, ttl] of [[tasks, TASK_TTL_MS], [errorTasks, ERROR_TASK_TTL_MS], [paperTasks, PAPER_TASK_TTL_MS], [guidanceTasks, GUIDANCE_TASK_TTL_MS]]) {
+    for (const [id, task] of m) { if (now - task.createdAt > ttl) m.delete(id); }
   }
-  if (cleaned > 0) log('info', 'task 清理', { cleaned, remaining: tasks.size });
 }, CLEANUP_INTERVAL_MS);
 
 // ========== 限流器（简单令牌桶） ==========
@@ -612,6 +615,127 @@ async function executeErrorTask(task) {
   }
 }
 
+// ========== V2 整卷分析执行器 ==========
+
+async function analyzePaper(subject, combinedOcrText) {
+  const prompt = renderPaperAnalysisPrompt(subject, combinedOcrText);
+  log('info', '整卷AI分析', { provider: 'DeepSeek', model: MODEL_GRADING, subject, ocrLen: combinedOcrText.length });
+  const result = await deepseekRequest({
+    model: MODEL_GRADING,
+    messages: [{ role: 'user', content: prompt }],
+    temperature: 0.3,
+    max_tokens: 8000
+  });
+  const content = result.choices?.[0]?.message?.content;
+  if (!content) throw new Error('AI 返回为空');
+  const cleaned = content.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+  let parsed;
+  try { parsed = JSON.parse(cleaned); } catch {
+    const m = cleaned.match(/\[[\s\S]*\]/);
+    if (m) parsed = JSON.parse(m[0]);
+    else throw new Error('AI 返回格式错误');
+  }
+  if (!Array.isArray(parsed)) throw new Error('AI 返回非数组');
+  return parsed;
+}
+
+async function executePaperTask(task) {
+  const { id, input } = task;
+  try {
+    paperTasks.get(id).status = 'processing';
+    paperTasks.get(id).progress = { stage: 'ocr', message: '正在识别试卷图片…' };
+    const ocrTexts = [];
+    for (let i = 0; i < input.images.length; i++) {
+      paperTasks.get(id).progress = { stage: 'ocr', message: `正在识别第 ${i+1}/${input.images.length} 张…`, current: i+1, total: input.images.length };
+      const img = input.images[i];
+      if (img.startsWith('data:image')) {
+        try {
+          const ocrResult = await dashscopeRequest({
+            model: MODEL_OCR,
+            messages: [{ role: 'user', content: [
+              { type: 'text', text: '请仔细识别这张试卷图片中的全部文字内容，包括题目、学生作答、批改标记（如✗、×、扣分等）。尽量完整还原，不要遗漏任何内容。' },
+              { type: 'image_url', image_url: { url: img } }
+            ]}],
+            temperature: 0.3, max_tokens: 4000
+          });
+          ocrTexts.push(ocrResult.choices?.[0]?.message?.content || '');
+        } catch (err) {
+          log('warn', 'OCR 单张失败', { taskId: id, index: i, error: err.message });
+          ocrTexts.push(`[OCR 识别失败]`);
+        }
+      } else { ocrTexts.push(img); }
+    }
+    paperTasks.get(id).progress = { stage: 'analyzing', message: 'AI 正在分析错题…' };
+    const combinedText = ocrTexts.map((t, i) => `【第 ${i+1} 张试卷】\n${t}`).join('\n\n---\n\n');
+    const errors = await analyzePaper(input.subject, combinedText);
+    const sessionId = id; let savedCount = 0;
+    for (const err of errors) {
+      const errorId = crypto.randomUUID().slice(0, 8);
+      saveErrorProblem({
+        id: errorId, userId: input.userId, subject: input.subject,
+        topic: err.questionTitle || `第${err.questionIndex}题`,
+        questionText: err.questionText || '', wrongAnswer: err.studentAnswer || '',
+        errorType: err.errorType || '未知', correctSolution: err.correctSolution || '',
+        difficulty: err.difficulty || 3, aiRaw: JSON.stringify(err),
+        sessionId, paperIndex: 1, status: 'done', createdAt: Date.now()
+      });
+      const kps = err.knowledgePoints || [];
+      const matchedKpIds = [];
+      for (const kpName of kps) { const matches = searchKnowledgePoints(kpName, input.subject); if (matches.length > 0) matchedKpIds.push(matches[0].id); }
+      if (matchedKpIds.length > 0) saveErrorKnowledgeTags(errorId, matchedKpIds);
+      savedCount++;
+    }
+    updatePaperSession(sessionId, { status: 'done', errorCount: savedCount, aiRaw: JSON.stringify(errors) });
+    paperTasks.get(id).status = 'done';
+    paperTasks.get(id).result = { subject: input.subject, sessionId, totalErrors: savedCount, errors: errors.slice(0, 50) };
+    paperTasks.get(id).progress = { stage: 'done', message: `分析完成，共 ${savedCount} 道错题` };
+    log('info', '整卷分析完成', { taskId: id, subject: input.subject, errors: savedCount });
+  } catch (err) {
+    log('error', '整卷分析失败', { taskId: id, error: err.message });
+    paperTasks.get(id).status = 'failed'; paperTasks.get(id).error = err.message;
+    paperTasks.get(id).progress = { stage: 'failed', message: '分析失败' };
+    try { updatePaperSession(id, { status: 'failed' }); } catch (_) {}
+  }
+}
+
+// ========== V2 AI 学习指导执行器 ==========
+
+async function executeGuidanceTask(task) {
+  const { id, input } = task;
+  try {
+    guidanceTasks.get(id).status = 'processing';
+    guidanceTasks.get(id).progress = { stage: 'analyzing', message: 'AI 正在分析学习状况…' };
+    const errors = listErrorsForGuidance(input.userId, input.subject, input.timeFrom, input.timeTo);
+    if (errors.length === 0) {
+      guidanceTasks.get(id).status = 'done';
+      guidanceTasks.get(id).result = { message: '该时间段内没有错题记录，无法生成学习指导。请先上传试卷获取错题分析。' };
+      guidanceTasks.get(id).progress = { stage: 'done', message: '无错题数据' };
+      return;
+    }
+    const errorSummary = {
+      subject: input.subject, totalErrors: errors.length,
+      byErrorType: {}, byDifficulty: { 1:0, 2:0, 3:0, 4:0, 5:0 },
+      recentErrors: errors.slice(0, 10).map(e => ({ question: e.questionText?.substring(0, 100) || '', errorType: e.errorType, difficulty: e.difficulty }))
+    };
+    for (const e of errors) { errorSummary.byErrorType[e.errorType] = (errorSummary.byErrorType[e.errorType] || 0) + 1; errorSummary.byDifficulty[e.difficulty] = (errorSummary.byDifficulty[e.difficulty] || 0) + 1; }
+    const prompt = STUDY_GUIDANCE_PROMPT_V1.replace(/\{s\}/g, input.subject).replace('{timeRange}', input.timeRange || '本学期开始至今').replace('{errorData}', JSON.stringify(errorSummary, null, 2));
+    log('info', 'AI学习指导', { provider: 'DeepSeek', model: MODEL_GRADING, subject: input.subject, errorCount: errors.length });
+    const result = await deepseekRequest({ model: MODEL_GRADING, messages: [{ role: 'user', content: prompt }], temperature: 0.5, max_tokens: 4000 });
+    const content = result.choices?.[0]?.message?.content;
+    if (!content) throw new Error('AI 返回为空');
+    const cleaned = content.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+    let parsed;
+    try { parsed = JSON.parse(cleaned); } catch { const m = cleaned.match(/\{[\s\S]*\}/); if (m) parsed = JSON.parse(m[0]); else throw new Error('AI 返回格式错误'); }
+    guidanceTasks.get(id).status = 'done'; guidanceTasks.get(id).result = parsed;
+    guidanceTasks.get(id).progress = { stage: 'done', message: '学习指导生成完成' };
+    log('info', '学习指导完成', { taskId: id, subject: input.subject });
+  } catch (err) {
+    log('error', '学习指导失败', { taskId: id, error: err.message });
+    guidanceTasks.get(id).status = 'failed'; guidanceTasks.get(id).error = err.message;
+    guidanceTasks.get(id).progress = { stage: 'failed', message: '分析失败' };
+  }
+}
+
 // ========== Express 应用 ==========
 const app = express();
 
@@ -996,11 +1120,28 @@ app.get('/error/task/:taskId', (req, res) => {
 
 // 错题列表
 app.get('/error/list', authMiddleware, (req, res) => {
+  const view = req.query.view || 'list';
   const page = Math.max(1, parseInt(req.query.page) || 1);
   const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 20));
+
+  if (view === 'paper') {
+    const result = listErrorsByPaper(req.user.id, { page, limit });
+    return res.json({ success: true, view: 'paper', ...result });
+  }
+  if (view === 'time') {
+    const period = req.query.period || 'month';
+    const result = listErrorsByTime(req.user.id, { period });
+    return res.json({ success: true, view: 'time', results: result });
+  }
+  if (view === 'subject') {
+    const result = listErrorsBySubject(req.user.id);
+    return res.json({ success: true, view: 'subject', results: result });
+  }
+
+  // 默认：传统列表视图
   const subject = req.query.subject || null;
   const result = listErrorProblems({ userId: req.user.id, subject, page, limit });
-  res.json({ success: true, ...result });
+  res.json({ success: true, view: 'list', ...result });
 });
 
 // 错题详情
@@ -1035,11 +1176,81 @@ app.get('/knowledge/stats', authMiddleware, (req, res) => {
   res.json({ success: true, stats });
 });
 
+// ========== V2 整卷分析 API ==========
+
+app.post('/paper/analyze', authMiddleware, (req, res) => {
+  const ip = req.ip || req.socket.remoteAddress || 'unknown';
+  const rl = checkRateLimit(ip);
+  if (!rl.allowed) return res.status(429).json({ error: '请求过于频繁', retryAfter: rl.retryAfter });
+  if (errorQueue.pending >= MAX_QUEUE_DEPTH) return res.status(503).json({ error: '排队人数过多' });
+
+  const { subject, images, title } = req.body;
+  if (!subject) return res.status(400).json({ error: '请选择学科' });
+  if (!images || !Array.isArray(images) || images.length === 0) return res.status(400).json({ error: '请上传至少一张试卷图片' });
+  if (images.length > 10) return res.status(400).json({ error: '单次最多上传 10 张图片' });
+  const validSubjects = ['数学', '物理', '化学', '生物', '英语', '语文'];
+  if (!validSubjects.includes(subject)) return res.status(400).json({ error: `无效学科，支持：${validSubjects.join('、')}` });
+
+  const taskId = createTaskId();
+  createPaperSession({ id: taskId, userId: req.user.id, subject, title: title || '', imageCount: images.length, status: 'pending' });
+  const task = { id: taskId, status: 'queued', input: { subject, images, userId: req.user.id, title }, result: null, error: null, progress: null, createdAt: Date.now(), updatedAt: Date.now() };
+  paperTasks.set(taskId, task);
+  log('info', '整卷分析任务创建', { taskId, subject, imageCount: images.length, userId: req.user.id });
+  errorQueue.enqueue(() => executePaperTask(task)).catch(err => { log('error', '整卷分析队列异常', { taskId, error: err.message }); });
+  res.status(202).json({ success: true, taskId, status: 'queued', queuePosition: errorQueue.pending + 1, imageCount: images.length });
+});
+
+app.get('/paper/task/:taskId', (req, res) => {
+  const task = paperTasks.get(req.params.taskId);
+  if (!task) return res.status(404).json({ error: '任务不存在或已过期' });
+  res.json({ taskId: task.id, status: task.status, progress: task.progress, result: task.status === 'done' ? task.result : undefined, error: task.status === 'failed' ? task.error : undefined, createdAt: task.createdAt, updatedAt: task.updatedAt });
+});
+
+app.get('/paper/sessions', authMiddleware, (req, res) => {
+  const page = Math.max(1, parseInt(req.query.page) || 1);
+  const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 20));
+  const subject = req.query.subject || null;
+  const result = listPaperSessions(req.user.id, { page, limit, subject });
+  res.json({ success: true, ...result });
+});
+
+// ========== V2 AI 学习指导 API ==========
+
+app.post('/paper/guidance', authMiddleware, (req, res) => {
+  const ip = req.ip || req.socket.remoteAddress || 'unknown';
+  const rl = checkRateLimit(ip);
+  if (!rl.allowed) return res.status(429).json({ error: '请求过于频繁', retryAfter: rl.retryAfter });
+
+  const { subject, timeFrom, timeTo, timeRange } = req.body;
+  if (!subject) return res.status(400).json({ error: '请选择学科' });
+  const validSubjects = ['数学', '物理', '化学', '生物', '英语', '语文'];
+  if (!validSubjects.includes(subject)) return res.status(400).json({ error: `无效学科，支持：${validSubjects.join('、')}` });
+
+  const taskId = createTaskId();
+  const task = { id: taskId, status: 'queued', input: { userId: req.user.id, subject, timeFrom: timeFrom || null, timeTo: timeTo || null, timeRange: timeRange || '本学期开始至今' }, result: null, error: null, progress: null, createdAt: Date.now(), updatedAt: Date.now() };
+  guidanceTasks.set(taskId, task);
+  log('info', '学习指导任务创建', { taskId, subject, userId: req.user.id });
+  errorQueue.enqueue(() => executeGuidanceTask(task)).catch(err => { log('error', '学习指导队列异常', { taskId, error: err.message }); });
+  res.status(202).json({ success: true, taskId, status: 'queued' });
+});
+
+app.get('/paper/guidance/:taskId', (req, res) => {
+  const task = guidanceTasks.get(req.params.taskId);
+  if (!task) return res.status(404).json({ error: '任务不存在或已过期' });
+  res.json({ taskId: task.id, status: task.status, progress: task.progress, result: task.status === 'done' ? task.result : undefined, error: task.status === 'failed' ? task.error : undefined, createdAt: task.createdAt, updatedAt: task.updatedAt });
+});
+
 // 404
 app.use((req, res) => {
   res.status(404).json({
     error: 'Not Found',
-    endpoints: ['GET /health', 'POST /analyze', 'GET /task/:taskId', 'POST /auth/login', 'POST /auth/register', 'GET /auth/me', 'PUT /auth/password', 'GET /history', 'GET /stats', 'GET /admin/users', 'POST /error/diagnose', 'GET /error/task/:taskId', 'GET /error/list', 'GET /error/:id', 'GET /error/stats', 'GET /knowledge/search', 'GET /knowledge/stats']
+    endpoints: ['GET /health', 'POST /analyze', 'GET /task/:taskId', 'GET /result/:taskId',
+      'POST /auth/login', 'POST /auth/register', 'GET /auth/me', 'PUT /auth/password',
+      'GET /history', 'GET /stats', 'GET /admin/users',
+      'POST /error/diagnose', 'GET /error/task/:taskId', 'GET /error/list?view=paper|time|subject|list', 'GET /error/:id', 'GET /error/stats',
+      'GET /knowledge/search', 'GET /knowledge/stats',
+      'POST /paper/analyze', 'GET /paper/task/:taskId', 'GET /paper/sessions',
+      'POST /paper/guidance', 'GET /paper/guidance/:taskId']
   });
 });
 
@@ -1088,11 +1299,10 @@ const startup = async () => {
     console.log(`🚀 gaozhong.online AI API v2 (异步队列) 已启动`);
     console.log(`📍 端口: ${PORT}`);
     console.log(`🔍 健康检查: http://localhost:${PORT}/health`);
-    console.log(`📝 提交: POST /analyze → taskId → GET /task/:taskId`);
-    console.log(`💾 结果: GET /result/:taskId | 历史: GET /history`);
+    console.log(`📝 作文: POST /analyze | 📄 整卷: POST /paper/analyze | 🧠 指导: POST /paper/guidance`);
+    console.log(`💾 结果: GET /result/:taskId | 历史: GET /history | 错题: GET /error/list?view=paper|time|subject`);
     console.log(`⚡ 并发: ${MAX_CONCURRENT} | 队列上限: ${MAX_QUEUE_DEPTH} | TTL: ${TASK_TTL_MS / 60000}min`);
-    console.log(`🤖 OCR: ${MODEL_OCR} | 批改: ${MODEL_GRADING} | Prompt: ${PROMPT_VERSION}`);
-    console.log(`🔬 错题诊断: POST /error/diagnose | 列表: GET /error/list | 知识点: GET /knowledge/search`);
+    console.log(`🤖 OCR: ${MODEL_OCR} | 分析: ${MODEL_GRADING} | Prompt: ${PROMPT_VERSION}`);
   });
 };
 
