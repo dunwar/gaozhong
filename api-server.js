@@ -21,6 +21,7 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { fileURLToPath } from 'url';
 import { GRADING_PROMPT, PROMPT_VERSION } from './prompts/grading-v5.js';
+import { ERROR_DIAGNOSIS_PROMPT } from './prompts/error-diagnosis.js';
 import { initDB, saveDB, saveRecord, getRecord, getHistory, getStats, createUser, getUserByEmail, getUserById, updateUser, changePassword, listUsers, saveErrorProblem, saveErrorKnowledgeTags, getErrorProblem, listErrorProblems, getErrorStats, getKnowledgeStats, searchKnowledgePoints } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -510,20 +511,43 @@ async function executeTask(task) {
 
 // ========== 错题诊断执行器 ==========
 
-/** 模拟本地诊断（Phase B2 将替换为 AI 调用） */
-function localErrorDiagnosis(input) {
-  const { subject, questionText, wrongAnswer } = input;
-  const errorTypes = ['概念不清', '计算失误', '审题偏差', '方法错误', '粗心'];
-  const errorType = errorTypes[Math.floor(Math.random() * errorTypes.length)];
+/** AI 错题诊断（DeepSeek） */
+async function diagnoseError({ subject, questionText, wrongAnswer }) {
+  const prompt = ERROR_DIAGNOSIS_PROMPT
+    .replace(/\{subject\}/g, subject || '数学')
+    .replace(/\{questionText\}/g, questionText || '')
+    .replace(/\{wrongAnswer\}/g, wrongAnswer || '（未作答）');
+
+  log('info', '错题AI诊断', { provider: 'DeepSeek', model: MODEL_GRADING, subject, questionLen: questionText?.length || 0 });
+
+  const result = await deepseekRequest({
+    model: MODEL_GRADING,
+    messages: [{ role: 'user', content: prompt }],
+    temperature: 0.3,
+    max_tokens: 2000
+  });
+
+  const content = result.choices?.[0]?.message?.content;
+  if (!content) throw new Error('AI 返回为空');
+
+  // 解析 JSON（兼容 markdown 代码块包裹）
+  let parsed;
+  const cleaned = content.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+  try {
+    parsed = JSON.parse(cleaned);
+  } catch {
+    const m = cleaned.match(/\{[\s\S]*\}/);
+    if (m) parsed = JSON.parse(m[0]);
+    else throw new Error('AI 返回格式错误');
+  }
 
   return {
-    errorType,
-    errorAnalysis: `本题涉及${subject}知识点，错误原因为${errorType}`,
-    correctSolution: `（正确解法待 AI 生成）\n题目：${questionText || '(无)'}\n错误答案：${wrongAnswer || '(无)'}`,
-    knowledgePoints: [{ name: '待 AI 标注' }],
-    difficulty: 3,
-    similarTips: '（同类题提示待 AI 生成）',
-    topic: input.topic || questionText?.substring(0, 50) || subject
+    errorType: parsed.errorType || '未知',
+    reason: parsed.reason || '',
+    correctSolution: parsed.correctSolution || '',
+    knowledgePoints: parsed.knowledgePoints || [],
+    difficulty: Math.min(5, Math.max(1, parsed.difficulty || 3)),
+    similarTips: parsed.similarTips || ''
   };
 }
 
@@ -531,41 +555,55 @@ async function executeErrorTask(task) {
   const { id, input } = task;
   try {
     errorTasks.get(id).status = 'processing';
-    errorTasks.get(id).progress = { stage: 'analyzing', message: '正在诊断...' };
+    errorTasks.get(id).progress = { stage: 'analyzing', message: 'AI 正在诊断...' };
 
-    // TODO B2: Replace with DeepSeek AI call
-    const result = localErrorDiagnosis(input);
+    const result = await diagnoseError({
+      subject: input.subject,
+      questionText: input.questionText,
+      wrongAnswer: input.wrongAnswer
+    });
+
+    // 知识点模糊匹配 → 写入关联表
+    const matchedKpIds = [];
+    for (const kpName of result.knowledgePoints) {
+      const matches = searchKnowledgePoints(kpName, input.subject);
+      if (matches.length > 0) matchedKpIds.push(matches[0].id);
+    }
 
     // 保存到数据库
-    const recordId = id;
     saveErrorProblem({
-      id: recordId,
+      id,
       userId: input.userId || null,
       subject: input.subject || '数学',
-      topic: result.topic || input.topic || '',
+      topic: input.topic || '',
       questionText: input.questionText || '',
       wrongAnswer: input.wrongAnswer || '',
-      errorType: result.errorType || '',
-      correctSolution: result.correctSolution || '',
-      difficulty: result.difficulty || 3,
+      errorType: result.errorType,
+      correctSolution: result.correctSolution,
+      difficulty: result.difficulty,
       aiRaw: JSON.stringify(result),
       status: 'done',
       createdAt: task.createdAt
     });
 
+    if (matchedKpIds.length > 0) {
+      saveErrorKnowledgeTags(id, matchedKpIds);
+    }
+
     errorTasks.get(id).status = 'done';
     errorTasks.get(id).result = {
       subject: input.subject,
-      topic: result.topic,
+      topic: input.topic,
       errorType: result.errorType,
-      errorAnalysis: result.errorAnalysis,
+      reason: result.reason,
+      errorAnalysis: result.reason,
       correctSolution: result.correctSolution,
-      knowledgePoints: result.knowledgePoints || [],
+      knowledgePoints: result.knowledgePoints,
       difficulty: result.difficulty,
       similarTips: result.similarTips
     };
     errorTasks.get(id).progress = { stage: 'done', message: '诊断完成' };
-    log('info', '错题诊断完成', { taskId: id, subject: input.subject });
+    log('info', '错题诊断完成', { taskId: id, subject: input.subject, errorType: result.errorType, matchedKPs: matchedKpIds.length });
   } catch (err) {
     log('error', '错题诊断失败', { taskId: id, error: err.message });
     errorTasks.get(id).status = 'failed';
