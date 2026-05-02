@@ -1,10 +1,10 @@
-# gaozhong.online - 需求文档
+# gaozhong.online - 需求文档 (V2)
 
-> 最后更新: 2026-05-02 | 状态: 持续迭代中
+> 最后更新: 2026-05-02 | 版本: V2 | 状态: 规划中
 
 ## 1. 项目概述
 
-面向高中生的 AI 作文批改与错题诊断平台。核心价值：用 AI 提供即时、结构化的作文评分反馈 + 错题深度诊断，帮助学生精准提升。
+面向高中生的整卷错题分析平台。学生上传整张试卷照片（含批改答案），后台 AI 进行全卷分析，自动生成分科目错题本、薄弱知识点报告和个性化学习指导，形成"诊断→整理→指导→改进"的完整学习闭环。
 
 ## 2. 核心功能
 
@@ -23,56 +23,126 @@
 - [x] 异步任务队列（并发上限 3）
 - [x] 批改历史（登录用户/游客双模式）
 
-### 2.3 错题诊断 ✅
-- [x] 错题录入表单（学科选择 + 题目内容 + 错误答案 + 错误类型）
-- [x] AI 错题诊断（DeepSeek）：错误原因分析 + 正确解法 + 知识点标注
-- [x] 知识点自动匹配关联
-- [x] 诊断结果展示
+### 2.3 错题上传（原"错题诊断"，V2 重做）🔄
+**场景**：学生当天做完试卷后，一次性上传整张试卷照片（含批改答案），后台 AI 全卷分析。
 
-### 2.4 错题本 ✅
-- [x] 错题列表页（学科筛选 + 分页 + 难度/错误类型标签）
-- [x] 错题详情页（原题/错误答案/分析/解法/知识点/巩固建议）
-- [x] 生产环境部署
+- [ ] 页面重做：`ErrorUpload.vue`，支持多张试卷图片同时上传
+- [ ] 学科选择：数学 / 物理 / 化学 / 生物 / 英语 / 语文
+- [ ] 支持一次性提交多张试卷，逐张进入后台队列处理
+- [ ] 队列复用现有 `errorQueue`，前端轮询全部任务进度
+- [ ] 显示"X/Y 张已分析完成"进度
+- [ ] 可选填试卷名称（如"2024 上海一模数学"）
+- [ ] 保留手动逐题录入作为兜底入口（不删）
 
-### 2.5 知识点汇总 ✅
-- [x] 知识点统计 API
-- [x] 薄弱点分析仪表盘（错题总览 + 学科分布 + 错误类型分布 + Top 薄弱知识点）
-- [x] 生产环境部署
+### 2.4 AI 整卷分析 Prompt 🆕
+- [ ] 新建 `prompts/paper-analysis-v1.js`
+- [ ] 单 Prompt 模板 + 各学科差异化分析指令（模板变量 `{subject}` `{ocrText}`）
+- [ ] 输入：整张试卷 OCR 文本 + 学科
+- [ ] 输出：结构化 JSON（每道错题：题目/学生答案/错误类型/原因/正确解法/知识点）
+- [ ] 版本管理模式参考 `prompts/grading-v5.js`
 
-## 3. 技术架构
+### 2.5 错题本（V2 重构）🔄
+支持**三种分组视图**，用户可切换：
+
+| 视图 | 分组依据 | 使用场景 |
+|------|---------|---------|
+| 📄 按试卷 | 每次上传的试卷 | 查看某次考试错题详情 |
+| 📅 按时间 | 本月 / 本学期 / 本学年 | 阶段性复习 |
+| 📚 按科目 | 学科分类 | 单科专项突破 |
+
+每种视图下展示：错题数量、错误类型分布、涉及知识点数量。
+
+- [ ] 重构 `ErrorList.vue`，实现三视图切换
+- [ ] 保留 `ErrorDetail.vue` 错题详情页
+
+### 2.6 AI 学习指导 🆕
+- [ ] 新建 `prompts/study-guidance-v1.js`
+- [ ] 输入：科目 + 时间范围 + 该范围内所有错题
+- [ ] 输出：学习状态评估 + 薄弱知识模块 + 优先级排序 + 具体学习建议
+- [ ] 新增 API：`POST /paper/guidance`（异步任务）
+- [ ] 前端入口：知识点仪表盘或错题本的"AI 分析"按钮
+- [ ] 默认时间范围：本学期开始至今
+
+### 2.7 知识点仪表盘 🔄
+- [x] 基础仪表盘（错题总览 + 学科分布 + 错误类型分布 + Top 薄弱点）
+- [ ] V2 增强：增加"最近试卷"维度、数据来源改为整卷分析结果
+
+## 3. 学科支持（V2 扩展）
+
+| 学科 | 状态 |
+|------|:---:|
+| 数学 | ✅ |
+| 物理 | ✅ |
+| 化学 | ✅ |
+| 英语 | ✅ |
+| 语文 | ✅ |
+| 生物 | 🆕 |
+
+## 4. 数据库变更（V2）
+
+```sql
+-- 新增：试卷会话表
+CREATE TABLE paper_sessions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  subject TEXT NOT NULL,
+  title TEXT,              -- 用户可选填试卷名
+  image_count INTEGER,    -- 上传图片数
+  status TEXT DEFAULT 'pending',  -- pending/processing/done/error
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+-- 修改：错题表新增关联字段
+ALTER TABLE error_problems ADD COLUMN session_id INTEGER REFERENCES paper_sessions(id);
+ALTER TABLE error_problems ADD COLUMN paper_index INTEGER;  -- 同一 session 内的第几张卷子
+```
+
+## 5. API 变更（V2）
+
+| 端点 | 方法 | 说明 | 状态 |
+|------|------|------|:---:|
+| `POST /paper/analyze` | POST | 接收图片 base64，OCR → AI 分析 → 写入错题 | 🆕 |
+| `POST /paper/guidance` | POST | AI 学习指导（科目+时间范围） | 🆕 |
+| `GET /paper/sessions` | GET | 用户试卷会话列表 | 🆕 |
+| `GET /errors?view=paper\|time\|subject` | GET | 错题列表（支持三视图分组） | 🔄 |
+| 现有作文批改 API | - | 不变 | ✅ |
+
+## 6. 路由规划（V2）
+
+| 路径 | 页面 | 变更 |
+|------|------|:---:|
+| `/error-upload` | 错题上传（原"错题诊断"） | 🔄 重做 |
+| `/errors` | 错题本（三视图） | 🔄 重构 |
+| `/error/:id` | 错题详情 | ✅ 保留 |
+| `/knowledge` | 知识点仪表盘 | 🔄 增强 |
+| `/essay` | 作文批改 | ✅ 保留 |
+
+## 7. 技术架构
 
 | 层级 | 技术选型 | 说明 |
 |------|---------|------|
 | 前端 | Vue 3 + Vite | SPA，部署为静态文件 |
-| 后端 API | Node.js (原生 http) | 端口 3001，Docker 内部 |
-| 数据库 | SQLite (better-sqlite3) | 文件存储于 `data/`，挂载卷持久化 |
+| 后端 API | Node.js (原生 http) | 端口 3001 |
+| 数据库 | SQLite (better-sqlite3) | 挂载卷持久化 |
 | 鉴权 | JWT (jsonwebtoken + bcrypt) | 7 天过期 |
-| AI 评分 | DeepSeek V4 Pro | 作文批改 + 错题诊断 |
-| OCR | DashScope qwen-vl-plus | 手写作文识别 |
+| AI 分析 | DeepSeek V4 Pro | 整卷分析 + 错题诊断 + 学习指导 |
+| OCR | DashScope qwen-vl-plus | 试卷图片识别 |
 | 网关 | Nginx (宿主机) | 反向代理 + 静态文件服务 |
 
-## 4. 目录结构
+## 8. 实施顺序（V2）
 
-```
-gaozhong.online/
-├── src/           # Vue 前端源码
-├── dist/          # 构建产物（部署到生产）
-├── api-server.js  # API 服务器
-├── db.js          # 数据库层
-├── prompts/       # AI Prompt 模板
-├── data/          # SQLite 数据库（不提交 git）
-├── deploy.sh      # 一键部署脚本
-└── REQUIREMENTS.md
-```
+| 步骤 | 内容 |
+|:---:|------|
+| 1 | Prompt: `paper-analysis-v1.js`（六科差异化指令） |
+| 2 | Prompt: `study-guidance-v1.js` |
+| 3 | 数据库：`paper_sessions` 表 + `error_problems` 改表 |
+| 4 | API: `/paper/analyze`、`/paper/guidance`、列表接口调整 |
+| 5 | 前端：错题上传页（多图 + 队列轮询） |
+| 6 | 前端：错题本（三种分组视图） |
+| 7 | 前端：AI 学习指导模块 |
+| 8 | 构建部署 + 测试 |
 
-## 5. 部署说明
-
-- **开发目录**: `/home/node/.openclaw/workspace/www/gaozhong.online`
-- **生产目录**: `/app/data/www/gaozhong.online`
-- **部署方式**: 运行 `deploy.sh`（构建 → 同步 → 重启 API）
-- **Nginx 重载**: 需宿主机执行 `sudo nginx -s reload`
-
-## 6. 变更记录
+## 9. 变更记录
 
 | 日期 | 变更 | 状态 |
 |------|------|------|
@@ -80,5 +150,5 @@ gaozhong.online/
 | 2026-05-01 | Part 1 部署 + 用户管理系统 | ✅ |
 | 2026-05-01 | Part 2 SQLite 持久化 | ✅ |
 | 2026-05-01 | Prompt v5 优化 | ✅ |
-| 2026-05-02 | Phase A-C 错题诊断核心功能 | ✅ |
-| 2026-05-02 | Phase D 错题本 + Phase E 知识点仪表盘 | 🔄 待部署 |
+| 2026-05-02 | Phase A-C 错题诊断核心功能 (V1) | ✅ |
+| 2026-05-02 | V2 需求确认：整卷错题上传 + 三视图错题本 + AI 学习指导 | ✅ |
