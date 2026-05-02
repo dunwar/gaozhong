@@ -22,7 +22,7 @@ import bcrypt from 'bcryptjs';
 import { fileURLToPath } from 'url';
 import { GRADING_PROMPT, PROMPT_VERSION } from './prompts/grading-v5.js';
 import { ERROR_DIAGNOSIS_PROMPT } from './prompts/error-diagnosis.js';
-import { renderPaperAnalysisPrompt } from './prompts/paper-analysis-v1.js';
+import { renderPaperAnalysisPrompt } from './prompts/paper-analysis-v2.js';
 import { STUDY_GUIDANCE_PROMPT_V1 } from './prompts/study-guidance-v1.js';
 import { initDB, saveDB, saveRecord, getRecord, getHistory, getStats, createUser, getUserByEmail, getUserById, updateUser, changePassword, listUsers, saveErrorProblem, saveErrorKnowledgeTags, getErrorProblem, listErrorProblems, getErrorStats, getKnowledgeStats, searchKnowledgePoints, createPaperSession, updatePaperSession, getPaperSession, listPaperSessions, listErrorsByPaper, listErrorsByTime, listErrorsBySubject, listErrorsForGuidance } from './db.js';
 
@@ -653,7 +653,7 @@ async function executePaperTask(task) {
           const ocrResult = await dashscopeRequest({
             model: MODEL_OCR,
             messages: [{ role: 'user', content: [
-              { type: 'text', text: '请仔细识别这张试卷图片中的全部文字内容，包括题目、学生作答、批改标记（如✗、×、扣分等）。尽量完整还原，不要遗漏任何内容。' },
+              { type: 'text', text: '请仔细识别这张试卷图片中的全部文字内容。特别注意：\n1. 完整识别所有题目文本和学生手写作答\n2. 【重要】识别所有批改标记：红色笔迹（红笔书写的正确答案、红圈、红叉、红勾、红色下划线、红笔批注文字）、黑色批改符号（✗ × ✓ √ ?）、扣分数字（如"-3"、"-5"）、得分标注（如"8/10"）\n3. 用【教师红笔批改：xxx】格式标注所有红色笔迹内容\n4. 用【批改标记：✗/✓/-3】格式标注每个题目的批改符号\n5. 区分学生笔迹和教师批改笔迹，教师批改通常用红色' },
               { type: 'image_url', image_url: { url: img } }
             ]}],
             temperature: 0.3, max_tokens: 4000

@@ -34,12 +34,15 @@
 - [ ] 可选填试卷名称（如"2024 上海一模数学"）
 - [ ] 保留手动逐题录入作为兜底入口（不删）
 
-### 2.4 AI 整卷分析 Prompt 🆕
-- [ ] 新建 `prompts/paper-analysis-v1.js`
-- [ ] 单 Prompt 模板 + 各学科差异化分析指令（模板变量 `{subject}` `{ocrText}`）
-- [ ] 输入：整张试卷 OCR 文本 + 学科
-- [ ] 输出：结构化 JSON（每道错题：题目/学生答案/错误类型/原因/正确解法/知识点）
-- [ ] 版本管理模式参考 `prompts/grading-v5.js`
+### 2.4 AI 整卷分析 Prompt ✅
+- [x] 新建 `prompts/paper-analysis-v1.js`（初始版本）
+- [x] 新建 `prompts/paper-analysis-v2.js`（v2 增强：批改标记识别规则）
+- [x] 单 Prompt 模板 + 各学科差异化分析指令（模板变量 `{subject}` `{ocrText}`）
+- [x] 输入：整张试卷 OCR 文本 + 学科
+- [x] 输出：结构化 JSON（每道错题：题目/学生答案/错误类型/原因/正确解法/知识点 + gradingEvidence）
+- [x] 版本管理模式参考 `prompts/grading-v5.js`
+- [x] v2 新增：8 种批改标记含义速查表、判断优先级、6 种歧义场景处理、分学科特殊约定
+- [x] OCR 指令增强：区分教师红笔批改和学生笔迹
 
 ### 2.5 错题本（V2 重构）🔄
 支持**三种分组视图**，用户可切换：
