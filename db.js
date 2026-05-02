@@ -103,10 +103,15 @@ export async function initDB() {
       subject         TEXT NOT NULL DEFAULT '数学',
       topic           TEXT DEFAULT '',
       question_text   TEXT NOT NULL,
+      question_type   TEXT DEFAULT '',
+      answer_options  TEXT DEFAULT '',
       wrong_answer    TEXT DEFAULT '',
+      correct_answer  TEXT DEFAULT '',
       error_type      TEXT DEFAULT '',
       correct_solution TEXT DEFAULT '',
       difficulty      INTEGER DEFAULT 3,
+      knowledge_explanation TEXT DEFAULT '',
+      grading_evidence TEXT DEFAULT '',
       notes           TEXT DEFAULT '',
       source          TEXT DEFAULT '',
       ai_raw          TEXT DEFAULT '',
@@ -155,6 +160,15 @@ export async function initDB() {
   // 迁移：error_problems 增加 session 关联字段
   try { db.run(`ALTER TABLE error_problems ADD COLUMN session_id TEXT REFERENCES paper_sessions(id);`); } catch (_) {}
   try { db.run(`ALTER TABLE error_problems ADD COLUMN paper_index INTEGER DEFAULT 1;`); } catch (_) {}
+  // V3 迁移：新增字段
+  try { db.run(`ALTER TABLE error_problems ADD COLUMN question_type TEXT DEFAULT '';`); } catch (_) {}
+  try { db.run(`ALTER TABLE error_problems ADD COLUMN answer_options TEXT DEFAULT '';`); } catch (_) {}
+  try { db.run(`ALTER TABLE error_problems ADD COLUMN correct_answer TEXT DEFAULT '';`); } catch (_) {}
+  try { db.run(`ALTER TABLE error_problems ADD COLUMN knowledge_explanation TEXT DEFAULT '';`); } catch (_) {}
+  try { db.run(`ALTER TABLE error_problems ADD COLUMN grading_evidence TEXT DEFAULT '';`); } catch (_) {}
+  // paper_sessions 新增统计字段
+  try { db.run(`ALTER TABLE paper_sessions ADD COLUMN total_questions INTEGER DEFAULT 0;`); } catch (_) {}
+  try { db.run(`ALTER TABLE paper_sessions ADD COLUMN correct_count INTEGER DEFAULT 0;`); } catch (_) {}
 
   // 索引
   db.run(`CREATE INDEX IF NOT EXISTS idx_paper_sessions_user ON paper_sessions(user_id, created_at DESC);`);
@@ -463,11 +477,14 @@ export function saveErrorProblem(record) {
   if (!db) throw new Error('数据库未初始化');
   const stmt = db.prepare(`
     INSERT OR REPLACE INTO error_problems (
-      id, user_id, subject, topic, question_text, wrong_answer,
-      error_type, correct_solution, difficulty, notes, source, ai_raw, status,
+      id, user_id, subject, topic, question_text, question_type, answer_options,
+      wrong_answer, correct_answer,
+      error_type, correct_solution, difficulty,
+      knowledge_explanation, grading_evidence,
+      notes, source, ai_raw, status,
       session_id, paper_index,
       created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   stmt.run([
     record.id,
@@ -475,10 +492,15 @@ export function saveErrorProblem(record) {
     record.subject || '数学',
     record.topic || '',
     record.questionText || '',
+    record.questionType || '',
+    record.answerOptions || '',
     record.wrongAnswer || '',
+    record.correctAnswer || '',
     record.errorType || '',
     record.correctSolution || '',
     record.difficulty || 3,
+    record.knowledgeExplanation || '',
+    record.gradingEvidence || '',
     record.notes || '',
     record.source || '',
     record.aiRaw || '',
@@ -617,7 +639,7 @@ export function createPaperSession({ id, userId, subject, title, imageCount = 1,
 
 export function updatePaperSession(id, fields) {
   if (!db) return null;
-  const fieldMap = { status: 'status', errorCount: 'error_count', aiRaw: 'ai_raw', imageCount: 'image_count', title: 'title' };
+  const fieldMap = { status: 'status', errorCount: 'error_count', aiRaw: 'ai_raw', imageCount: 'image_count', title: 'title', totalQuestions: 'total_questions', correctCount: 'correct_count' };
   const sets = [];
   const vals = [];
   for (const [k, v] of Object.entries(fields)) {
@@ -669,6 +691,7 @@ function deserializePaper(row) {
     id: row.id, userId: row.user_id, subject: row.subject,
     title: row.title, imageCount: row.image_count, status: row.status,
     aiRaw: row.ai_raw, errorCount: row.error_count,
+    totalQuestions: row.total_questions || 0, correctCount: row.correct_count || 0,
     createdAt: row.created_at, updatedAt: row.updated_at
   };
 }
@@ -830,8 +853,13 @@ function deserializeError(row) {
   return {
     id: row.id, userId: row.user_id, subject: row.subject,
     topic: row.topic, questionText: row.question_text,
-    wrongAnswer: row.wrong_answer, errorType: row.error_type,
+    questionType: row.question_type || '',
+    answerOptions: row.answer_options || '',
+    wrongAnswer: row.wrong_answer, correctAnswer: row.correct_answer || '',
+    errorType: row.error_type,
     correctSolution: row.correct_solution, difficulty: row.difficulty,
+    knowledgeExplanation: row.knowledge_explanation || '',
+    gradingEvidence: row.grading_evidence || '',
     notes: row.notes, source: row.source, aiRaw: row.ai_raw,
     status: row.status, sessionId: row.session_id, paperIndex: row.paper_index,
     createdAt: row.created_at, updatedAt: row.updated_at

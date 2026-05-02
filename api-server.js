@@ -22,7 +22,8 @@ import bcrypt from 'bcryptjs';
 import { fileURLToPath } from 'url';
 import { GRADING_PROMPT, PROMPT_VERSION } from './prompts/grading-v5.js';
 import { ERROR_DIAGNOSIS_PROMPT } from './prompts/error-diagnosis.js';
-import { renderPaperAnalysisPrompt } from './prompts/paper-analysis-v2.js';
+import { PAPER_SCAN_PROMPT_V1 } from './prompts/paper-scan-v1.js';
+import { renderPaperAnalysisPrompt } from './prompts/paper-analysis-v3.js';
 import { STUDY_GUIDANCE_PROMPT_V1 } from './prompts/study-guidance-v1.js';
 import { initDB, saveDB, saveRecord, getRecord, getHistory, getStats, createUser, getUserByEmail, getUserById, updateUser, changePassword, listUsers, saveErrorProblem, saveErrorKnowledgeTags, getErrorProblem, listErrorProblems, getErrorStats, getKnowledgeStats, searchKnowledgePoints, createPaperSession, updatePaperSession, getPaperSession, listPaperSessions, listErrorsByPaper, listErrorsByTime, listErrorsBySubject, listErrorsForGuidance } from './db.js';
 
@@ -615,11 +616,50 @@ async function executeErrorTask(task) {
   }
 }
 
-// ========== V2 整卷分析执行器 ==========
+// ========== V2 整卷分析：双阶段流水线 ==========
 
-async function analyzePaper(subject, combinedOcrText) {
-  const prompt = renderPaperAnalysisPrompt(subject, combinedOcrText);
-  log('info', '整卷AI分析', { provider: 'DeepSeek', model: MODEL_GRADING, subject, ocrLen: combinedOcrText.length });
+/**
+ * 阶段 1：视觉扫描 — 用 Qwen VL 直接看图片，逐题判断对错
+ */
+async function scanPaperImage(imageBase64, subject, pageIndex, totalPages) {
+  const pageInfo = totalPages > 1 ? `第 ${pageIndex + 1}/${totalPages} 页` : '单页试卷';
+  const prompt = PAPER_SCAN_PROMPT_V1
+    .replace('{subject}', subject)
+    .replace('{pageInfo}', pageInfo);
+
+  const result = await dashscopeRequest({
+    model: MODEL_OCR,  // qwen-vl-plus
+    messages: [{ role: 'user', content: [
+      { type: 'text', text: prompt },
+      { type: 'image_url', image_url: { url: imageBase64 } }
+    ]}],
+    temperature: 0.1,
+    max_tokens: 4000
+  });
+
+  const content = result.choices?.[0]?.message?.content;
+  if (!content) throw new Error(`第 ${pageIndex + 1} 页扫描返回为空`);
+
+  // 解析 JSON
+  const cleaned = content.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+  let parsed;
+  try { parsed = JSON.parse(cleaned); } catch {
+    const m = cleaned.match(/\[[\s\S]*\]/);
+    if (m) parsed = JSON.parse(m[0]);
+    else throw new Error(`第 ${pageIndex + 1} 页扫描结果格式错误`);
+  }
+  if (!Array.isArray(parsed)) throw new Error(`第 ${pageIndex + 1} 页扫描结果非数组`);
+
+  // 标记页码
+  return parsed.map(q => ({ ...q, pageIndex: pageIndex + 1 }));
+}
+
+/**
+ * 阶段 2：深度分析 — 用 DeepSeek 对错题进行诊断
+ */
+async function analyzeErrors(subject, wrongQuestions) {
+  const prompt = renderPaperAnalysisPrompt(subject, wrongQuestions);
+  log('info', '错题AI分析', { provider: 'DeepSeek', model: MODEL_GRADING, subject, errorCount: wrongQuestions.length });
   const result = await deepseekRequest({
     model: MODEL_GRADING,
     messages: [{ role: 'user', content: prompt }],
@@ -627,15 +667,15 @@ async function analyzePaper(subject, combinedOcrText) {
     max_tokens: 8000
   });
   const content = result.choices?.[0]?.message?.content;
-  if (!content) throw new Error('AI 返回为空');
+  if (!content) throw new Error('AI 分析返回为空');
   const cleaned = content.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
   let parsed;
   try { parsed = JSON.parse(cleaned); } catch {
     const m = cleaned.match(/\[[\s\S]*\]/);
     if (m) parsed = JSON.parse(m[0]);
-    else throw new Error('AI 返回格式错误');
+    else throw new Error('AI 分析返回格式错误');
   }
-  if (!Array.isArray(parsed)) throw new Error('AI 返回非数组');
+  if (!Array.isArray(parsed)) throw new Error('AI 分析返回非数组');
   return parsed;
 }
 
@@ -643,56 +683,120 @@ async function executePaperTask(task) {
   const { id, input } = task;
   try {
     paperTasks.get(id).status = 'processing';
-    paperTasks.get(id).progress = { stage: 'ocr', message: '正在识别试卷图片…' };
-    const ocrTexts = [];
+
+    // ===== 阶段 1：逐张图片视觉扫描 =====
+    const totalPages = input.images.length;
+    const allQuestions = [];
+
     for (let i = 0; i < input.images.length; i++) {
-      paperTasks.get(id).progress = { stage: 'ocr', message: `正在识别第 ${i+1}/${input.images.length} 张…`, current: i+1, total: input.images.length };
+      paperTasks.get(id).progress = {
+        stage: 'scan',
+        message: `AI 正在扫描试卷 (${i + 1}/${totalPages})…`,
+        current: i + 1, total: totalPages
+      };
       const img = input.images[i];
-      if (img.startsWith('data:image')) {
-        try {
-          const ocrResult = await dashscopeRequest({
-            model: MODEL_OCR,
-            messages: [{ role: 'user', content: [
-              { type: 'text', text: '请仔细识别这张试卷图片中的全部文字内容。特别注意：\n1. 完整识别所有题目文本和学生手写作答\n2. 【重要】识别所有批改标记：红色笔迹（红笔书写的正确答案、红圈、红叉、红勾、红色下划线、红笔批注文字）、黑色批改符号（✗ × ✓ √ ?）、扣分数字（如"-3"、"-5"）、得分标注（如"8/10"）\n3. 用【教师红笔批改：xxx】格式标注所有红色笔迹内容\n4. 用【批改标记：✗/✓/-3】格式标注每个题目的批改符号\n5. 区分学生笔迹和教师批改笔迹，教师批改通常用红色' },
-              { type: 'image_url', image_url: { url: img } }
-            ]}],
-            temperature: 0.3, max_tokens: 4000
-          });
-          ocrTexts.push(ocrResult.choices?.[0]?.message?.content || '');
-        } catch (err) {
-          log('warn', 'OCR 单张失败', { taskId: id, index: i, error: err.message });
-          ocrTexts.push(`[OCR 识别失败]`);
-        }
-      } else { ocrTexts.push(img); }
+      if (!img.startsWith('data:image')) continue;
+
+      try {
+        const pageQuestions = await scanPaperImage(img, input.subject, i, totalPages);
+        allQuestions.push(...pageQuestions);
+        log('info', '页面扫描完成', { taskId: id, page: i + 1, questions: pageQuestions.length, wrong: pageQuestions.filter(q => !q.isCorrect).length });
+      } catch (err) {
+        log('warn', '单页扫描失败', { taskId: id, page: i + 1, error: err.message });
+        // 继续处理其他页面
+      }
     }
-    paperTasks.get(id).progress = { stage: 'analyzing', message: 'AI 正在分析错题…' };
-    const combinedText = ocrTexts.map((t, i) => `【第 ${i+1} 张试卷】\n${t}`).join('\n\n---\n\n');
-    const errors = await analyzePaper(input.subject, combinedText);
+
+    if (allQuestions.length === 0) throw new Error('所有页面扫描失败，未能识别任何题目');
+
+    const correctCount = allQuestions.filter(q => q.isCorrect).length;
+    const wrongQuestions = allQuestions.filter(q => !q.isCorrect);
+
+    // ===== 阶段 2：DeepSeek 深度分析错题 =====
+    let analysisResults = [];
+    if (wrongQuestions.length > 0) {
+      paperTasks.get(id).progress = {
+        stage: 'analyze',
+        message: `AI 正在分析 ${wrongQuestions.length} 道错题…`,
+        totalQuestions: allQuestions.length,
+        correctCount, wrongCount: wrongQuestions.length
+      };
+
+      analysisResults = await analyzeErrors(input.subject, wrongQuestions);
+    }
+
+    // ===== 保存结果到数据库 =====
     const sessionId = id; let savedCount = 0;
-    for (const err of errors) {
+
+    for (let i = 0; i < wrongQuestions.length; i++) {
+      const q = wrongQuestions[i];
+      const analysis = analysisResults.find(a => a.questionNumber === q.questionNumber) || {};
       const errorId = crypto.randomUUID().slice(0, 8);
+
+      // 构建知识点说明 JSON
+      const knowledgeExplJson = analysis.knowledgeExplanation
+        ? JSON.stringify(analysis.knowledgeExplanation)
+        : '{}';
+
       saveErrorProblem({
         id: errorId, userId: input.userId, subject: input.subject,
-        topic: err.questionTitle || `第${err.questionIndex}题`,
-        questionText: err.questionText || '', wrongAnswer: err.studentAnswer || '',
-        errorType: err.errorType || '未知', correctSolution: err.correctSolution || '',
-        difficulty: err.difficulty || 3, aiRaw: JSON.stringify(err),
-        sessionId, paperIndex: 1, status: 'done', createdAt: Date.now()
+        topic: q.questionTitle || `第${q.questionNumber}题（${q.questionType}）`,
+        questionText: q.questionText || '',
+        questionType: q.questionType || '',
+        answerOptions: JSON.stringify(q.options || []),
+        wrongAnswer: q.studentAnswer || '',
+        correctAnswer: q.correctAnswer || '',
+        errorType: analysis.errorType || '未知',
+        correctSolution: analysis.correctSolution || '',
+        difficulty: analysis.difficulty || q.difficulty || 3,
+        knowledgeExplanation: knowledgeExplJson,
+        gradingEvidence: q.gradingMark || '',
+        aiRaw: JSON.stringify({ scan: q, analysis }),
+        sessionId, paperIndex: q.pageIndex || 1, status: 'done',
+        createdAt: Date.now()
       });
-      const kps = err.knowledgePoints || [];
+
+      // 知识点关联
+      const kps = analysis.knowledgePoints || [];
       const matchedKpIds = [];
-      for (const kpName of kps) { const matches = searchKnowledgePoints(kpName, input.subject); if (matches.length > 0) matchedKpIds.push(matches[0].id); }
+      for (const kpName of kps) {
+        const matches = searchKnowledgePoints(kpName, input.subject);
+        if (matches.length > 0) matchedKpIds.push(matches[0].id);
+      }
       if (matchedKpIds.length > 0) saveErrorKnowledgeTags(errorId, matchedKpIds);
       savedCount++;
     }
-    updatePaperSession(sessionId, { status: 'done', errorCount: savedCount, aiRaw: JSON.stringify(errors) });
+
+    updatePaperSession(sessionId, {
+      status: 'done',
+      errorCount: savedCount,
+      totalQuestions: allQuestions.length,
+      correctCount,
+      aiRaw: JSON.stringify({ allQuestions, analysisResults })
+    });
+
     paperTasks.get(id).status = 'done';
-    paperTasks.get(id).result = { subject: input.subject, sessionId, totalErrors: savedCount, errors: errors.slice(0, 50) };
-    paperTasks.get(id).progress = { stage: 'done', message: `分析完成，共 ${savedCount} 道错题` };
-    log('info', '整卷分析完成', { taskId: id, subject: input.subject, errors: savedCount });
+    paperTasks.get(id).result = {
+      subject: input.subject,
+      sessionId,
+      totalQuestions: allQuestions.length,
+      correctCount,
+      totalErrors: savedCount,
+      errors: analysisResults.slice(0, 50)
+    };
+    paperTasks.get(id).progress = {
+      stage: 'done',
+      message: `扫描完成：${allQuestions.length} 题，${correctCount} 对 ${savedCount} 错`
+    };
+    log('info', '双阶段分析完成', {
+      taskId: id, subject: input.subject,
+      total: allQuestions.length, correct: correctCount, errors: savedCount
+    });
+
   } catch (err) {
     log('error', '整卷分析失败', { taskId: id, error: err.message });
-    paperTasks.get(id).status = 'failed'; paperTasks.get(id).error = err.message;
+    paperTasks.get(id).status = 'failed';
+    paperTasks.get(id).error = err.message;
     paperTasks.get(id).progress = { stage: 'failed', message: '分析失败' };
     try { updatePaperSession(id, { status: 'failed' }); } catch (_) {}
   }
