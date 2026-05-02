@@ -24,6 +24,7 @@
             >{{ unreadCount > 9 ? '9+' : unreadCount }}</span>
           </router-link>
           <router-link to="/history" class="text-gray-600 hover:text-blue-600 transition-colors">历史记录</router-link>
+          <router-link to="/error-upload" class="text-gray-600 hover:text-blue-600 transition-colors">错题诊断</router-link>
 
           <span class="text-gray-300">|</span>
 
@@ -98,6 +99,7 @@
           <span v-if="unreadCount > 0" class="ml-1 text-xs text-red-500">({{ unreadCount }})</span>
         </router-link>
         <router-link to="/history" class="block py-2 text-gray-600 hover:text-blue-600" @click="mobileMenuOpen = false">历史记录</router-link>
+        <router-link to="/error-upload" class="block py-2 text-gray-600 hover:text-blue-600" @click="mobileMenuOpen = false">错题诊断</router-link>
 
         <hr class="my-2 border-gray-100" />
 

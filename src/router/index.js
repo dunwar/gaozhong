@@ -15,6 +15,7 @@ const routes = [
   { path: '/login', name: 'Login', component: Login },
   { path: '/register', name: 'Register', component: () => import('../views/Register.vue') },
   { path: '/password', name: 'Password', component: () => import('../views/Password.vue'), meta: { requiresAuth: true } },
+  { path: '/error-upload', name: 'ErrorUpload', component: () => import('../views/ErrorUpload.vue'), meta: { requiresAuth: true } },
 ]
 
 const router = createRouter({
