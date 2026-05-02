@@ -538,12 +538,15 @@ export function getErrorProblem(id, userId = null) {
   return { ...deserializeError(row), knowledgeTags: tags };
 }
 
-export function listErrorProblems({ userId, subject, page = 1, limit = 20 } = {}) {
+export function listErrorProblems({ userId, subject, sessionId, timeFrom, timeTo, page = 1, limit = 20 } = {}) {
   if (!db) return { records: [], total: 0, page, limit, totalPages: 0 };
   const conditions = [];
   const params = [];
   if (userId) { conditions.push('user_id = ?'); params.push(userId); }
   if (subject && subject !== 'all') { conditions.push('subject = ?'); params.push(subject); }
+  if (sessionId) { conditions.push('session_id = ?'); params.push(sessionId); }
+  if (timeFrom) { conditions.push('created_at >= ?'); params.push(timeFrom); }
+  if (timeTo) { conditions.push('created_at <= ?'); params.push(timeTo); }
   const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
   const countStmt = db.prepare(`SELECT COUNT(*) as total FROM error_problems ${where}`);

@@ -1348,9 +1348,12 @@ app.get('/error/list', authMiddleware, (req, res) => {
     return res.json({ success: true, view: 'subject', results: result });
   }
 
-  // 默认：传统列表视图
+  // 默认：传统列表视图（支持 sessionId 和 time 过滤下钻）
   const subject = req.query.subject || null;
-  const result = listErrorProblems({ userId: req.user.id, subject, page, limit });
+  const sessionId = req.query.sessionId || null;
+  const timeFrom = req.query.timeFrom ? parseInt(req.query.timeFrom) : null;
+  const timeTo = req.query.timeTo ? parseInt(req.query.timeTo) : null;
+  const result = listErrorProblems({ userId: req.user.id, subject, sessionId, timeFrom, timeTo, page, limit });
   res.json({ success: true, view: 'list', ...result });
 });
 
