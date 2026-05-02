@@ -1,9 +1,127 @@
 <template>
   <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    <!-- 标题 -->
-    <div class="mb-8">
-      <h1 class="text-2xl font-bold text-gray-900">📊 知识点汇总</h1>
-      <p class="text-gray-500 text-sm mt-1">薄弱点分析，精准定位需要巩固的知识点</p>
+    <!-- 标题 + AI 指导按钮 -->
+    <div class="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900">📊 知识点汇总</h1>
+        <p class="text-gray-500 text-sm mt-1">薄弱点分析，精准定位需要巩固的知识点</p>
+      </div>
+      <button
+        @click="showGuidanceModal = true; generateGuidance()"
+        :disabled="generatingGuidance"
+        class="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white px-5 py-3 rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all font-medium shadow-lg shadow-blue-500/25 disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        <svg v-if="generatingGuidance" class="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+        </svg>
+        {{ generatingGuidance ? 'AI 分析中...' : '✨ AI 学习指导' }}
+      </button>
+    </div>
+
+    <!-- AI 指导 Modal -->
+    <div v-if="showGuidanceModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="showGuidanceModal = false">
+      <div class="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[80vh] overflow-y-auto">
+        <div class="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <h2 class="text-xl font-bold text-gray-900">🧠 AI 学习指导</h2>
+            <select
+              v-model="guidanceSubject"
+              :disabled="generatingGuidance"
+              class="ml-2 px-3 py-1.5 border border-gray-300 rounded-lg text-sm font-medium bg-white focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+            >
+              <option v-for="s in guidanceSubjects" :key="s.value" :value="s.value">{{ s.label }}</option>
+            </select>
+          </div>
+          <button @click="showGuidanceModal = false" class="text-gray-400 hover:text-gray-600 text-2xl">×</button>
+        </div>
+        <div class="p-6">
+          <!-- 加载中 -->
+          <div v-if="generatingGuidance" class="text-center py-12">
+            <div class="inline-block w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+            <p class="text-gray-700 font-medium">AI 正在分析你的学习状况...</p>
+            <p class="text-gray-500 text-sm mt-1">这可能需要 1-2 分钟</p>
+          </div>
+
+          <!-- 错误 -->
+          <div v-else-if="guidanceError" class="text-center py-12">
+            <div class="text-5xl mb-4">😕</div>
+            <p class="text-gray-700 font-medium">{{ guidanceError }}</p>
+            <button @click="generateGuidance" class="mt-4 text-blue-600 hover:text-blue-700 font-medium">重试</button>
+          </div>
+
+          <!-- 结果 -->
+          <div v-else-if="guidanceResult" class="space-y-6">
+            <!-- 整体评估 -->
+            <div class="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-5">
+              <h3 class="font-semibold text-gray-900 mb-2">📊 整体评估：{{ guidanceResult.overallAssessment?.level || '分析中' }}</h3>
+              <p class="text-gray-700">{{ guidanceResult.overallAssessment?.summary }}</p>
+              <div class="flex flex-wrap gap-2 mt-3">
+                <span v-for="(finding, i) in guidanceResult.overallAssessment?.keyFindings || []" :key="i" class="px-2 py-1 bg-white rounded text-xs text-gray-600">{{ finding }}</span>
+              </div>
+            </div>
+
+            <!-- 薄弱点分析 -->
+            <div v-if="guidanceResult.weaknessAnalysis?.length">
+              <h3 class="font-semibold text-gray-900 mb-3">🔍 薄弱知识模块</h3>
+              <div class="space-y-2">
+                <div v-for="(w, i) in guidanceResult.weaknessAnalysis" :key="i" class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                  <span class="w-6 h-6 rounded-full bg-red-100 text-red-700 flex items-center justify-center text-xs font-bold">{{ i + 1 }}</span>
+                  <div class="flex-1">
+                    <div class="flex items-center gap-2">
+                      <span class="font-medium text-gray-800">{{ w.knowledgeArea }}</span>
+                      <span :class="w.severity === '高' ? 'bg-red-50 text-red-700' : w.severity === '中' ? 'bg-yellow-50 text-yellow-700' : 'bg-green-50 text-green-700'" class="px-2 py-0.5 rounded text-xs">{{ w.severity }}</span>
+                    </div>
+                    <p class="text-sm text-gray-500 mt-0.5">{{ w.typicalErrors }}</p>
+                  </div>
+                  <span class="text-sm text-gray-400">{{ w.errorCount }} 题</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 学习计划 -->
+            <div v-if="guidanceResult.studyPlan">
+              <h3 class="font-semibold text-gray-900 mb-3">📋 学习建议</h3>
+              <div class="space-y-4">
+                <div class="bg-green-50 rounded-lg p-4">
+                  <h4 class="font-medium text-green-800 mb-2">本周行动</h4>
+                  <ul class="list-disc list-inside text-sm text-green-700 space-y-1">
+                    <li v-for="(a, i) in guidanceResult.studyPlan.immediateActions" :key="i">{{ a }}</li>
+                  </ul>
+                </div>
+                <div class="bg-blue-50 rounded-lg p-4">
+                  <h4 class="font-medium text-blue-800 mb-2">1-2 周目标</h4>
+                  <ul class="list-disc list-inside text-sm text-blue-700 space-y-1">
+                    <li v-for="(g, i) in guidanceResult.studyPlan.shortTermGoals" :key="i">{{ g }}</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <!-- 考试策略 -->
+            <div v-if="guidanceResult.examStrategy">
+              <h3 class="font-semibold text-gray-900 mb-3">📝 考试策略</h3>
+              <div class="bg-orange-50 rounded-lg p-4 space-y-3">
+                <p class="text-sm text-orange-800"><strong>时间分配：</strong>{{ guidanceResult.examStrategy.timeManagement }}</p>
+                <div>
+                  <strong class="text-sm text-orange-800">常见陷阱：</strong>
+                  <ul class="list-disc list-inside text-sm text-orange-700 mt-1 space-y-0.5">
+                    <li v-for="(p, i) in guidanceResult.examStrategy.commonPitfalls" :key="i">{{ p }}</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <!-- 鼓励语 -->
+            <div v-if="guidanceResult.encouragement" class="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg p-4 text-center">
+              <p class="text-gray-700 italic">{{ guidanceResult.encouragement }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- 加载中 -->
@@ -252,6 +370,61 @@ async function loadStats() {
     console.error('加载统计数据失败:', err)
   } finally {
     loading.value = false
+  }
+}
+
+// ========== AI 学习指导 ==========
+
+const showGuidanceModal = ref(false)
+const generatingGuidance = ref(false)
+const guidanceError = ref('')
+const guidanceResult = ref(null)
+const guidanceSubject = ref('数学')
+
+const guidanceSubjects = [
+  { value: '数学', label: '📐 数学' }, { value: '物理', label: '⚡ 物理' },
+  { value: '化学', label: '🧪 化学' }, { value: '生物', label: '🧬 生物' },
+  { value: '英语', label: '🌍 英语' }, { value: '语文', label: '📖 语文' }
+]
+
+async function generateGuidance() {
+  if (generatingGuidance.value) return
+  generatingGuidance.value = true
+  guidanceError.value = ''
+  guidanceResult.value = null
+
+  try {
+    const res = await authFetch('/api/paper/guidance', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ subject: guidanceSubject.value, timeRange: '本学期开始至今' })
+    })
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      throw new Error(err.error || '请求失败')
+    }
+
+    const data = await res.json()
+
+    // 轮询直到完成
+    for (let i = 0; i < 40; i++) {
+      await new Promise(r => setTimeout(r, 3000))
+      const poll = await authFetch(`/api/paper/guidance/${data.taskId}`)
+      if (!poll.ok) continue
+      const pollData = await poll.json()
+      if (pollData.status === 'done') {
+        guidanceResult.value = pollData.result
+        generatingGuidance.value = false
+        return
+      } else if (pollData.status === 'failed') {
+        throw new Error(pollData.error || '分析失败')
+      }
+    }
+    throw new Error('分析超时')
+  } catch (err) {
+    guidanceError.value = err.message || '生成学习指导失败'
+    generatingGuidance.value = false
   }
 }
 
