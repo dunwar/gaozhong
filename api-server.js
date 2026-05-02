@@ -22,8 +22,8 @@ import bcrypt from 'bcryptjs';
 import { fileURLToPath } from 'url';
 import { GRADING_PROMPT, PROMPT_VERSION } from './prompts/grading-v5.js';
 import { ERROR_DIAGNOSIS_PROMPT } from './prompts/error-diagnosis.js';
-import { PAPER_SCAN_PROMPT_V1 } from './prompts/paper-scan-v1.js';
-import { renderPaperAnalysisPrompt } from './prompts/paper-analysis-v3.js';
+import { PAPER_SCAN_PROMPT_V2 } from './prompts/paper-scan-v2.js';
+import { renderPaperAnalysisPrompt } from './prompts/paper-analysis-v4.js';
 import { STUDY_GUIDANCE_PROMPT_V1 } from './prompts/study-guidance-v1.js';
 import { initDB, saveDB, saveRecord, getRecord, getHistory, getStats, createUser, getUserByEmail, getUserById, updateUser, changePassword, listUsers, saveErrorProblem, saveErrorKnowledgeTags, getErrorProblem, listErrorProblems, getErrorStats, getKnowledgeStats, searchKnowledgePoints, createPaperSession, updatePaperSession, getPaperSession, listPaperSessions, listErrorsByPaper, listErrorsByTime, listErrorsBySubject, listErrorsForGuidance } from './db.js';
 
@@ -623,7 +623,7 @@ async function executeErrorTask(task) {
  */
 async function scanPaperImage(imageBase64, subject, pageIndex, totalPages) {
   const pageInfo = totalPages > 1 ? `第 ${pageIndex + 1}/${totalPages} 页` : '单页试卷';
-  const prompt = PAPER_SCAN_PROMPT_V1
+  const prompt = PAPER_SCAN_PROMPT_V2
     .replace('{subject}', subject)
     .replace('{pageInfo}', pageInfo);
 
@@ -679,6 +679,60 @@ async function analyzeErrors(subject, wrongQuestions) {
   return parsed;
 }
 
+/**
+ * 后处理校验：对扫描结果进行规则检查
+ * 返回 { valid: [...], flagged: [...], stats }
+ */
+function validateScanResults(questions) {
+  const valid = [];
+  const flagged = [];
+  
+  for (const q of questions) {
+    const issues = [];
+    
+    // 1. 必填字段检查
+    if (!q.questionNumber && q.questionNumber !== 0) issues.push('缺少题号');
+    if (!q.isCorrect && q.isCorrect !== false) issues.push('缺少对错判断');
+    
+    // 2. 选择题答案格式检查
+    if (q.questionType === '选择题' && q.studentAnswer) {
+      const ans = q.studentAnswer.toUpperCase().trim();
+      if (ans.length === 1 && /^[A-D]$/.test(ans)) {
+        q.studentAnswer = ans; // 规范化
+      } else if (ans.length > 1 && /^[A-D]$/.test(ans[0])) {
+        q.studentAnswer = ans[0]; // 取首字母
+      }
+    }
+    
+    // 3. consistency check: 如有红笔写的答案≠学生答案 → 必须 isCorrect=false
+    if (q.redInkContent && q.studentAnswer && q.correctAnswer) {
+      if (q.studentAnswer !== q.correctAnswer && q.isCorrect === true) {
+        issues.push(`矛盾：红笔正确答案=${q.correctAnswer}但标记为正确`);
+        q.isCorrect = false; // 自动修正
+      }
+    }
+    
+    // 4. 扣分标记检查
+    if (q.gradingMark && /-\d/.test(q.gradingMark) && q.isCorrect === true) {
+      issues.push(`矛盾：有扣分标记但标记为正确`);
+      q.isCorrect = false; // 自动修正
+    }
+    
+    // 5. 置信度
+    if (!q.confidence) q.confidence = q.gradingMark ? 'high' : 'medium';
+    
+    if (issues.length > 0) {
+      q._validationIssues = issues;
+      flagged.push(q);
+    } else {
+      valid.push(q);
+    }
+  }
+  
+  log('info', '扫描校验完成', { total: questions.length, valid: valid.length, flagged: flagged.length });
+  return { valid, flagged, stats: { total: questions.length, valid: valid.length, flagged: flagged.length } };
+}
+
 async function executePaperTask(task) {
   const { id, input } = task;
   try {
@@ -709,8 +763,12 @@ async function executePaperTask(task) {
 
     if (allQuestions.length === 0) throw new Error('所有页面扫描失败，未能识别任何题目');
 
-    const correctCount = allQuestions.filter(q => q.isCorrect).length;
+    // ===== 后处理校验 =====
+    const validation = validateScanResults(allQuestions);
+    const correctCount = validation.valid.filter(q => q.isCorrect).length +
+                         validation.flagged.filter(q => q.isCorrect).length;
     const wrongQuestions = allQuestions.filter(q => !q.isCorrect);
+    const lowConfidence = wrongQuestions.filter(q => q.confidence === 'low');
 
     // ===== 阶段 2：DeepSeek 深度分析错题 =====
     let analysisResults = [];
@@ -733,10 +791,15 @@ async function executePaperTask(task) {
       const analysis = analysisResults.find(a => a.questionNumber === q.questionNumber) || {};
       const errorId = crypto.randomUUID().slice(0, 8);
 
-      // 构建知识点说明 JSON
-      const knowledgeExplJson = analysis.knowledgeExplanation
-        ? JSON.stringify(analysis.knowledgeExplanation)
-        : '{}';
+      // v4 格式：diagnosis/solution/mnemonic/knowledgeCards
+      const knowledgeCards = analysis.knowledgeCards || [];
+      const knowledgeExplJson = JSON.stringify(
+        knowledgeCards.reduce((acc, c) => {
+          acc[c.concept] = `${c.explanation}\n本题用法：${c.inThisProblem || ''}`;
+          return acc;
+        }, {})
+      );
+      const cardsJson = JSON.stringify(knowledgeCards);
 
       saveErrorProblem({
         id: errorId, userId: input.userId, subject: input.subject,
@@ -747,11 +810,18 @@ async function executePaperTask(task) {
         wrongAnswer: q.studentAnswer || '',
         correctAnswer: q.correctAnswer || '',
         errorType: analysis.errorType || '未知',
-        correctSolution: analysis.correctSolution || '',
-        difficulty: analysis.difficulty || q.difficulty || 3,
+        correctSolution: analysis.solution || analysis.correctSolution || '',
+        difficulty: analysis.difficulty || 3,
         knowledgeExplanation: knowledgeExplJson,
         gradingEvidence: q.gradingMark || '',
-        aiRaw: JSON.stringify({ scan: q, analysis }),
+        aiRaw: JSON.stringify({
+          scan: q, analysis,
+          diagnosis: analysis.diagnosis || '',
+          solution: analysis.solution || '',
+          mnemonic: analysis.mnemonic || '',
+          knowledgeCards
+        }),
+        notes: analysis.mnemonic || '',
         sessionId, paperIndex: q.pageIndex || 1, status: 'done',
         createdAt: Date.now()
       });
@@ -782,11 +852,13 @@ async function executePaperTask(task) {
       totalQuestions: allQuestions.length,
       correctCount,
       totalErrors: savedCount,
+      lowConfidenceCount: lowConfidence.length,
+      validationStats: validation.stats,
       errors: analysisResults.slice(0, 50)
     };
     paperTasks.get(id).progress = {
       stage: 'done',
-      message: `扫描完成：${allQuestions.length} 题，${correctCount} 对 ${savedCount} 错`
+      message: `扫描 ${allQuestions.length} 题 ✅${correctCount} ❌${savedCount} | 校验通过 ${validation.stats.valid} | 低置信度 ${lowConfidence.length}`
     };
     log('info', '双阶段分析完成', {
       taskId: id, subject: input.subject,

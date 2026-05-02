@@ -73,15 +73,23 @@
 
         <!-- 错误分析 -->
         <div class="px-6 py-5 border-b border-gray-50">
-          <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">🔍 错误分析</h3>
-          <p class="text-gray-700 leading-relaxed">{{ formatReason(record) }}</p>
+          <h3 class="text-xs font-semibold text-red-400 uppercase tracking-wide mb-3">❌ 为什么会错？</h3>
+          <p class="text-gray-700 leading-relaxed">{{ formatDiagnosis(record) }}</p>
         </div>
 
         <!-- 正确解法 -->
-        <div v-if="record.correctSolution" class="px-6 py-5 border-b border-gray-50">
-          <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">✅ 正确解法</h3>
-          <div class="bg-gray-50 rounded-xl p-5">
-            <p class="text-gray-700 leading-relaxed whitespace-pre-wrap">{{ record.correctSolution }}</p>
+        <div v-if="formatSolution(record)" class="px-6 py-5 border-b border-gray-50">
+          <h3 class="text-xs font-semibold text-green-400 uppercase tracking-wide mb-3">✅ 应该怎么做？</h3>
+          <div class="bg-green-50/50 rounded-xl p-5 border border-green-100">
+            <p class="text-gray-700 leading-relaxed whitespace-pre-wrap">{{ formatSolution(record) }}</p>
+          </div>
+        </div>
+
+        <!-- 记忆口诀 -->
+        <div v-if="formatMnemonic(record)" class="px-6 py-5 border-b border-gray-50 bg-yellow-50/30">
+          <h3 class="text-xs font-semibold text-yellow-500 uppercase tracking-wide mb-3">🧠 记住这个！</h3>
+          <div class="bg-yellow-100/50 rounded-xl p-4 border border-yellow-200">
+            <p class="text-yellow-800 font-medium text-lg leading-relaxed">{{ formatMnemonic(record) }}</p>
           </div>
         </div>
 
@@ -160,18 +168,31 @@ function errTypeTag(t) {
   return m[t] || 'bg-gray-50 text-gray-600'
 }
 
-function formatReason(rec) {
+function formatDiagnosis(rec) {
   if (!rec) return ''
-  try {
-    if (rec.aiRaw) {
-      const p = JSON.parse(rec.aiRaw)
-      // 新格式：aiRaw = { scan: {...}, analysis: {...} }
-      if (p.analysis?.reason) return p.analysis.reason
-      if (p.reason) return p.reason
-    }
-  } catch {}
+  try { if (rec.aiRaw) { const p = JSON.parse(rec.aiRaw); if (p.diagnosis) return p.diagnosis; if (p.analysis?.diagnosis) return p.analysis.diagnosis; if (p.analysis?.reason) return p.analysis.reason; if (p.reason) return p.reason; } } catch {}
   return rec.errorType || ''
 }
+
+function formatSolution(rec) {
+  if (!rec?.correctSolution) return ''
+  return rec.correctSolution
+}
+
+function formatMnemonic(rec) {
+  if (!rec) return ''
+  try { if (rec.aiRaw) { const p = JSON.parse(rec.aiRaw); if (p.mnemonic) return p.mnemonic; } } catch {}
+  return rec.notes || ''
+}
+
+const knowledgeCards = computed(() => {
+  if (!record.value?.aiRaw) return []
+  try {
+    const parsed = JSON.parse(record.value.aiRaw)
+    if (parsed.knowledgeCards?.length) return parsed.knowledgeCards
+  } catch {}
+  return []
+})
 
 function fmtFullDate(ts) {
   if (!ts) return ''
