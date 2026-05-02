@@ -21,7 +21,7 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { fileURLToPath } from 'url';
 import { GRADING_PROMPT, PROMPT_VERSION } from './prompts/grading-v5.js';
-import { initDB, saveDB, saveRecord, getRecord, getHistory, getStats, createUser, getUserByEmail, getUserById, updateUser, changePassword, listUsers } from './db.js';
+import { initDB, saveDB, saveRecord, getRecord, getHistory, getStats, createUser, getUserByEmail, getUserById, updateUser, changePassword, listUsers, saveErrorProblem, saveErrorKnowledgeTags, getErrorProblem, listErrorProblems, getErrorStats, getKnowledgeStats, searchKnowledgePoints } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3001;
@@ -137,6 +137,11 @@ class ConcurrencyQueue {
 }
 
 const gradingQueue = new ConcurrencyQueue(MAX_CONCURRENT);
+
+// 错题诊断队列（独立于作文批改）
+const errorQueue = new ConcurrencyQueue(MAX_CONCURRENT);
+const ERROR_TASK_TTL_MS = 60 * 60 * 1000;
+const errorTasks = new Map();
 
 // ========== 定期清理过期 task ==========
 setInterval(() => {
@@ -503,6 +508,72 @@ async function executeTask(task) {
   }
 }
 
+// ========== 错题诊断执行器 ==========
+
+/** 模拟本地诊断（Phase B2 将替换为 AI 调用） */
+function localErrorDiagnosis(input) {
+  const { subject, questionText, wrongAnswer } = input;
+  const errorTypes = ['概念不清', '计算失误', '审题偏差', '方法错误', '粗心'];
+  const errorType = errorTypes[Math.floor(Math.random() * errorTypes.length)];
+
+  return {
+    errorType,
+    errorAnalysis: `本题涉及${subject}知识点，错误原因为${errorType}`,
+    correctSolution: `（正确解法待 AI 生成）\n题目：${questionText || '(无)'}\n错误答案：${wrongAnswer || '(无)'}`,
+    knowledgePoints: [{ name: '待 AI 标注' }],
+    difficulty: 3,
+    similarTips: '（同类题提示待 AI 生成）',
+    topic: input.topic || questionText?.substring(0, 50) || subject
+  };
+}
+
+async function executeErrorTask(task) {
+  const { id, input } = task;
+  try {
+    errorTasks.get(id).status = 'processing';
+    errorTasks.get(id).progress = { stage: 'analyzing', message: '正在诊断...' };
+
+    // TODO B2: Replace with DeepSeek AI call
+    const result = localErrorDiagnosis(input);
+
+    // 保存到数据库
+    const recordId = id;
+    saveErrorProblem({
+      id: recordId,
+      userId: input.userId || null,
+      subject: input.subject || '数学',
+      topic: result.topic || input.topic || '',
+      questionText: input.questionText || '',
+      wrongAnswer: input.wrongAnswer || '',
+      errorType: result.errorType || '',
+      correctSolution: result.correctSolution || '',
+      difficulty: result.difficulty || 3,
+      aiRaw: JSON.stringify(result),
+      status: 'done',
+      createdAt: task.createdAt
+    });
+
+    errorTasks.get(id).status = 'done';
+    errorTasks.get(id).result = {
+      subject: input.subject,
+      topic: result.topic,
+      errorType: result.errorType,
+      errorAnalysis: result.errorAnalysis,
+      correctSolution: result.correctSolution,
+      knowledgePoints: result.knowledgePoints || [],
+      difficulty: result.difficulty,
+      similarTips: result.similarTips
+    };
+    errorTasks.get(id).progress = { stage: 'done', message: '诊断完成' };
+    log('info', '错题诊断完成', { taskId: id, subject: input.subject });
+  } catch (err) {
+    log('error', '错题诊断失败', { taskId: id, error: err.message });
+    errorTasks.get(id).status = 'failed';
+    errorTasks.get(id).error = err.message;
+    errorTasks.get(id).progress = { stage: 'failed', message: '诊断失败' };
+  }
+}
+
 // ========== Express 应用 ==========
 const app = express();
 
@@ -659,15 +730,27 @@ app.put('/auth/me', authMiddleware, (req, res) => {
 // 修改密码
 app.put('/auth/password', authMiddleware, (req, res) => {
   const { oldPassword, newPassword } = req.body;
-  if (!oldPassword || !newPassword) {
-    return res.status(400).json({ error: '请提供旧密码和新密码' });
+  if (!newPassword) {
+    return res.status(400).json({ error: '请提供新密码' });
   }
   if (newPassword.length < 6) {
     return res.status(400).json({ error: '新密码长度不能少于6位' });
   }
 
-  // 重新从 DB 读取，确保拿到 passwordHash
   const fresh = getUserById(req.user.id);
+
+  // mustChangePassword 首次改密：跳过旧密码验证
+  if (fresh.mustChangePassword) {
+    const newHash = bcrypt.hashSync(newPassword, BCRYPT_ROUNDS);
+    changePassword(req.user.id, newHash);
+    log('info', '用户首次修改密码', { userId: req.user.id });
+    return res.json({ success: true, message: '密码修改成功' });
+  }
+
+  // 正常改密：需要验证旧密码
+  if (!oldPassword) {
+    return res.status(400).json({ error: '请提供旧密码' });
+  }
   if (!bcrypt.compareSync(oldPassword, fresh.passwordHash)) {
     return res.status(401).json({ error: '旧密码错误' });
   }
@@ -821,11 +904,104 @@ app.get('/stats', (req, res) => {
   res.json({ success: true, ...stats, memoryTasks: tasks.size });
 });
 
+// ========== 错题诊断 API ==========
+
+// 提交错题诊断（异步）
+app.post('/error/diagnose', (req, res) => {
+  const ip = req.ip || req.socket.remoteAddress || 'unknown';
+  const rl = checkRateLimit(ip);
+  if (!rl.allowed) return res.status(429).json({ error: '请求过于频繁', retryAfter: rl.retryAfter });
+  if (errorQueue.pending >= MAX_QUEUE_DEPTH) return res.status(503).json({ error: '排队人数过多' });
+
+  const { subject, topic, questionText, wrongAnswer, file } = req.body;
+
+  // 可选认证
+  let userId = null;
+  const authHeader = req.headers.authorization;
+  if (authHeader?.startsWith('Bearer ')) {
+    try { userId = jwt.verify(authHeader.slice(7), JWT_SECRET).sub; } catch (_) {}
+  }
+
+  if (!file && !questionText) {
+    return res.status(400).json({ error: '请提供错题描述或图片' });
+  }
+
+  const taskId = createTaskId();
+  const task = {
+    id: taskId, status: 'queued',
+    input: { subject: subject || '数学', topic: topic || '', questionText: questionText || '', wrongAnswer: wrongAnswer || '', file: file || null, userId },
+    result: null, error: null, progress: null,
+    createdAt: Date.now(), updatedAt: Date.now()
+  };
+  errorTasks.set(taskId, task);
+
+  log('info', '错题诊断任务创建', { taskId, subject: task.input.subject, ip });
+
+  errorQueue.enqueue(() => executeErrorTask(task)).catch(err => {
+    log('error', '错题诊断队列异常', { taskId, error: err.message });
+  });
+
+  res.status(202).json({ success: true, taskId, status: 'queued', queuePosition: errorQueue.pending + 1 });
+});
+
+// 轮询错题诊断任务
+app.get('/error/task/:taskId', (req, res) => {
+  const task = errorTasks.get(req.params.taskId);
+  if (!task) return res.status(404).json({ error: '任务不存在或已过期' });
+  res.json({
+    taskId: task.id, status: task.status, progress: task.progress,
+    result: task.status === 'done' ? task.result : undefined,
+    error: task.status === 'failed' ? task.error : undefined,
+    createdAt: task.createdAt, updatedAt: task.updatedAt
+  });
+});
+
+// 错题列表
+app.get('/error/list', authMiddleware, (req, res) => {
+  const page = Math.max(1, parseInt(req.query.page) || 1);
+  const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 20));
+  const subject = req.query.subject || null;
+  const result = listErrorProblems({ userId: req.user.id, subject, page, limit });
+  res.json({ success: true, ...result });
+});
+
+// 错题详情
+app.get('/error/:id', (req, res) => {
+  let userId = null;
+  const authHeader = req.headers.authorization;
+  if (authHeader?.startsWith('Bearer ')) {
+    try { userId = jwt.verify(authHeader.slice(7), JWT_SECRET).sub; } catch (_) {}
+  }
+  const record = getErrorProblem(req.params.id, userId);
+  if (!record) return res.status(404).json({ error: '错题记录不存在' });
+  res.json({ success: true, record });
+});
+
+// 错题统计
+app.get('/error/stats', authMiddleware, (req, res) => {
+  const stats = getErrorStats(req.user.id);
+  res.json({ success: true, ...stats });
+});
+
+// 知识点搜索
+app.get('/knowledge/search', (req, res) => {
+  const { q, subject } = req.query;
+  if (!q || q.length < 1) return res.json({ success: true, results: [] });
+  const results = searchKnowledgePoints(q, subject || null);
+  res.json({ success: true, results });
+});
+
+// 知识点聚合统计
+app.get('/knowledge/stats', authMiddleware, (req, res) => {
+  const stats = getKnowledgeStats(req.user.id);
+  res.json({ success: true, stats });
+});
+
 // 404
 app.use((req, res) => {
   res.status(404).json({
     error: 'Not Found',
-    endpoints: ['GET /health', 'POST /analyze', 'GET /task/:taskId', 'POST /auth/login', 'POST /auth/register', 'GET /auth/me', 'PUT /auth/password', 'GET /history', 'GET /stats', 'GET /admin/users']
+    endpoints: ['GET /health', 'POST /analyze', 'GET /task/:taskId', 'POST /auth/login', 'POST /auth/register', 'GET /auth/me', 'PUT /auth/password', 'GET /history', 'GET /stats', 'GET /admin/users', 'POST /error/diagnose', 'GET /error/task/:taskId', 'GET /error/list', 'GET /error/:id', 'GET /error/stats', 'GET /knowledge/search', 'GET /knowledge/stats']
   });
 });
 
@@ -878,6 +1054,7 @@ const startup = async () => {
     console.log(`💾 结果: GET /result/:taskId | 历史: GET /history`);
     console.log(`⚡ 并发: ${MAX_CONCURRENT} | 队列上限: ${MAX_QUEUE_DEPTH} | TTL: ${TASK_TTL_MS / 60000}min`);
     console.log(`🤖 OCR: ${MODEL_OCR} | 批改: ${MODEL_GRADING} | Prompt: ${PROMPT_VERSION}`);
+    console.log(`🔬 错题诊断: POST /error/diagnose | 列表: GET /error/list | 知识点: GET /knowledge/search`);
   });
 };
 
