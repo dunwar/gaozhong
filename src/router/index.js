@@ -16,6 +16,9 @@ const routes = [
   { path: '/register', name: 'Register', component: () => import('../views/Register.vue') },
   { path: '/password', name: 'Password', component: () => import('../views/Password.vue'), meta: { requiresAuth: true } },
   { path: '/error-upload', name: 'ErrorUpload', component: () => import('../views/ErrorUpload.vue'), meta: { requiresAuth: true } },
+  { path: '/errors', name: 'ErrorList', component: () => import('../views/ErrorList.vue'), meta: { requiresAuth: true } },
+  { path: '/error/:id', name: 'ErrorDetail', component: () => import('../views/ErrorDetail.vue'), meta: { requiresAuth: true } },
+  { path: '/knowledge', name: 'KnowledgeDashboard', component: () => import('../views/KnowledgeDashboard.vue'), meta: { requiresAuth: true } },
 ]
 
 const router = createRouter({

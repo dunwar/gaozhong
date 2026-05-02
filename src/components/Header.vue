@@ -25,6 +25,8 @@
           </router-link>
           <router-link to="/history" class="text-gray-600 hover:text-blue-600 transition-colors">历史记录</router-link>
           <router-link to="/error-upload" class="text-gray-600 hover:text-blue-600 transition-colors">错题诊断</router-link>
+          <router-link to="/errors" class="text-gray-600 hover:text-blue-600 transition-colors">错题本</router-link>
+          <router-link to="/knowledge" class="text-gray-600 hover:text-blue-600 transition-colors">知识点</router-link>
 
           <span class="text-gray-300">|</span>
 
@@ -100,6 +102,8 @@
         </router-link>
         <router-link to="/history" class="block py-2 text-gray-600 hover:text-blue-600" @click="mobileMenuOpen = false">历史记录</router-link>
         <router-link to="/error-upload" class="block py-2 text-gray-600 hover:text-blue-600" @click="mobileMenuOpen = false">错题诊断</router-link>
+        <router-link to="/errors" class="block py-2 text-gray-600 hover:text-blue-600" @click="mobileMenuOpen = false">错题本</router-link>
+        <router-link to="/knowledge" class="block py-2 text-gray-600 hover:text-blue-600" @click="mobileMenuOpen = false">知识点</router-link>
 
         <hr class="my-2 border-gray-100" />
 
