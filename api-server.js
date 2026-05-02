@@ -618,6 +618,30 @@ async function executeErrorTask(task) {
 
 // ========== V2 整卷分析：双阶段流水线 ==========
 
+// 宿主机预处理服务地址（Docker 容器访问宿主机）
+const PREPROCESS_URL = process.env.PREPROCESS_URL || 'http://172.17.0.1:5001';
+
+/**
+ * 调用宿主机预处理微服务
+ * 对图片做：透视矫正 + 对比度增强 + 红笔分离 + 蓝黑笔分离 + 版面分析
+ */
+async function preprocessImage(base64) {
+  try {
+    const res = await fetch(`${PREPROCESS_URL}/preprocess`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image: base64, options: { deskew: true, red: true, blue: true, layout: true } }),
+      signal: AbortSignal.timeout(30000)
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.status === 'ok' ? data.result : null;
+  } catch (err) {
+    log('warn', '预处理服务不可用', { url: PREPROCESS_URL, error: err.message });
+    return null;
+  }
+}
+
 /**
  * 阶段 1：视觉扫描 — 用 Qwen VL 直接看图片，逐题判断对错
  */
@@ -627,12 +651,22 @@ async function scanPaperImage(imageBase64, subject, pageIndex, totalPages) {
     .replace('{subject}', subject)
     .replace('{pageInfo}', pageInfo);
 
+  // 调用预处理服务（如果可用）
+  let preprocessResult = null;
+  try { preprocessResult = await preprocessImage(imageBase64); } catch (_) {}
+
+  // 构建发给 VL 模型的图片（原图 + 红笔分离图）
+  const contentParts = [{ type: 'text', text: prompt }, { type: 'image_url', image_url: { url: imageBase64 } }];
+  if (preprocessResult && preprocessResult.red_marks) {
+    contentParts.push(
+      { type: 'text', text: '【辅助图：红色笔迹分离】这是从试卷中单独提取的红色笔迹。红色=教师批改。请重点关注红笔打叉(✗)、打勾(✓)、扣分数字、红笔写的正确答案。' },
+      { type: 'image_url', image_url: { url: preprocessResult.red_marks } }
+    );
+  }
+
   const result = await dashscopeRequest({
-    model: MODEL_OCR,  // qwen-vl-plus
-    messages: [{ role: 'user', content: [
-      { type: 'text', text: prompt },
-      { type: 'image_url', image_url: { url: imageBase64 } }
-    ]}],
+    model: MODEL_OCR,
+    messages: [{ role: 'user', content: contentParts }],
     temperature: 0.1,
     max_tokens: 4000
   });
