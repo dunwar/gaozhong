@@ -25,7 +25,7 @@ import { ERROR_DIAGNOSIS_PROMPT } from './prompts/error-diagnosis.js';
 import { PAPER_SCAN_PROMPT_V2 } from './prompts/paper-scan-v2.js';
 import { renderPaperAnalysisPrompt } from './prompts/paper-analysis-v4.js';
 import { STUDY_GUIDANCE_PROMPT_V1 } from './prompts/study-guidance-v1.js';
-import { initDB, saveDB, saveRecord, getRecord, getHistory, getStats, createUser, getUserByEmail, getUserById, updateUser, changePassword, listUsers, saveErrorProblem, saveErrorKnowledgeTags, getErrorProblem, listErrorProblems, getErrorStats, getKnowledgeStats, searchKnowledgePoints, createPaperSession, updatePaperSession, getPaperSession, listPaperSessions, listErrorsByPaper, listErrorsByTime, listErrorsBySubject, listErrorsForGuidance } from './db.js';
+import { initDB, saveDB, saveRecord, getRecord, getHistory, getStats, createUser, getUserByEmail, getUserById, updateUser, changePassword, listUsers, saveErrorProblem, saveErrorKnowledgeTags, getErrorProblem, listErrorProblems, getErrorStats, getKnowledgeStats, getErrorsByKnowledgePoint, searchKnowledgePoints, createPaperSession, updatePaperSession, getPaperSession, listPaperSessions, listErrorsByPaper, listErrorsByTime, listErrorsBySubject, listErrorsForGuidance } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3001;
@@ -1387,6 +1387,14 @@ app.get('/knowledge/search', (req, res) => {
 app.get('/knowledge/stats', authMiddleware, (req, res) => {
   const stats = getKnowledgeStats(req.user.id);
   res.json({ success: true, stats });
+});
+
+// 获取某知识点关联的错题列表
+app.get('/knowledge/errors', authMiddleware, (req, res) => {
+  const kpId = req.query.kpId;
+  if (!kpId) return res.status(400).json({ error: '缺少 kpId' });
+  const errors = getErrorsByKnowledgePoint(kpId, req.user.id);
+  res.json({ success: true, errors });
 });
 
 // ========== V2 整卷分析 API ==========

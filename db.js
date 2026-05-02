@@ -611,6 +611,26 @@ export function getKnowledgeStats(userId = null) {
   }));
 }
 
+/** 获取某个知识点关联的所有错题 */
+export function getErrorsByKnowledgePoint(knowledgeId, userId = null) {
+  if (!db) return [];
+  const conditions = ['ekt.knowledge_id = ?'];
+  const params = [knowledgeId];
+  if (userId) { conditions.push('ep.user_id = ?'); params.push(userId); }
+  const where = conditions.join(' AND ');
+  const stmt = db.prepare(`
+    SELECT ep.* FROM error_problems ep
+    JOIN error_knowledge_tags ekt ON ep.id = ekt.error_id
+    WHERE ${where}
+    ORDER BY ep.created_at DESC LIMIT 100
+  `);
+  stmt.bind(params);
+  const errors = [];
+  while (stmt.step()) errors.push(deserializeError(stmt.getAsObject()));
+  stmt.free();
+  return errors;
+}
+
 /** 搜索知识点（模糊匹配） */
 export function searchKnowledgePoints(q, subject = null) {
   if (!db || !q) return [];

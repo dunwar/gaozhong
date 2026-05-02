@@ -167,7 +167,7 @@
         </div>
         <div v-else class="space-y-3">
           <div v-for="(count, subject) in errorStats.bySubject" :key="subject" class="flex items-center gap-3">
-            <span :class="subjectBadgeClass(subject)" class="w-14 text-center px-2 py-1 rounded text-xs font-semibold flex-shrink-0">{{ subject }}</span>
+            <span :class="subBadge(subject)" class="w-14 text-center px-2 py-1 rounded text-xs font-semibold flex-shrink-0">{{ subject }}</span>
             <div class="flex-1 bg-gray-100 rounded-full h-5 overflow-hidden">
               <div
                 :class="subjectBarClass(subject)"
@@ -193,7 +193,7 @@
             class="flex items-center gap-2 px-3 py-2 rounded-xl border"
             :class="errorTypeBorderClass(type)"
           >
-            <span :class="errorTypeTagClass(type)" class="px-2 py-0.5 rounded-full text-xs font-medium">{{ type }}</span>
+            <span :class="errBadge(type)" class="px-2 py-0.5 rounded-full text-xs font-medium">{{ type }}</span>
             <span class="text-lg font-bold" :class="errorTypeTextColorClass(type)">{{ count }}</span>
             <span class="text-xs text-gray-400">次</span>
           </div>
@@ -213,7 +213,7 @@
           <div
             v-for="(kp, i) in knowledgeStats"
             :key="kp.id"
-            class="flex items-center gap-3 p-3 rounded-xl transition-colors hover:bg-gray-50"
+            class="flex items-center gap-3 p-3 rounded-xl transition-colors cursor-pointer" :class="kp.errorCount>=3?'hover:bg-red-50':kp.errorCount>=2?'hover:bg-orange-50':'hover:bg-blue-50'" @click="showKpErrors(kp)"
           >
             <!-- 排名 -->
             <div
@@ -224,8 +224,10 @@
             <!-- 信息 -->
             <div class="flex-1 min-w-0">
               <div class="flex items-center gap-2">
-                <span :class="subjectBadgeClass(kp.subject)" class="px-2 py-0.5 rounded text-xs font-medium flex-shrink-0">{{ kp.subject }}</span>
+                <span :class="subBadge(kp.subject)" class="px-2 py-0.5 rounded text-xs font-medium flex-shrink-0">{{ kp.subject }}</span>
                 <span class="text-sm font-medium text-gray-800 truncate">{{ kp.name }}</span>
+                <span v-if="kp.errorCount >= 3" class="text-xs" title="高频薄弱点">🔥</span>
+                <span v-else-if="kp.errorCount >= 2" class="text-xs" title="需关注">⚠️</span>
               </div>
               <div v-if="kp.category" class="text-xs text-gray-400 mt-0.5">{{ kp.category }}</div>
             </div>
@@ -246,6 +248,25 @@
       </div>
     </template>
   </div>
+
+      <!-- 知识点下钻弹窗 -->
+      <div v-if="kpModal.visible" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="kpModal.visible = false">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+          <div class="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+            <div><h3 class="text-lg font-bold text-gray-900">{{ kpModal.kp?.name }}</h3><p class="text-xs text-gray-500">{{ kpModal.kp?.subject }} · {{ kpModal.kp?.category }} · {{ kpModal.errors?.length || 0 }} 道相关错题</p></div>
+            <button @click="kpModal.visible = false" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+          </div>
+          <div class="p-4 space-y-3">
+            <div v-if="kpModal.loading" class="text-center py-8"><div class="inline-block w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div></div>
+            <div v-else-if="kpModal.errors.length === 0" class="text-center py-8 text-gray-400">暂无关联错题</div>
+            <div v-for="err in kpModal.errors" :key="err.id" @click="$router.push('/error/'+err.id)" class="p-4 bg-gray-50 rounded-xl hover:bg-blue-50 transition-colors cursor-pointer">
+              <div class="flex items-center gap-2 mb-2"><span :class="subBadge(err.subject)" class="px-2 py-0.5 rounded text-xs font-medium">{{ err.subject }}</span><span v-if="err.topic" class="text-xs text-gray-400">{{ err.topic }}</span></div>
+              <p class="text-sm text-gray-800 line-clamp-2">{{ err.questionText }}</p>
+              <div class="flex items-center gap-2 mt-2"><span v-if="err.errorType" :class="errBadge(err.errorType)" class="px-2 py-0.5 rounded-full text-xs font-medium">{{ err.errorType }}</span><span class="text-xs text-gray-400">&starf;{{ err.difficulty || 3 }}</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
 </template>
 
 <script setup>
@@ -254,6 +275,7 @@ import { authFetch } from '../utils/authStore.js'
 
 const errorStats = ref({ total: 0, bySubject: {}, byErrorType: {}, todayCount: 0 })
 const knowledgeStats = ref([])
+const kpModal = reactive({ visible: false, loading: false, kp: null, errors: [] })
 const loading = ref(true)
 
 const maxErrorCount = computed(() => {
@@ -274,17 +296,6 @@ function barWidth(count, max) {
   return Math.round((count / max) * 100) || 0
 }
 
-function subjectBadgeClass(subject) {
-  const map = {
-    '数学': 'bg-blue-50 text-blue-700',
-    '物理': 'bg-purple-50 text-purple-700',
-    '化学': 'bg-green-50 text-green-700',
-    '英语': 'bg-orange-50 text-orange-700',
-    '语文': 'bg-red-50 text-red-700',
-  }
-  return map[subject] || 'bg-gray-50 text-gray-600'
-}
-
 function subjectBarClass(subject) {
   const map = {
     '数学': 'bg-blue-500',
@@ -296,17 +307,6 @@ function subjectBarClass(subject) {
   return map[subject] || 'bg-gray-400'
 }
 
-function errorTypeTagClass(type) {
-  const map = {
-    '概念不清': 'bg-red-50 text-red-700',
-    '计算失误': 'bg-yellow-50 text-yellow-700',
-    '审题偏差': 'bg-purple-50 text-purple-700',
-    '方法错误': 'bg-orange-50 text-orange-700',
-    '粗心': 'bg-blue-50 text-blue-700',
-    '知识盲区': 'bg-gray-100 text-gray-700',
-  }
-  return map[type] || 'bg-gray-50 text-gray-600'
-}
 
 function errorTypeBorderClass(type) {
   const map = {
@@ -345,6 +345,11 @@ function rankBarClass(i) {
   if (i === 2) return 'bg-yellow-500'
   return 'bg-blue-400'
 }
+
+function subBadge(s){const m={"数学":"bg-blue-50 text-blue-700","物理":"bg-purple-50 text-purple-700","化学":"bg-green-50 text-green-700","生物":"bg-teal-50 text-teal-700","英语":"bg-orange-50 text-orange-700","语文":"bg-red-50 text-red-700"};return m[s]||"bg-gray-50 text-gray-600"}
+function errBadge(t){const m={"概念不清":"bg-red-50 text-red-700","计算失误":"bg-yellow-50 text-yellow-700","审题偏差":"bg-purple-50 text-purple-700","方法错误":"bg-orange-50 text-orange-700","粗心马虎":"bg-blue-50 text-blue-700","知识盲区":"bg-gray-100 text-gray-700"};return m[t]||"bg-gray-50 text-gray-600"}
+function kpCountColor(n){return n>=3?"text-red-600":n>=2?"text-orange-500":"text-blue-500"}
+async function showKpErrors(kp){kpModal.visible=true;kpModal.kp=kp;kpModal.loading=true;kpModal.errors=[];try{const r=await authFetch("/api/knowledge/errors?kpId="+kp.id);const d=await r.json();if(d.success)kpModal.errors=d.errors||[]}catch(e){console.error(e)}finally{kpModal.loading=false}}
 
 async function loadStats() {
   loading.value = true
