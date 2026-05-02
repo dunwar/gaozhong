@@ -75,10 +75,11 @@
 
 <script setup>
 import { ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { authStore, authFetch } from '../utils/authStore.js'
 
 const router = useRouter()
+const route = useRoute()
 
 const mustChange = computed(() => authStore.mustChangePassword)
 const oldPassword = ref('')
@@ -114,16 +115,18 @@ async function handleSubmit() {
     const data = await res.json()
     if (!res.ok) throw new Error(data.error || '修改失败')
 
-    // 更新 authStore 中的 mustChangePassword 标记
+    // 更新 authStore 中的 mustChangePassword 标记并持久化
     if (authStore.user) {
       authStore.user.mustChangePassword = false
     }
+    authStore.persist()
 
     success.value = '密码修改成功！'
 
     if (mustChange.value) {
-      // 强制改密完成，跳转到首页
-      setTimeout(() => router.replace('/'), 1000)
+      // 强制改密完成，跳转到原始目标页面
+      const redirect = route.query.redirect || '/'
+      setTimeout(() => router.replace(redirect), 1000)
     } else {
       setTimeout(() => success.value = null, 3000)
       oldPassword.value = ''

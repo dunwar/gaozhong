@@ -108,6 +108,11 @@ export const authStore = reactive({
     clearStorage()
   },
 
+  // ======== 持久化当前状态到 localStorage ========
+  persist() {
+    saveToStorage({ token: this.token, user: this.user })
+  },
+
   // ======== 刷新用户信息 ========
   async refreshUser() {
     if (!this.token) return

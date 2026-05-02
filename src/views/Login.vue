@@ -75,10 +75,10 @@ async function handleLogin() {
   loading.value = true
   try {
     await authStore.login(email.value, password.value)
-    // 跳转：需改密码 → 密码页；否则 → 原目标页或首页
     const redirect = route.query.redirect || '/'
     if (authStore.mustChangePassword) {
-      router.replace(redirect === '/' ? '/password' : redirect)
+      // 强制改密：跳转到密码页，携带原始目标路径
+      router.replace(`/password?redirect=${encodeURIComponent(redirect)}`)
     } else {
       router.replace(redirect)
     }
