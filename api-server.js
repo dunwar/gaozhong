@@ -26,6 +26,7 @@ import { PAPER_SCAN_PROMPT_V2 } from './prompts/paper-scan-v2.js';
 import { renderPaperAnalysisPrompt } from './prompts/paper-analysis-v4.js';
 import { STUDY_GUIDANCE_PROMPT_V1 } from './prompts/study-guidance-v1.js';
 import { MARK_READER_PROMPT } from './prompts/mark-reader-v1.js';
+import { QUESTION_READER_PROMPT } from './prompts/question-reader-v1.js';
 import { extractPage, collectRedMarkImages } from './ocr-extractor.js';
 import { mergeResults, prepareErrorList } from './smart-merger.js';
 import { initDB, saveDB, saveRecord, getRecord, getHistory, getStats, createUser, getUserByEmail, getUserById, updateUser, changePassword, listUsers, saveErrorProblem, saveErrorKnowledgeTags, getErrorProblem, listErrorProblems, getErrorStats, getKnowledgeStats, getErrorsByKnowledgePoint, searchKnowledgePoints, createPaperSession, updatePaperSession, getPaperSession, listPaperSessions, listErrorsByPaper, listErrorsByTime, listErrorsBySubject, listErrorsForGuidance } from './db.js';
@@ -689,6 +690,43 @@ async function readRedMarks(redMarkImages) {
 }
 
 /**
+ * VL 提取指定题号的题目文本（PaddleOCR 失败时的备选通道）
+ */
+async function readQuestionTexts(imageBase64, targetQuestionNumbers) {
+  if (!targetQuestionNumbers || targetQuestionNumbers.length === 0) return [];
+
+  const qnList = targetQuestionNumbers.join('、');
+  const prompt = QUESTION_READER_PROMPT.replace(/\{targetQuestions\}/g, qnList);
+
+  const result = await dashscopeRequest({
+    model: MODEL_OCR,
+    messages: [{ role: 'user', content: [
+      { type: 'text', text: prompt },
+      { type: 'image_url', image_url: { url: imageBase64 } }
+    ]}],
+    temperature: 0.1,
+    max_tokens: 3000
+  });
+
+  const content = result.choices?.[0]?.message?.content;
+  if (!content) throw new Error('题目文本提取返回为空');
+
+  const cleaned = content.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+  let parsed;
+  try { parsed = JSON.parse(cleaned); } catch {
+    const m = cleaned.match(/\[[\s\S]*\]/);
+    if (m) {
+      try { parsed = JSON.parse(m[0]); } catch {
+        const salvage = m[0].replace(/,\s*$/, '') + ']';
+        try { parsed = JSON.parse(salvage); } catch { parsed = []; }
+      }
+    } else { parsed = []; }
+  }
+
+  return Array.isArray(parsed) ? parsed : [];
+}
+
+/**
  * 阶段 2：深度分析 — 用 DeepSeek 对错题进行诊断
  * 批量处理：每批 ≤8 道题，避免 token 溢出导致 JSON 截断
  */
@@ -868,7 +906,7 @@ async function executePaperTask(task) {
       current: 0, total: totalPages
     };
 
-    const pages = [];
+    let pages = [];
     const redMarkImages = [];
 
     for (let i = 0; i < input.images.length; i++) {
@@ -918,21 +956,66 @@ async function executePaperTask(task) {
         marks = await readRedMarks(redMarkImages);
         log('info', '红笔标记读取完成', { taskId: id, marksFound: marks.length, marks });
       } catch (err) {
-        log('warn', '红笔标记读取失败，降级为全扫描', { taskId: id, error: err.message });
-        // 降级：标记所有题为需要分析
-        marks = [];
+        log('warn', '红笔标记读取失败', { taskId: id, error: err.message });
       }
     } else {
       log('info', '无红笔标记页，所有题视为正确', { taskId: id });
     }
 
+    // ===== 阶段 2.5：PaddleOCR 失败时 VL 提取题目文本 =====
+    if (totalQuestionGroups === 0 && marks.length > 0) {
+      log('info', 'PaddleOCR未检测到文本，启动VL题目提取', { taskId: id, markedQuestions: marks.map(m => m.questionNumber) });
+
+      paperTasks.get(id).progress = {
+        stage: 'read-questions',
+        message: 'PaddleOCR 未识别到文本，AI 正在读取题目…',
+        redMarks: marks.length
+      };
+
+      // 收集所有有标记的题号
+      const allMarkedQNs = [...new Set(marks.filter(m => m.questionNumber).map(m => m.questionNumber))];
+
+      // 逐页调用 VL 提取题目文本（发送原图 + 目标题号）
+      for (let i = 0; i < input.images.length; i++) {
+        const img = input.images[i];
+        if (!img.startsWith('data:image')) continue;
+
+        try {
+          paperTasks.get(id).progress = {
+            stage: 'read-questions',
+            message: `AI 正在读取第 ${i + 1}/${input.images.length} 页题目…`,
+            current: i + 1, total: input.images.length
+          };
+
+          const vlQuestions = await readQuestionTexts(img, allMarkedQNs);
+          if (vlQuestions.length > 0) {
+            // 找到或创建该页的 pages 条目
+            let pageEntry = pages.find(p => p.pageIndex === i + 1);
+            if (!pageEntry) {
+              pageEntry = { pageIndex: i + 1, questions: [], redMarksBase64: null, correctedBase64: img, hasRedInk: false, layoutRaw: [], imageSize: null };
+              pages.push(pageEntry);
+            }
+            // 用 VL 结果替代空 questions
+            pageEntry.questions = vlQuestions.map(q => ({
+              questionNumber: q.questionNumber,
+              questionType: q.questionType || '未知',
+              questionText: q.questionText || '',
+              options: q.options || [],
+              studentAnswer: q.studentAnswer || '',
+              rawText: q.questionText || '',
+              y: 0, yEnd: 0,
+              blocks: []
+            }));
+            log('info', 'VL题目提取完成', { taskId: id, page: i + 1, questions: vlQuestions.length });
+          }
+        } catch (err) {
+          log('warn', 'VL题目提取失败', { taskId: id, page: i + 1, error: err.message });
+        }
+      }
+    }
+
     // ===== 阶段 3：智能合并 =====
-    paperTasks.get(id).progress = {
-      stage: 'merge',
-      message: '正在合并分析结果…',
-      questionGroups: totalQuestionGroups,
-      redMarks: marks.length
-    };
+    const finalQuestionGroups = pages.reduce((s, p) => s + p.questions.length, 0);
 
     const { allQuestions, wrongQuestions, correctCount, wrongCount } = mergeResults(pages, marks);
     log('info', '合并完成', {
