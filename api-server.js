@@ -817,6 +817,9 @@ function validateScanResults(questions) {
   for (const q of questions) {
     const issues = [];
     
+    // 0. 确保 isUnanswered 字段存在
+    if (q.isUnanswered === undefined) q.isUnanswered = false;
+    
     // 1. 必填字段检查
     if (!q.questionNumber && q.questionNumber !== 0) issues.push('缺少题号');
     if (!q.isCorrect && q.isCorrect !== false) issues.push('缺少对错判断');
@@ -825,9 +828,9 @@ function validateScanResults(questions) {
     if (q.questionType === '选择题' && q.studentAnswer) {
       const ans = q.studentAnswer.toUpperCase().trim();
       if (ans.length === 1 && /^[A-D]$/.test(ans)) {
-        q.studentAnswer = ans; // 规范化
+        q.studentAnswer = ans;
       } else if (ans.length > 1 && /^[A-D]$/.test(ans[0])) {
-        q.studentAnswer = ans[0]; // 取首字母
+        q.studentAnswer = ans[0];
       }
     }
     
@@ -835,17 +838,26 @@ function validateScanResults(questions) {
     if (q.redInkContent && q.studentAnswer && q.correctAnswer) {
       if (q.studentAnswer !== q.correctAnswer && q.isCorrect === true) {
         issues.push(`矛盾：红笔正确答案=${q.correctAnswer}但标记为正确`);
-        q.isCorrect = false; // 自动修正
+        q.isCorrect = false;
       }
     }
     
     // 4. 扣分标记检查
     if (q.gradingMark && /-\d/.test(q.gradingMark) && q.isCorrect === true) {
       issues.push(`矛盾：有扣分标记但标记为正确`);
-      q.isCorrect = false; // 自动修正
+      q.isCorrect = false;
+    }
+
+    // 5. isUnanswered 一致性：未作答 + 无红笔标记 → 保持 isCorrect=false
+    if (q.isUnanswered && !q.hasRedInk) {
+      // 未作答且无红笔标记 → 确认 isCorrect=false（已在 prompt 中设定）
+      if (q.isCorrect === true) {
+        issues.push('未作答但标记为正确');
+        q.isCorrect = false;
+      }
     }
     
-    // 5. 置信度
+    // 6. 置信度
     if (!q.confidence) q.confidence = q.gradingMark ? 'high' : 'medium';
     
     if (issues.length > 0) {
@@ -856,8 +868,10 @@ function validateScanResults(questions) {
     }
   }
   
-  log('info', '扫描校验完成', { total: questions.length, valid: valid.length, flagged: flagged.length });
-  return { valid, flagged, stats: { total: questions.length, valid: valid.length, flagged: flagged.length } };
+  const unanswered = questions.filter(q => q.isUnanswered).length;
+  const wrong = questions.filter(q => !q.isCorrect && !q.isUnanswered).length;
+  log('info', '扫描校验完成', { total: questions.length, valid: valid.length, flagged: flagged.length, wrong, unanswered });
+  return { valid, flagged, stats: { total: questions.length, valid: valid.length, flagged: flagged.length, wrong, unanswered } };
 }
 
 async function executePaperTask(task) {
