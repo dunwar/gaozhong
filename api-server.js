@@ -25,6 +25,9 @@ import { ERROR_DIAGNOSIS_PROMPT } from './prompts/error-diagnosis.js';
 import { PAPER_SCAN_PROMPT_V2 } from './prompts/paper-scan-v2.js';
 import { renderPaperAnalysisPrompt } from './prompts/paper-analysis-v4.js';
 import { STUDY_GUIDANCE_PROMPT_V1 } from './prompts/study-guidance-v1.js';
+import { MARK_READER_PROMPT } from './prompts/mark-reader-v1.js';
+import { extractPage, collectRedMarkImages } from './ocr-extractor.js';
+import { mergeResults, prepareErrorList } from './smart-merger.js';
 import { initDB, saveDB, saveRecord, getRecord, getHistory, getStats, createUser, getUserByEmail, getUserById, updateUser, changePassword, listUsers, saveErrorProblem, saveErrorKnowledgeTags, getErrorProblem, listErrorProblems, getErrorStats, getKnowledgeStats, getErrorsByKnowledgePoint, searchKnowledgePoints, createPaperSession, updatePaperSession, getPaperSession, listPaperSessions, listErrorsByPaper, listErrorsByTime, listErrorsBySubject, listErrorsForGuidance } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -647,72 +650,42 @@ async function preprocessImage(base64) {
 }
 
 /**
- * 阶段 1：视觉扫描 — 用 Qwen VL 直接看图片，逐题判断对错
+ * 新流水线：红笔标记读取 — Qwen VL 仅看红笔分离图
+ * 输出批改标记列表 [{questionNumber, mark, correctAnswer, extraInfo}]
  */
-async function scanPaperImage(imageBase64, subject, pageIndex, totalPages) {
-  const pageInfo = totalPages > 1 ? `第 ${pageIndex + 1}/${totalPages} 页` : '单页试卷';
-  const prompt = PAPER_SCAN_PROMPT_V2
-    .replace('{subject}', subject)
-    .replace('{pageInfo}', pageInfo);
+async function readRedMarks(redMarkImages) {
+  if (redMarkImages.length === 0) return [];
 
-  // 调用预处理服务（如果可用）
-  let preprocessResult = null;
-  try { preprocessResult = await preprocessImage(imageBase64); } catch (_) {}
-
-  // 构建发给 VL 模型的图片
-  // 预处理可用时：用矫正+增强图替代原图 → 更高 OCR 准确率
-  const mainImage = (preprocessResult && preprocessResult.corrected) ? preprocessResult.corrected : imageBase64;
-  const contentParts = [{ type: 'text', text: prompt }, { type: 'image_url', image_url: { url: mainImage } }];
-
-  if (preprocessResult) {
-    // 红笔分离图：帮助识别批改标记
-    if (preprocessResult.red_marks) {
-      contentParts.push(
-        { type: 'text', text: '【辅助图A：红色笔迹分离】从试卷中单独提取的红色笔迹。红色=教师批改。请重点关注红笔打叉(✗)、打勾(✓)、扣分数字、红笔写的正确答案。' },
-        { type: 'image_url', image_url: { url: preprocessResult.red_marks } }
-      );
-    }
-    // 蓝黑笔迹分离图：区分学生手写 vs 印刷文字
-    if (preprocessResult.student_handwriting) {
-      contentParts.push(
-        { type: 'text', text: '【辅助图B：蓝黑笔迹分离】从试卷中提取的学生蓝色/黑色笔迹。这通常是学生的作答内容，请对应题目编号。' },
-        { type: 'image_url', image_url: { url: preprocessResult.student_handwriting } }
-      );
-    }
-    // 版面分析结果：文本区域坐标，辅助定位题目
-    if (preprocessResult.layout && preprocessResult.layout.length > 0) {
-      const layoutSummary = preprocessResult.layout
-        .filter(l => l.confidence > 0.5)
-        .map(l => `[${l.x},${l.y} ${l.width}x${l.height}] "${l.text}"`)
-        .join('; ');
-      if (layoutSummary) {
-        contentParts.push({ type: 'text', text: `【版面分析】检测到以下文本区域（坐标+内容）：${layoutSummary}` });
-      }
-    }
+  // 将所有红笔分离图拼成 contentParts
+  const contentParts = [{ type: 'text', text: MARK_READER_PROMPT }];
+  for (const img of redMarkImages) {
+    contentParts.push({ type: 'text', text: '--- 下一页的红笔批改标记 ---' });
+    contentParts.push({ type: 'image_url', image_url: { url: img } });
   }
 
   const result = await dashscopeRequest({
     model: MODEL_OCR,
     messages: [{ role: 'user', content: contentParts }],
     temperature: 0.1,
-    max_tokens: 4000
+    max_tokens: 2000
   });
 
   const content = result.choices?.[0]?.message?.content;
-  if (!content) throw new Error(`第 ${pageIndex + 1} 页扫描返回为空`);
+  if (!content) throw new Error('红笔标记读取返回为空');
 
-  // 解析 JSON
   const cleaned = content.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
   let parsed;
   try { parsed = JSON.parse(cleaned); } catch {
     const m = cleaned.match(/\[[\s\S]*\]/);
-    if (m) parsed = JSON.parse(m[0]);
-    else throw new Error(`第 ${pageIndex + 1} 页扫描结果格式错误`);
+    if (m) {
+      try { parsed = JSON.parse(m[0]); } catch {
+        const salvage = m[0].replace(/,\s*$/, '') + ']';
+        try { parsed = JSON.parse(salvage); } catch { parsed = []; }
+      }
+    } else { parsed = []; }
   }
-  if (!Array.isArray(parsed)) throw new Error(`第 ${pageIndex + 1} 页扫描结果非数组`);
 
-  // 标记页码
-  return parsed.map(q => ({ ...q, pageIndex: pageIndex + 1 }));
+  return Array.isArray(parsed) ? parsed : [];
 }
 
 /**
@@ -874,54 +847,114 @@ function validateScanResults(questions) {
   return { valid, flagged, stats: { total: questions.length, valid: valid.length, flagged: flagged.length, wrong, unanswered } };
 }
 
+/**
+ * 新流水线：executePaperTask
+ *
+ * 阶段 1: 全页预处理 (本地, ~3s) → PaddleOCR 文本 + 红笔分离图
+ * 阶段 2: VL 读取红笔标记 (API, ~10s) → 仅看红笔分离图
+ * 阶段 3: 智能合并 (本地, <1s) → 精确错题列表
+ * 阶段 4: DeepSeek 深度分析 (API, ~30s) → 仅分析真错题
+ */
 async function executePaperTask(task) {
   const { id, input } = task;
   try {
     paperTasks.get(id).status = 'processing';
 
-    // ===== 阶段 1：逐张图片视觉扫描 =====
+    // ===== 阶段 1：全页预处理 + OCR 文本提取 =====
     const totalPages = input.images.length;
-    const allQuestions = [];
+    paperTasks.get(id).progress = {
+      stage: 'preprocess',
+      message: `正在预处理 ${totalPages} 页试卷…`,
+      current: 0, total: totalPages
+    };
+
+    const pages = [];
+    const redMarkImages = [];
 
     for (let i = 0; i < input.images.length; i++) {
-      paperTasks.get(id).progress = {
-        stage: 'scan',
-        message: `AI 正在扫描试卷 (${i + 1}/${totalPages})…`,
-        current: i + 1, total: totalPages
-      };
       const img = input.images[i];
       if (!img.startsWith('data:image')) continue;
 
+      paperTasks.get(id).progress = {
+        stage: 'preprocess',
+        message: `预处理第 ${i + 1}/${totalPages} 页 (OCR+笔迹分离)…`,
+        current: i + 1, total: totalPages
+      };
+
       try {
-        const pageQuestions = await scanPaperImage(img, input.subject, i, totalPages);
-        allQuestions.push(...pageQuestions);
-        log('info', '页面扫描完成', { taskId: id, page: i + 1, questions: pageQuestions.length, wrong: pageQuestions.filter(q => !q.isCorrect).length });
+        const page = await extractPage(img, i + 1);
+        pages.push(page);
+        if (page.hasRedInk) redMarkImages.push(page.redMarksBase64);
+        log('info', '页面OCR提取完成', {
+          taskId: id, page: i + 1,
+          textBlocks: page.layoutRaw?.length || 0,
+          questionGroups: page.questions.length,
+          hasRedInk: page.hasRedInk
+        });
       } catch (err) {
-        log('warn', '单页扫描失败', { taskId: id, page: i + 1, error: err.message });
-        // 继续处理其他页面
+        log('warn', '页面预处理失败', { taskId: id, page: i + 1, error: err.message });
       }
     }
 
-    if (allQuestions.length === 0) throw new Error('所有页面扫描失败，未能识别任何题目');
+    if (pages.length === 0) throw new Error('所有页面预处理失败');
 
-    // ===== 后处理校验 =====
-    const validation = validateScanResults(allQuestions);
-    const correctCount = validation.valid.filter(q => q.isCorrect).length +
-                         validation.flagged.filter(q => q.isCorrect).length;
-    const wrongQuestions = allQuestions.filter(q => !q.isCorrect);
-    const lowConfidence = wrongQuestions.filter(q => q.confidence === 'low');
+    const totalQuestionGroups = pages.reduce((s, p) => s + p.questions.length, 0);
+    log('info', 'OCR提取完成', {
+      taskId: id, pages: pages.length,
+      questionGroups: totalQuestionGroups,
+      pagesWithRedInk: redMarkImages.length
+    });
 
-    // ===== 阶段 2：DeepSeek 深度分析错题 =====
+    // ===== 阶段 2：VL 读取红笔标记 =====
+    paperTasks.get(id).progress = {
+      stage: 'read-marks',
+      message: 'AI 正在识别批改标记…',
+      redMarkPages: redMarkImages.length
+    };
+
+    let marks = [];
+    if (redMarkImages.length > 0) {
+      try {
+        marks = await readRedMarks(redMarkImages);
+        log('info', '红笔标记读取完成', { taskId: id, marksFound: marks.length, marks });
+      } catch (err) {
+        log('warn', '红笔标记读取失败，降级为全扫描', { taskId: id, error: err.message });
+        // 降级：标记所有题为需要分析
+        marks = [];
+      }
+    } else {
+      log('info', '无红笔标记页，所有题视为正确', { taskId: id });
+    }
+
+    // ===== 阶段 3：智能合并 =====
+    paperTasks.get(id).progress = {
+      stage: 'merge',
+      message: '正在合并分析结果…',
+      questionGroups: totalQuestionGroups,
+      redMarks: marks.length
+    };
+
+    const { allQuestions, wrongQuestions, correctCount, wrongCount } = mergeResults(pages, marks);
+    log('info', '合并完成', {
+      taskId: id,
+      total: allQuestions.length,
+      correct: correctCount,
+      wrong: wrongCount,
+      fromRedMarks: marks.length
+    });
+
+    // ===== 阶段 4：DeepSeek 深度分析（仅错题） =====
     let analysisResults = [];
     if (wrongQuestions.length > 0) {
       paperTasks.get(id).progress = {
         stage: 'analyze',
         message: `AI 正在分析 ${wrongQuestions.length} 道错题…`,
         totalQuestions: allQuestions.length,
-        correctCount, wrongCount: wrongQuestions.length
+        correctCount, wrongCount
       };
 
-      analysisResults = await analyzeErrors(input.subject, wrongQuestions);
+      const errorList = prepareErrorList(wrongQuestions);
+      analysisResults = await analyzeErrors(input.subject, errorList);
     }
 
     // ===== 保存结果到数据库 =====
@@ -932,7 +965,6 @@ async function executePaperTask(task) {
       const analysis = analysisResults.find(a => a.questionNumber === q.questionNumber) || {};
       const errorId = crypto.randomUUID().slice(0, 8);
 
-      // v4 格式：diagnosis/solution/mnemonic/knowledgeCards
       const knowledgeCards = analysis.knowledgeCards || [];
       const knowledgeExplJson = JSON.stringify(
         knowledgeCards.reduce((acc, c) => {
@@ -940,34 +972,30 @@ async function executePaperTask(task) {
           return acc;
         }, {})
       );
-      const cardsJson = JSON.stringify(knowledgeCards);
 
       saveErrorProblem({
         id: errorId, userId: input.userId, subject: input.subject,
-        topic: q.questionTitle || `第${q.questionNumber}题（${q.questionType}）`,
-        questionText: q.questionText || '',
+        topic: `第${q.questionNumber}题（${q.questionType || '未知'}）`,
+        questionText: q.questionText || q.rawText || '',
         questionType: q.questionType || '',
         answerOptions: JSON.stringify(q.options || []),
         wrongAnswer: q.studentAnswer || '',
-        correctAnswer: q.correctAnswer || '',
+        correctAnswer: q.correctAnswer || (analysis.correctAnswer || ''),
         errorType: analysis.errorType || '未知',
         correctSolution: analysis.solution || analysis.correctSolution || '',
         difficulty: analysis.difficulty || 3,
         knowledgeExplanation: knowledgeExplJson,
         gradingEvidence: q.gradingMark || '',
         aiRaw: JSON.stringify({
-          scan: q, analysis,
-          diagnosis: analysis.diagnosis || '',
-          solution: analysis.solution || '',
-          mnemonic: analysis.mnemonic || '',
-          knowledgeCards
+          ocr: { questionText: q.questionText, questionType: q.questionType, options: q.options },
+          marks: { mark: q.gradingMark, correctAnswer: q.correctAnswer, confidence: q.confidence },
+          analysis: { diagnosis: analysis.diagnosis, solution: analysis.solution, mnemonic: analysis.mnemonic, knowledgeCards }
         }),
         notes: analysis.mnemonic || '',
         sessionId, paperIndex: q.pageIndex || 1, status: 'done',
         createdAt: Date.now()
       });
 
-      // 知识点关联
       const kps = analysis.knowledgePoints || [];
       const matchedKpIds = [];
       for (const kpName of kps) {
@@ -983,7 +1011,7 @@ async function executePaperTask(task) {
       errorCount: savedCount,
       totalQuestions: allQuestions.length,
       correctCount,
-      aiRaw: JSON.stringify({ allQuestions, analysisResults })
+      aiRaw: JSON.stringify({ pipeline: 'v2-redmark-driven', pages, marks, allQuestions, wrongQuestions, analysisResults })
     });
 
     paperTasks.get(id).status = 'done';
@@ -993,24 +1021,25 @@ async function executePaperTask(task) {
       totalQuestions: allQuestions.length,
       correctCount,
       totalErrors: savedCount,
-      lowConfidenceCount: lowConfidence.length,
-      validationStats: validation.stats,
+      pipeline: 'v2-redmark-driven',
       errors: analysisResults.slice(0, 50)
     };
     paperTasks.get(id).progress = {
       stage: 'done',
-      message: `扫描 ${allQuestions.length} 题 ✅${correctCount} ❌${savedCount} | 校验通过 ${validation.stats.valid} | 低置信度 ${lowConfidence.length}`
+      message: `${allQuestions.length} 题 ✅${correctCount} ❌${savedCount} | 批改标记: ${marks.length}个`
     };
-    log('info', '双阶段分析完成', {
+
+    log('info', '新流水线完成', {
       taskId: id, subject: input.subject,
-      total: allQuestions.length, correct: correctCount, errors: savedCount
+      total: allQuestions.length, correct: correctCount, errors: savedCount,
+      marks: marks.length, pipeline: 'v2-redmark-driven'
     });
 
   } catch (err) {
-    log('error', '整卷分析失败', { taskId: id, error: err.message });
+    log('error', '整卷分析失败', { taskId: id, error: err.message, stack: err.stack?.substring(0, 300) });
     paperTasks.get(id).status = 'failed';
     paperTasks.get(id).error = err.message;
-    paperTasks.get(id).progress = { stage: 'failed', message: '分析失败' };
+    paperTasks.get(id).progress = { stage: 'failed', message: err.message };
     try { updatePaperSession(id, { status: 'failed' }); } catch (_) {}
   }
 }
