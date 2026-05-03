@@ -33,7 +33,7 @@ def get_ocr():
     if _ocr_model is None:
         try:
             from paddleocr import PaddleOCR
-            _ocr_model = PaddleOCR(use_angle_cls=True, lang='ch', show_log=False)
+            _ocr_model = PaddleOCR(use_angle_cls=True, lang='ch')
             _paddle_ocr_available = True
             print("[preprocess] PaddleOCR 模型加载成功", flush=True)
         except Exception as e:
