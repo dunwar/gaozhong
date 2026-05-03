@@ -200,6 +200,41 @@
         </div>
       </div>
 
+      <!-- 最近试卷 -->
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-8">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-lg font-semibold text-gray-900">📄 最近试卷</h2>
+          <router-link to="/errors?view=paper" class="text-sm text-blue-600 hover:text-blue-700">查看全部 →</router-link>
+        </div>
+        <div v-if="paperSessions.length === 0" class="text-gray-400 text-sm text-center py-6">
+          还没有上传过试卷，<router-link to="/error-upload" class="text-blue-600 hover:text-blue-700">去上传第一份 →</router-link>
+        </div>
+        <div v-else class="grid gap-3 sm:grid-cols-2">
+          <div
+            v-for="s in paperSessions"
+            :key="s.id"
+            @click="goToPaperErrors(s)"
+            class="p-4 bg-gray-50 rounded-xl hover:bg-blue-50 transition-colors cursor-pointer border border-transparent hover:border-blue-200"
+          >
+            <div class="flex items-center justify-between mb-2">
+              <div class="flex items-center gap-2">
+                <span :class="subBadge(s.subject)" class="px-2 py-1 rounded text-xs font-semibold">{{ s.subject }}</span>
+                <span class="text-sm font-medium text-gray-800 truncate max-w-[150px]">{{ s.title || '未命名试卷' }}</span>
+              </div>
+              <span :class="s.status==='done'?'text-green-600':'text-yellow-600'" class="text-xs">
+                {{ s.status === 'done' ? '✅ 已完成' : s.status === 'failed' ? '❌ 失败' : '🔄 处理中' }}
+              </span>
+            </div>
+            <div class="flex items-center gap-4 text-xs text-gray-500">
+              <span>{{ s.imageCount || 1 }} 页</span>
+              <span v-if="s.totalQuestions">{{ s.totalQuestions }} 题</span>
+              <span v-if="s.correctCount != null">对 {{ s.correctCount }}</span>
+              <span>{{ s.createdAt?.substring(0, 10) || '' }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- 薄弱知识点 Top 榜 -->
       <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
         <div class="flex items-center justify-between mb-4">
@@ -275,6 +310,7 @@ import { authFetch } from '../utils/authStore.js'
 
 const errorStats = ref({ total: 0, bySubject: {}, byErrorType: {}, todayCount: 0 })
 const knowledgeStats = ref([])
+const paperSessions = ref([])
 const kpModal = reactive({ visible: false, loading: false, kp: null, errors: [] })
 const loading = ref(true)
 
@@ -350,6 +386,18 @@ function subBadge(s){const m={"数学":"bg-blue-50 text-blue-700","物理":"bg-p
 function errBadge(t){const m={"概念不清":"bg-red-50 text-red-700","计算失误":"bg-yellow-50 text-yellow-700","审题偏差":"bg-purple-50 text-purple-700","方法错误":"bg-orange-50 text-orange-700","粗心马虎":"bg-blue-50 text-blue-700","知识盲区":"bg-gray-100 text-gray-700"};return m[t]||"bg-gray-50 text-gray-600"}
 function kpCountColor(n){return n>=3?"text-red-600":n>=2?"text-orange-500":"text-blue-500"}
 async function showKpErrors(kp){kpModal.visible=true;kpModal.kp=kp;kpModal.loading=true;kpModal.errors=[];try{const r=await authFetch("/api/knowledge/errors?kpId="+kp.id);const d=await r.json();if(d.success)kpModal.errors=d.errors||[]}catch(e){console.error(e)}finally{kpModal.loading=false}}
+
+async function loadSessions() {
+  try {
+    const res = await authFetch('/api/paper/sessions?limit=6')
+    const data = await res.json()
+    if (data.success) paperSessions.value = data.sessions || []
+  } catch (e) { console.error('加载试卷列表失败:', e) }
+}
+
+function goToPaperErrors(session) {
+  window.location.href = `/errors?sessionId=${session.id}&view=paper`
+}
 
 async function loadStats() {
   loading.value = true
@@ -433,5 +481,5 @@ async function generateGuidance() {
   }
 }
 
-onMounted(() => loadStats())
+onMounted(() => { loadStats(); loadSessions(); })
 </script>
