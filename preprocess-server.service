@@ -1,0 +1,15 @@
+[Unit]
+Description=gaozhong.online 试卷预处理微服务 (OpenCV + PaddleOCR)
+After=network.target docker.service
+
+[Service]
+Type=simple
+WorkingDirectory=/var/lib/openclaw/www/gaozhong.online
+ExecStart=/usr/bin/python3 preprocess-server.py
+Restart=always
+RestartSec=5
+StandardOutput=append:/var/lib/openclaw/www/gaozhong.online/preprocess-server.log
+StandardError=append:/var/lib/openclaw/www/gaozhong.online/preprocess-server.log
+
+[Install]
+WantedBy=multi-user.target

@@ -655,13 +655,36 @@ async function scanPaperImage(imageBase64, subject, pageIndex, totalPages) {
   let preprocessResult = null;
   try { preprocessResult = await preprocessImage(imageBase64); } catch (_) {}
 
-  // 构建发给 VL 模型的图片（原图 + 红笔分离图）
-  const contentParts = [{ type: 'text', text: prompt }, { type: 'image_url', image_url: { url: imageBase64 } }];
-  if (preprocessResult && preprocessResult.red_marks) {
-    contentParts.push(
-      { type: 'text', text: '【辅助图：红色笔迹分离】这是从试卷中单独提取的红色笔迹。红色=教师批改。请重点关注红笔打叉(✗)、打勾(✓)、扣分数字、红笔写的正确答案。' },
-      { type: 'image_url', image_url: { url: preprocessResult.red_marks } }
-    );
+  // 构建发给 VL 模型的图片
+  // 预处理可用时：用矫正+增强图替代原图 → 更高 OCR 准确率
+  const mainImage = (preprocessResult && preprocessResult.corrected) ? preprocessResult.corrected : imageBase64;
+  const contentParts = [{ type: 'text', text: prompt }, { type: 'image_url', image_url: { url: mainImage } }];
+
+  if (preprocessResult) {
+    // 红笔分离图：帮助识别批改标记
+    if (preprocessResult.red_marks) {
+      contentParts.push(
+        { type: 'text', text: '【辅助图A：红色笔迹分离】从试卷中单独提取的红色笔迹。红色=教师批改。请重点关注红笔打叉(✗)、打勾(✓)、扣分数字、红笔写的正确答案。' },
+        { type: 'image_url', image_url: { url: preprocessResult.red_marks } }
+      );
+    }
+    // 蓝黑笔迹分离图：区分学生手写 vs 印刷文字
+    if (preprocessResult.student_handwriting) {
+      contentParts.push(
+        { type: 'text', text: '【辅助图B：蓝黑笔迹分离】从试卷中提取的学生蓝色/黑色笔迹。这通常是学生的作答内容，请对应题目编号。' },
+        { type: 'image_url', image_url: { url: preprocessResult.student_handwriting } }
+      );
+    }
+    // 版面分析结果：文本区域坐标，辅助定位题目
+    if (preprocessResult.layout && preprocessResult.layout.length > 0) {
+      const layoutSummary = preprocessResult.layout
+        .filter(l => l.confidence > 0.5)
+        .map(l => `[${l.x},${l.y} ${l.width}x${l.height}] "${l.text}"`)
+        .join('; ');
+      if (layoutSummary) {
+        contentParts.push({ type: 'text', text: `【版面分析】检测到以下文本区域（坐标+内容）：${layoutSummary}` });
+      }
+    }
   }
 
   const result = await dashscopeRequest({
