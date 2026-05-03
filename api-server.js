@@ -27,6 +27,7 @@ import { renderPaperAnalysisPrompt } from './prompts/paper-analysis-v4.js';
 import { STUDY_GUIDANCE_PROMPT_V1 } from './prompts/study-guidance-v1.js';
 import { MARK_READER_PROMPT } from './prompts/mark-reader-v1.js';
 import { QUESTION_READER_PROMPT } from './prompts/question-reader-v1.js';
+import { PAPER_ANALYZER_PROMPT } from './prompts/paper-analyzer-v1.js';
 import { extractPage, collectRedMarkImages } from './ocr-extractor.js';
 import { mergeResults, prepareErrorList } from './smart-merger.js';
 import { initDB, saveDB, saveRecord, getRecord, getHistory, getStats, createUser, getUserByEmail, getUserById, updateUser, changePassword, listUsers, saveErrorProblem, saveErrorKnowledgeTags, getErrorProblem, listErrorProblems, getErrorStats, getKnowledgeStats, getErrorsByKnowledgePoint, searchKnowledgePoints, createPaperSession, updatePaperSession, getPaperSession, listPaperSessions, listErrorsByPaper, listErrorsByTime, listErrorsBySubject, listErrorsForGuidance } from './db.js';
@@ -724,6 +725,41 @@ async function readQuestionTexts(imageBase64, targetQuestionNumbers) {
   }
 
   return Array.isArray(parsed) ? parsed : [];
+}
+
+/**
+ * VL 统一分析：同时看原图 + 红笔分离图，一次性输出完整错题列表
+ */
+async function analyzePaperWithVL(originalImageBase64, redMarksBase64, pageIndex) {
+  const result = await dashscopeRequest({
+    model: MODEL_OCR,
+    messages: [{ role: 'user', content: [
+      { type: 'text', text: PAPER_ANALYZER_PROMPT },
+      { type: 'text', text: '【图 1：试卷原图】' },
+      { type: 'image_url', image_url: { url: originalImageBase64 } },
+      { type: 'text', text: '【图 2：红笔分离图（只有红色批改标记）】' },
+      { type: 'image_url', image_url: { url: redMarksBase64 } }
+    ]}],
+    temperature: 0.1,
+    max_tokens: 4000
+  });
+
+  const content = result.choices?.[0]?.message?.content;
+  if (!content) return [];
+
+  const cleaned = content.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+  let parsed;
+  try { parsed = JSON.parse(cleaned); } catch {
+    const m = cleaned.match(/\[[\s\S]*\]/);
+    if (m) {
+      try { parsed = JSON.parse(m[0]); } catch {
+        const salvage = m[0].replace(/,\s*$/, '') + ']';
+        try { parsed = JSON.parse(salvage); } catch { parsed = []; }
+      }
+    } else { parsed = []; }
+  }
+
+  return Array.isArray(parsed) ? parsed.map(q => ({ ...q, pageIndex })) : [];
 }
 
 /**
