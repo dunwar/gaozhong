@@ -30,6 +30,7 @@ import { initDB, saveDB, saveRecord, getRecord, getHistory, getStats, createUser
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3001;
 const MAX_CONCURRENT = 3;
+const PAPER_MAX_CONCURRENT = 2;     // 整卷分析独立并发（任务重）
 const MAX_QUEUE_DEPTH = 200;
 const TASK_TTL_MS = 60 * 60 * 1000; // 1 小时
 const CLEANUP_INTERVAL_MS = 5 * 60 * 1000; // 5 分钟清理一次
@@ -142,9 +143,12 @@ class ConcurrencyQueue {
 
 const gradingQueue = new ConcurrencyQueue(MAX_CONCURRENT);
 
-// 错题诊断队列（独立于作文批改）
+// 错题诊断 + 学习指导队列（任务较轻）
 const errorQueue = new ConcurrencyQueue(MAX_CONCURRENT);
 const ERROR_TASK_TTL_MS = 60 * 60 * 1000;
+
+// 整卷分析独立队列（任务重，防阻塞错题诊断）
+const paperQueue = new ConcurrencyQueue(PAPER_MAX_CONCURRENT);
 const errorTasks = new Map();
 
 // V2 队列
@@ -1020,7 +1024,7 @@ app.get('/health', (req, res) => {
     version: '2.0-async',
     providers: { ocr: { name: 'DashScope', model: MODEL_OCR }, grading: { name: 'DeepSeek', model: MODEL_GRADING } },
     prompt: { version: PROMPT_VERSION, file: 'prompts/grading-v5.js' },
-    queue: { active: gradingQueue.active, pending: gradingQueue.pending, maxConcurrent: MAX_CONCURRENT },
+    queue: { grading: { active: gradingQueue.active, pending: gradingQueue.pending }, error: { active: errorQueue.active, pending: errorQueue.pending }, paper: { active: paperQueue.active, pending: paperQueue.pending, maxConcurrent: PAPER_MAX_CONCURRENT } },
     tasks: { memory: tasks.size, persistent: getStats() },
     uptime: Math.floor(process.uptime())
   });
@@ -1426,7 +1430,7 @@ app.post('/paper/analyze', authMiddleware, (req, res) => {
   const ip = req.ip || req.socket.remoteAddress || 'unknown';
   const rl = checkRateLimit(ip);
   if (!rl.allowed) return res.status(429).json({ error: '请求过于频繁', retryAfter: rl.retryAfter });
-  if (errorQueue.pending >= MAX_QUEUE_DEPTH) return res.status(503).json({ error: '排队人数过多' });
+  if (paperQueue.pending >= MAX_QUEUE_DEPTH) return res.status(503).json({ error: '排队人数过多' });
 
   const { subject, images, title } = req.body;
   if (!subject) return res.status(400).json({ error: '请选择学科' });
@@ -1440,7 +1444,7 @@ app.post('/paper/analyze', authMiddleware, (req, res) => {
   const task = { id: taskId, status: 'queued', input: { subject, images, userId: req.user.id, title }, result: null, error: null, progress: null, createdAt: Date.now(), updatedAt: Date.now() };
   paperTasks.set(taskId, task);
   log('info', '整卷分析任务创建', { taskId, subject, imageCount: images.length, userId: req.user.id });
-  errorQueue.enqueue(() => executePaperTask(task)).catch(err => { log('error', '整卷分析队列异常', { taskId, error: err.message }); });
+  paperQueue.enqueue(() => executePaperTask(task)).catch(err => { log('error', '整卷分析队列异常', { taskId, error: err.message }); });
   res.status(202).json({ success: true, taskId, status: 'queued', queuePosition: errorQueue.pending + 1, imageCount: images.length });
 });
 
@@ -1545,7 +1549,7 @@ const startup = async () => {
     console.log(`🔍 健康检查: http://localhost:${PORT}/health`);
     console.log(`📝 作文: POST /analyze | 📄 整卷: POST /paper/analyze | 🧠 指导: POST /paper/guidance`);
     console.log(`💾 结果: GET /result/:taskId | 历史: GET /history | 错题: GET /error/list?view=paper|time|subject`);
-    console.log(`⚡ 并发: ${MAX_CONCURRENT} | 队列上限: ${MAX_QUEUE_DEPTH} | TTL: ${TASK_TTL_MS / 60000}min`);
+    console.log(`⚡ 作文/错题并发: ${MAX_CONCURRENT} | 整卷分析并发: ${PAPER_MAX_CONCURRENT} | 队列上限: ${MAX_QUEUE_DEPTH}`);
     console.log(`🤖 OCR: ${MODEL_OCR} | 分析: ${MODEL_GRADING} | Prompt: ${PROMPT_VERSION}`);
   });
 };
