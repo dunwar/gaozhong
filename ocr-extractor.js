@@ -156,6 +156,12 @@ export async function extractPage(imageBase64, pageIndex) {
   const correctedBase64 = result.result.corrected || imageBase64;
   const hasRedInk = !!(redMarksBase64 && redMarksBase64.length > 200);
 
+  // 诊断日志
+  const imgSize = result.image_size || {};
+  if (layoutBlocks.length === 0) {
+    console.warn(`[ocr-extractor] 页${pageIndex}: PaddleOCR 零文本 | 尺寸:${imgSize.width}x${imgSize.height} | red:${hasRedInk} | layoutCount:${result.result.layout_count || 0}`);
+  }
+
   // 分组题目
   const groups = groupTextBlocks(layoutBlocks);
   const questions = groups.map(parseQuestionBlock);

@@ -972,11 +972,13 @@ async function executePaperTask(task) {
         redMarks: marks.length
       };
 
-      // 收集所有有标记的题号
-      const allMarkedQNs = [...new Set(marks.filter(m => m.questionNumber).map(m => m.questionNumber))];
+      // 收集所有有标记的题号（动态列表，提取后移除避免重复）
+      let allMarkedQNs = [...new Set(marks.filter(m => m.questionNumber).map(m => m.questionNumber))];
 
       // 逐页调用 VL 提取题目文本（发送原图 + 目标题号）
       for (let i = 0; i < input.images.length; i++) {
+        if (allMarkedQNs.length === 0) break;
+
         const img = input.images[i];
         if (!img.startsWith('data:image')) continue;
 
@@ -989,13 +991,11 @@ async function executePaperTask(task) {
 
           const vlQuestions = await readQuestionTexts(img, allMarkedQNs);
           if (vlQuestions.length > 0) {
-            // 找到或创建该页的 pages 条目
             let pageEntry = pages.find(p => p.pageIndex === i + 1);
             if (!pageEntry) {
               pageEntry = { pageIndex: i + 1, questions: [], redMarksBase64: null, correctedBase64: img, hasRedInk: false, layoutRaw: [], imageSize: null };
               pages.push(pageEntry);
             }
-            // 用 VL 结果替代空 questions
             pageEntry.questions = vlQuestions.map(q => ({
               questionNumber: q.questionNumber,
               questionType: q.questionType || '未知',
@@ -1007,6 +1007,10 @@ async function executePaperTask(task) {
               blocks: []
             }));
             log('info', 'VL题目提取完成', { taskId: id, page: i + 1, questions: vlQuestions.length });
+
+            // 已提取的题号从待处理列表中移除，避免跨页重复
+            const extractedQNs = new Set(vlQuestions.map(q => q.questionNumber));
+            allMarkedQNs = allMarkedQNs.filter(qn => !extractedQNs.has(qn));
           }
         } catch (err) {
           log('warn', 'VL题目提取失败', { taskId: id, page: i + 1, error: err.message });
@@ -1026,25 +1030,58 @@ async function executePaperTask(task) {
       fromRedMarks: marks.length
     });
 
-    // ===== 阶段 4：DeepSeek 深度分析（仅错题） =====
+    // ===== 过滤无题干错题（如纯听力题）=====
+    const MIN_QUESTION_LENGTH = 8; // 最少8个字符才算有效题目
+    const analyzedWrong = wrongQuestions.filter(q => {
+      const text = q.questionText || q.rawText || '';
+      const hasContent = text.replace(/[0-9\.\、\s\n]/g, '').length >= MIN_QUESTION_LENGTH;
+      if (!hasContent) {
+        log('info', '跳过无题干错题', { taskId: id, q: q.questionNumber, textLen: text.length });
+        // 直接保存为"无法分析"状态
+        const errorId = crypto.randomUUID().slice(0, 8);
+        saveErrorProblem({
+          id: errorId, userId: input.userId, subject: input.subject,
+          topic: `第${q.questionNumber}题（${q.questionType || '未知'}）`,
+          questionText: '(无题干，无法分析)',
+          questionType: q.questionType || '',
+          answerOptions: JSON.stringify(q.options || []),
+          wrongAnswer: q.studentAnswer || '',
+          correctAnswer: q.correctAnswer || '',
+          errorType: '无题干',
+          correctSolution: '该题为听力/看图等无文字题型，无法自动分析。请自行复习。',
+          difficulty: 0,
+          knowledgeExplanation: '{}',
+          gradingEvidence: q.gradingMark || '',
+          aiRaw: JSON.stringify({ skipped: true, reason: 'no_question_text', originalText: text }),
+          notes: '无题干自动跳过',
+          sessionId: id, paperIndex: q.pageIndex || 1, status: 'done',
+          createdAt: Date.now()
+        });
+      }
+      return hasContent;
+    });
+    const skippedQuestions = wrongQuestions.length - analyzedWrong.length;
+    log('info', '题干过滤完成', { taskId: id, total: wrongQuestions.length, analyzed: analyzedWrong.length, skipped: skippedQuestions });
+
+    // ===== 阶段 4：DeepSeek 深度分析（仅有效错题） =====
     let analysisResults = [];
-    if (wrongQuestions.length > 0) {
+    if (analyzedWrong.length > 0) {
       paperTasks.get(id).progress = {
         stage: 'analyze',
-        message: `AI 正在分析 ${wrongQuestions.length} 道错题…`,
+        message: `AI 正在分析 ${analyzedWrong.length} 道错题…`,
         totalQuestions: allQuestions.length,
-        correctCount, wrongCount
+        correctCount, wrongCount: analyzedWrong.length
       };
 
-      const errorList = prepareErrorList(wrongQuestions);
+      const errorList = prepareErrorList(analyzedWrong);
       analysisResults = await analyzeErrors(input.subject, errorList);
     }
 
-    // ===== 保存结果到数据库 =====
+    // ===== 保存分析结果到数据库 =====
     const sessionId = id; let savedCount = 0;
 
-    for (let i = 0; i < wrongQuestions.length; i++) {
-      const q = wrongQuestions[i];
+    for (let i = 0; i < analyzedWrong.length; i++) {
+      const q = analyzedWrong[i];
       const analysis = analysisResults.find(a => a.questionNumber === q.questionNumber) || {};
       const errorId = crypto.randomUUID().slice(0, 8);
 
@@ -1104,12 +1141,13 @@ async function executePaperTask(task) {
       totalQuestions: allQuestions.length,
       correctCount,
       totalErrors: savedCount,
+      skippedNoText: skippedQuestions,
       pipeline: 'v2-redmark-driven',
       errors: analysisResults.slice(0, 50)
     };
     paperTasks.get(id).progress = {
       stage: 'done',
-      message: `${allQuestions.length} 题 ✅${correctCount} ❌${savedCount} | 批改标记: ${marks.length}个`
+      message: `${allQuestions.length} 题 ✅${correctCount} ❌${savedCount}${skippedQuestions > 0 ? ` (${skippedQuestions}题无题干已跳过)` : ''} | 批改: ${marks.length}个`
     };
 
     log('info', '新流水线完成', {

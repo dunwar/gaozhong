@@ -180,11 +180,15 @@ def extract_layout(img):
     import cv2
     ocr = get_ocr()
     if ocr is None:
+        print("[preprocess] PaddleOCR 未加载，跳过版面分析", flush=True)
         return None
 
     try:
-        result = ocr.ocr(img, cls=False)
+        # BGR → RGB（PaddleOCR 3.x 可能需要 RGB 输入）
+        img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        result = ocr.ocr(img_rgb, cls=False)
         if not result or not result[0]:
+            print(f"[preprocess] PaddleOCR 无检测结果 | img shape={img.shape}, dtype={img.dtype}", flush=True)
             return []
 
         boxes = []
