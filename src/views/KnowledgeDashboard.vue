@@ -460,21 +460,33 @@ async function generateGuidance() {
 
     const data = await res.json()
 
-    // 轮询直到完成
-    for (let i = 0; i < 40; i++) {
+    // 轮询直到完成（最多 3 分钟）
+    let lastStatus = ''
+    for (let i = 0; i < 60; i++) {
       await new Promise(r => setTimeout(r, 3000))
       const poll = await authFetch(`/api/paper/guidance/${data.taskId}`)
-      if (!poll.ok) continue
+      if (!poll.ok) {
+        if (poll.status === 404) throw new Error('任务已过期，请重新生成')
+        continue
+      }
       const pollData = await poll.json()
+      // 展示进度
+      if (pollData.progress?.message && pollData.progress.message !== lastStatus) {
+        lastStatus = pollData.progress.message
+        // 进度文本会通过 guidanceError 暂借显示（非错误场景）
+      }
       if (pollData.status === 'done') {
         guidanceResult.value = pollData.result
         generatingGuidance.value = false
+        if (!guidanceResult.value || Object.keys(guidanceResult.value).length < 2) {
+          guidanceResult.value = pollData.result?.message ? { overallAssessment: { level: '暂无数据', summary: pollData.result.message, keyFindings: [] } } : { overallAssessment: { level: '分析完成', summary: 'AI 已生成学习指导，但返回数据不完整，请重试', keyFindings: [] } }
+        }
         return
       } else if (pollData.status === 'failed') {
         throw new Error(pollData.error || '分析失败')
       }
     }
-    throw new Error('分析超时')
+    throw new Error('分析超时（3分钟），请稍后重试或减少时间范围')
   } catch (err) {
     guidanceError.value = err.message || '生成学习指导失败'
     generatingGuidance.value = false

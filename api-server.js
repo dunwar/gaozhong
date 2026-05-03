@@ -717,27 +717,93 @@ async function scanPaperImage(imageBase64, subject, pageIndex, totalPages) {
 
 /**
  * 阶段 2：深度分析 — 用 DeepSeek 对错题进行诊断
+ * 批量处理：每批 ≤8 道题，避免 token 溢出导致 JSON 截断
  */
 async function analyzeErrors(subject, wrongQuestions) {
-  const prompt = renderPaperAnalysisPrompt(subject, wrongQuestions);
-  log('info', '错题AI分析', { provider: 'DeepSeek', model: MODEL_GRADING, subject, errorCount: wrongQuestions.length });
-  const result = await deepseekRequest({
-    model: MODEL_GRADING,
-    messages: [{ role: 'user', content: prompt }],
-    temperature: 0.3,
-    max_tokens: 8000
-  });
-  const content = result.choices?.[0]?.message?.content;
-  if (!content) throw new Error('AI 分析返回为空');
-  const cleaned = content.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
-  let parsed;
-  try { parsed = JSON.parse(cleaned); } catch {
-    const m = cleaned.match(/\[[\s\S]*\]/);
-    if (m) parsed = JSON.parse(m[0]);
-    else throw new Error('AI 分析返回格式错误');
+  const BATCH_SIZE = 8;
+  const batches = [];
+  for (let i = 0; i < wrongQuestions.length; i += BATCH_SIZE) {
+    batches.push(wrongQuestions.slice(i, i + BATCH_SIZE));
   }
-  if (!Array.isArray(parsed)) throw new Error('AI 分析返回非数组');
-  return parsed;
+
+  log('info', '错题AI分析', {
+    provider: 'DeepSeek', model: MODEL_GRADING, subject,
+    errorCount: wrongQuestions.length, batches: batches.length
+  });
+
+  const allResults = [];
+
+  for (let b = 0; b < batches.length; b++) {
+    const batch = batches[b];
+    const prompt = renderPaperAnalysisPrompt(subject, batch);
+
+    try {
+      const result = await deepseekRequest({
+        model: MODEL_GRADING,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.3,
+        max_tokens: 16000
+      });
+
+      const content = result.choices?.[0]?.message?.content;
+      if (!content) throw new Error(`第${b + 1}批 AI 返回为空`);
+
+      const cleaned = content.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+      let parsed;
+
+      try {
+        parsed = JSON.parse(cleaned);
+      } catch (e1) {
+        // Try array extraction
+        const m = cleaned.match(/\[[\s\S]*\]/);
+        if (m) {
+          try { parsed = JSON.parse(m[0]); } catch (e2) {
+            // JSON truncated: try to salvage by closing the array
+            const salvage = m[0].replace(/,\s*$/, '') + ']';
+            try { parsed = JSON.parse(salvage); } catch (e3) {
+              log('warn', '分批JSON解析失败', { batch: b + 1, error: e3.message, contentLen: content.length, contentEnd: content.slice(-200) });
+              // Last resort: extract individual objects
+              const objects = [...m[0].matchAll(/\{[^{}]*\{[^{}]*\}[^{}]*\}|\{[^{}]*\}/g)];
+              if (objects.length > 0) {
+                parsed = objects.map(o => { try { return JSON.parse(o[0]); } catch (_) { return null; } }).filter(Boolean);
+              }
+            }
+          }
+        }
+        if (!parsed) {
+          log('warn', '分批JSON完全不可解析', { batch: b + 1, error: e1.message, contentSample: content.substring(0, 500) });
+          // Return partial results with raw content as fallback
+          parsed = batch.map((q, i) => ({
+            questionNumber: q.questionNumber,
+            errorType: '未知',
+            diagnosis: `AI 分析第${b + 1}批第${i + 1}题时返回格式异常，请重试`,
+            solution: '',
+            mnemonic: '',
+            knowledgeCards: [],
+            difficulty: 3
+          }));
+        }
+      }
+
+      if (Array.isArray(parsed)) {
+        allResults.push(...parsed);
+      }
+    } catch (err) {
+      log('error', '分批分析失败', { batch: b + 1, error: err.message });
+      // Don't fail the entire task — add placeholders
+      batch.forEach(q => allResults.push({
+        questionNumber: q.questionNumber,
+        errorType: '未知',
+        diagnosis: `AI 调用失败：${err.message}`,
+        solution: '',
+        mnemonic: '',
+        knowledgeCards: [],
+        difficulty: 3
+      }));
+    }
+  }
+
+  return allResults;
 }
 
 /**
