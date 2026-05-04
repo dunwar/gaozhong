@@ -75,6 +75,8 @@ if (!DEEPSEEK_KEY) {
   process.exit(1);
 }
 
+import { execSync } from 'child_process';
+
 // ========== HTTPS 连接池（高频复用，防连接泄漏） ==========
 const httpsAgent = new https.Agent({
   keepAlive: true,
@@ -705,6 +707,26 @@ async function preprocessImage(base64) {
 }
 
 /**
+ * 压缩图片（ImageMagick convert），限制宽度和 JPEG 质量
+ * 返回 newBase64 和 actualWidth
+ */
+function compressImage(base64Url, maxWidth = 1200, quality = 65) {
+  try {
+    const match = base64Url.match(/^data:([^;]+);base64,(.+)$/);
+    if (!match) return base64Url;
+    const mime = match[1].split('/')[1] || 'jpeg'; // jpeg or png
+    const buf = Buffer.from(match[2], 'base64');
+    const result = execSync(
+      `convert - -resize ${maxWidth}x\> -quality ${quality} ${mime}:-`,
+      { input: buf, maxBuffer: 20 * 1024 * 1024, timeout: 5000 }
+    );
+    return `data:image/${mime};base64,${result.toString('base64')}`;
+  } catch {
+    return base64Url; // fallback
+  }
+}
+
+/**
  * 新流水线：红笔标记读取 — Qwen VL 仅看红笔分离图
  * 输出批改标记列表 [{questionNumber, mark, correctAnswer, extraInfo}]
  */
@@ -820,22 +842,27 @@ async function analyzePaperWithVL(originalImageBase64, redMarksBase64, pageIndex
  * 替代 v1 的 VL 提取 + DeepSeek 两步式流水线
  */
 async function analyzePaperV2(originalImageBase64, redMarksBase64, subject, pageIndex) {
+  // 压缩图片：限制 1200px 宽 + JPEG 65% 质量，防止 Gateway 截断
+  const compressedOriginal = compressImage(originalImageBase64);
+  const compressedRedMarks = compressImage(redMarksBase64, 1200, 60);
+  
   const prompt = renderPaperAnalyzerPrompt(subject);
   const result = await kimiRequest({
     model: MODEL_OCR,
     messages: [{ role: 'user', content: [
       { type: 'text', text: prompt },
       { type: 'text', text: '【图 1：试卷原图】' },
-      { type: 'image_url', image_url: { url: originalImageBase64 } },
+      { type: 'image_url', image_url: { url: compressedOriginal } },
       { type: 'text', text: '【图 2：红笔分离图（只有红色批改标记）】' },
-      { type: 'image_url', image_url: { url: redMarksBase64 } }
+      { type: 'image_url', image_url: { url: compressedRedMarks } }
     ]}],
     temperature: 0.1,
     max_tokens: 16000
   });
 
   const content = result.choices?.[0]?.message?.content;
-  if (!content) return { wrongQuestions: [], paperMeta: null };
+  log('info', 'v2 原始响应', { taskId: 'direct', contentLen: content?.length || 0, preview: (content || '').substring(0, 300) });
+  if (!content) { log('warn', 'v2 模型返回空内容'); return { wrongQuestions: [], paperMeta: null }; }
 
   const cleaned = content.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
   let parsed;
@@ -1044,7 +1071,7 @@ async function executePaperTask(task) {
       }
 
       if (!preprocessResult || !preprocessResult.red_marks) {
-        log('warn', '预处理无红笔分离图', { taskId: id, page: i + 1 });
+        log('warn', '预处理无红笔分离图', { taskId: id, page: i + 1, hasResult: !!preprocessResult, keys: preprocessResult ? Object.keys(preprocessResult) : [] });
         continue;
       }
 
@@ -1055,8 +1082,10 @@ async function executePaperTask(task) {
         current: i + 1, total: totalPages
       };
 
+      log('info', 'v2 调用', { taskId: id, page: i + 1, correctedLen: preprocessResult.corrected?.length || 0, redMarksLen: preprocessResult.red_marks?.length || 0 });
+
       const { wrongQuestions, paperMeta } = await analyzePaperV2(
-        img,                     // 用原始图片（含红笔批改），不用 corrected 图
+        preprocessResult.corrected,  // 预处理后的压缩图（含红笔，~1MB）
         preprocessResult.red_marks,
         input.subject,
         i + 1
