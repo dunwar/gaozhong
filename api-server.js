@@ -8,7 +8,8 @@
  * Prompt：prompts/grading-v5.js
  *
  * 环境变量：
- *   GATEWAY_TOKEN    - OpenClaw Gateway Token（OCR 代理用）
+ *   KIMI_API_KEY      - Kimi k2.6 API Key（OCR 直连 Moonshot）
+ *   GATEWAY_TOKEN     - OpenClaw Gateway Token（兜底方案）
  *   DEEPSEEK_API_KEY  - DeepSeek API Key（批改用）
  */
 
@@ -62,9 +63,10 @@ function loadEnv() {
 }
 loadEnv();
 
+const KIMI_KEY = process.env.KIMI_API_KEY;
 const GATEWAY_TOKEN = process.env.OPENCLAW_GATEWAY_TOKEN;
 const DEEPSEEK_KEY = process.env.DEEPSEEK_API_KEY;
-const MODEL_OCR = process.env.MODEL_OCR || 'kimi/kimi-code';
+const MODEL_OCR = process.env.MODEL_OCR || 'kimi-k2.6';
 const MODEL_GRADING = process.env.MODEL_GRADING || 'deepseek-v4-pro';
 const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex');
 const JWT_EXPIRES_IN = '7d';
@@ -75,7 +77,7 @@ if (!DEEPSEEK_KEY) {
   process.exit(1);
 }
 
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 
 // ========== HTTPS 连接池（高频复用，防连接泄漏） ==========
 const httpsAgent = new https.Agent({
@@ -286,14 +288,26 @@ function apiRequest({ hostname, path, apiKey, body, port = null, timeout = 120_0
 }
 
 function kimiRequest(body) {
-  // 通过 OpenClaw Gateway 代理调用 Kimi（Key 由 Gateway 解密管理）
-  return apiRequest({
-    hostname: '127.0.0.1',
-    port: 18789,
-    path: '/v1/chat/completions',
-    apiKey: GATEWAY_TOKEN,
-    body
-  });
+  // 优先直连 Moonshot API（kimi-k2.6 支持 vision）
+  if (KIMI_KEY) {
+    return apiRequest({
+      hostname: 'api.moonshot.cn',
+      path: '/v1/chat/completions',
+      apiKey: KIMI_KEY,
+      body
+    });
+  }
+  // 兜底：Gateway 代理（仅文本，不支持图片）
+  if (GATEWAY_TOKEN) {
+    return apiRequest({
+      hostname: '127.0.0.1',
+      port: 18789,
+      path: '/v1/chat/completions',
+      apiKey: GATEWAY_TOKEN,
+      body
+    });
+  }
+  throw new Error('No OCR API key configured (KIMI_API_KEY or OPENCLAW_GATEWAY_TOKEN)');
 }
 
 function deepseekRequest(body) {
@@ -714,14 +728,20 @@ function compressImage(base64Url, maxWidth = 1200, quality = 65) {
   try {
     const match = base64Url.match(/^data:([^;]+);base64,(.+)$/);
     if (!match) return base64Url;
-    const mime = match[1].split('/')[1] || 'jpeg'; // jpeg or png
+    const mime = match[1].split('/')[1] || 'jpeg';
     const buf = Buffer.from(match[2], 'base64');
-    const result = execSync(
-      `convert - -resize ${maxWidth}x\> -quality ${quality} ${mime}:-`,
-      { input: buf, maxBuffer: 20 * 1024 * 1024, timeout: 5000 }
-    );
-    return `data:image/${mime};base64,${result.toString('base64')}`;
-  } catch {
+    const startMs = Date.now();
+    const result = execFileSync('convert', [
+      '-', '-resize', `${maxWidth}x>`, '-quality', String(quality), `${mime}:-`
+    ], {
+      input: buf, maxBuffer: 20 * 1024 * 1024, timeout: 10000
+    });
+    const newB64 = result.toString('base64');
+    const reduction = ((1 - newB64.length / match[2].length) * 100).toFixed(0);
+    log('info', '图片压缩', { ms: Date.now() - startMs, before: `${(match[2].length/1024).toFixed(0)}KB`, after: `${(newB64.length/1024).toFixed(0)}KB`, reduction: `${reduction}%` });
+    return `data:image/${mime};base64,${newB64}`;
+  } catch (e) {
+    log('warn', '图片压缩失败', { error: e.message, stderr: e.stderr?.toString()?.substring(0, 200) });
     return base64Url; // fallback
   }
 }
