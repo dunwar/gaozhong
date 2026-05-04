@@ -1056,7 +1056,7 @@ async function executePaperTask(task) {
       };
 
       const { wrongQuestions, paperMeta } = await analyzePaperV2(
-        preprocessResult.corrected || img,
+        img,                     // 用原始图片（含红笔批改），不用 corrected 图
         preprocessResult.red_marks,
         input.subject,
         i + 1
