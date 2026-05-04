@@ -23,12 +23,8 @@ import bcrypt from 'bcryptjs';
 import { fileURLToPath } from 'url';
 import { GRADING_PROMPT, PROMPT_VERSION } from './prompts/grading-v5.js';
 import { ERROR_DIAGNOSIS_PROMPT } from './prompts/error-diagnosis.js';
-import { PAPER_SCAN_PROMPT_V2 } from './prompts/paper-scan-v2.js';
 import { renderPaperAnalysisPrompt } from './prompts/paper-analysis-v4.js';
 import { STUDY_GUIDANCE_PROMPT_V1 } from './prompts/study-guidance-v1.js';
-import { MARK_READER_PROMPT } from './prompts/mark-reader-v1.js';
-import { QUESTION_READER_PROMPT } from './prompts/question-reader-v1.js';
-import { PAPER_ANALYZER_PROMPT } from './prompts/paper-analyzer-v1.js'; // v1 fallback
 import { PAPER_ANALYZER_VERSION, buildAnalyzerMessages, postFilter } from './prompts/paper-analyzer-v3.js';
 import { extractPage, collectRedMarkImages } from './ocr-extractor.js';
 import { mergeResults, prepareErrorList } from './smart-merger.js';
@@ -737,151 +733,6 @@ function compressImage(base64Url, maxWidth = 1200, quality = 65) {
 }
 
 /**
- * 新流水线：红笔标记读取 — Qwen VL 仅看红笔分离图
- * 输出批改标记列表 [{questionNumber, mark, correctAnswer, extraInfo}]
- */
-async function readRedMarks(redMarkImages) {
-  if (redMarkImages.length === 0) return [];
-
-  // 将所有红笔分离图拼成 contentParts
-  const contentParts = [{ type: 'text', text: MARK_READER_PROMPT }];
-  for (const img of redMarkImages) {
-    contentParts.push({ type: 'text', text: '--- 下一页的红笔批改标记 ---' });
-    contentParts.push({ type: 'image_url', image_url: { url: img } });
-  }
-
-  const result = await kimiRequest({
-    model: MODEL_OCR,
-    messages: [{ role: 'user', content: contentParts }],
-    temperature: 1,
-    max_tokens: 2000
-  });
-
-  const content = result.choices?.[0]?.message?.content;
-  if (!content) throw new Error('红笔标记读取返回为空');
-
-  const cleaned = content.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
-  let parsed;
-  try { parsed = JSON.parse(cleaned); } catch {
-    const m = cleaned.match(/\[[\s\S]*\]/);
-    if (m) {
-      try { parsed = JSON.parse(m[0]); } catch {
-        const salvage = m[0].replace(/,\s*$/, '') + ']';
-        try { parsed = JSON.parse(salvage); } catch { parsed = []; }
-      }
-    } else { parsed = []; }
-  }
-
-  return Array.isArray(parsed) ? parsed : [];
-}
-
-/**
- * VL 提取指定题号的题目文本（PaddleOCR 失败时的备选通道）
- */
-async function readQuestionTexts(imageBase64, targetQuestionNumbers) {
-  if (!targetQuestionNumbers || targetQuestionNumbers.length === 0) return [];
-
-  const qnList = targetQuestionNumbers.join('、');
-  const prompt = QUESTION_READER_PROMPT.replace(/\{targetQuestions\}/g, qnList);
-
-  const result = await kimiRequest({
-    model: MODEL_OCR,
-    messages: [{ role: 'user', content: [
-      { type: 'text', text: prompt },
-      { type: 'image_url', image_url: { url: imageBase64 } }
-    ]}],
-    temperature: 1,
-    max_tokens: 3000
-  });
-
-  const content = result.choices?.[0]?.message?.content;
-  if (!content) throw new Error('题目文本提取返回为空');
-
-  const cleaned = content.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
-  let parsed;
-  try { parsed = JSON.parse(cleaned); } catch {
-    const m = cleaned.match(/\[[\s\S]*\]/);
-    if (m) {
-      try { parsed = JSON.parse(m[0]); } catch {
-        const salvage = m[0].replace(/,\s*$/, '') + ']';
-        try { parsed = JSON.parse(salvage); } catch { parsed = []; }
-      }
-    } else { parsed = []; }
-  }
-
-  return Array.isArray(parsed) ? parsed : [];
-}
-
-/**
- * VL 统一分析：同时看原图 + 红笔分离图，一次性输出完整错题列表
- */
-async function analyzePaperWithVL(originalImageBase64, redMarksBase64, pageIndex) {
-  const result = await kimiRequest({
-    model: MODEL_OCR,
-    messages: [{ role: 'user', content: [
-      { type: 'text', text: PAPER_ANALYZER_PROMPT },
-      { type: 'text', text: '【图 1：试卷原图】' },
-      { type: 'image_url', image_url: { url: originalImageBase64 } },
-      { type: 'text', text: '【图 2：红笔分离图（只有红色批改标记）】' },
-      { type: 'image_url', image_url: { url: redMarksBase64 } }
-    ]}],
-    temperature: 1,
-    max_tokens: 4000
-  });
-
-  const content = result.choices?.[0]?.message?.content;
-  if (!content) return [];
-
-  const cleaned = content.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
-  let parsed;
-  try { parsed = JSON.parse(cleaned); } catch {
-    const m = cleaned.match(/\[[\s\S]*\]/);
-    if (m) {
-      try { parsed = JSON.parse(m[0]); } catch {
-        const salvage = m[0].replace(/,\s*$/, '') + ']';
-        try { parsed = JSON.parse(salvage); } catch { parsed = []; }
-      }
-    } else { parsed = []; }
-  }
-
-  return Array.isArray(parsed) ? parsed.map(q => ({ ...q, pageIndex })) : [];
-}
-
-/**
- * 统一分析 v2：一个 Prompt 完成 OCR + 红笔语义 + 错题归因
- * 替代 v1 的 VL 提取 + DeepSeek 两步式流水线
- */
-async function analyzePaperV2(originalImageBase64, redMarksBase64, subject, pageIndex) {
-  // 压缩图片：限制宽度和 JPEG 质量，控制请求体积
-  const compressedOriginal = compressImage(originalImageBase64, 1024, 50);   // 更激进压缩
-  const compressedRedMarks = compressImage(redMarksBase64, 800, 50);
-  
-  const prompt = renderPaperAnalyzerPrompt(subject);
-  const result = await kimiRequest({
-    model: MODEL_OCR,
-    messages: [{ role: 'user', content: [
-      { type: 'text', text: prompt },
-      { type: 'text', text: '【图 1：试卷原图】' },
-      { type: 'image_url', image_url: { url: compressedOriginal } },
-      { type: 'text', text: '【图 2：红笔分离图（只有红色批改标记）】' },
-      { type: 'image_url', image_url: { url: compressedRedMarks } }
-    ]}],
-    temperature: 1,
-    max_tokens: 8000
-  });
-
-  const content = result.choices?.[0]?.message?.content;
-  log('info', 'v2 原始响应', { taskId: 'direct', contentLen: content?.length || 0, preview: (content || '').substring(0, 300) });
-  if (!content) { log('warn', 'v2 模型返回空内容'); return { wrongQuestions: [], paperMeta: null }; }
-
-  const cleaned = content.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
-  let parsed;
-  try { parsed = JSON.parse(cleaned); } catch {
-    const m = cleaned.match(/\{[\s\S]*\}/);
-    if (m) {
-      try { parsed = JSON.parse(m[0]); } catch { parsed = { wrongQuestions: [] }; }
-    } else { parsed = { wrongQuestions: [] }; }
-  }
 
   const wrongQuestions = (parsed.wrongQuestions || []).map(q => ({ ...q, pageIndex }));
   return { wrongQuestions, paperMeta: parsed.paperMeta || null, learningProfile: parsed.learningProfile || null };
@@ -1104,7 +955,7 @@ function validateScanResults(questions) {
  * 新流水线：executePaperTask
  *
  * 阶段 1: 全页预处理 (本地, ~3s) → PaddleOCR 文本 + 红笔分离图
- * 阶段 2: 统一分析 v2 — Kimi Code 一步完成 OCR+红笔语义+错题归因
+ * 阶段 2: v3 链式分析 — Kimi Code 一步完成 OCR+红笔语义+错题归因
  */
 async function executePaperTask(task) {
   const { id, input } = task;
@@ -1172,7 +1023,7 @@ async function executePaperTask(task) {
       return;
     }
 
-    // ===== 阶段 2：过滤 + 保存（v2 已含诊断，无需二次 DeepSeek 调用）=====
+    // ===== 阶段 2：过滤 + 保存（v3 已含诊断，无需二次 DeepSeek 调用）=====
     const MIN_QUESTION_LENGTH = 8;
     let savedCount = 0, skippedCount = 0;
 
