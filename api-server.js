@@ -8,12 +8,13 @@
  * Prompt：prompts/grading-v5.js
  *
  * 环境变量：
- *   KIMI_API_KEY      - Kimi API Key（OCR 用，由 start-api.sh 注入）
+ *   GATEWAY_TOKEN    - OpenClaw Gateway Token（OCR 代理用）
  *   DEEPSEEK_API_KEY  - DeepSeek API Key（批改用）
  */
 
 import express from 'express';
 import https from 'https';
+import http from 'http';
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
@@ -60,9 +61,9 @@ function loadEnv() {
 }
 loadEnv();
 
-const KIMI_KEY = process.env.KIMI_API_KEY;
+const GATEWAY_TOKEN = process.env.OPENCLAW_GATEWAY_TOKEN;
 const DEEPSEEK_KEY = process.env.DEEPSEEK_API_KEY;
-const MODEL_OCR = process.env.MODEL_OCR || 'kimi-code';
+const MODEL_OCR = process.env.MODEL_OCR || 'kimi/kimi-code';
 const MODEL_GRADING = process.env.MODEL_GRADING || 'deepseek-v4-pro';
 const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex');
 const JWT_EXPIRES_IN = '7d';
@@ -244,21 +245,25 @@ function renderPrompt(template, topic = '', text = '') {
 }
 
 // 通用 API 请求
-function apiRequest({ hostname, path, apiKey, body, timeout = 120_000 }) {
+function apiRequest({ hostname, path, apiKey, body, port = null, timeout = 120_000 }) {
   return new Promise((resolve, reject) => {
     const data = JSON.stringify(body);
-    const req = https.request({
+    const isHttp = !!port; // 指定端口时使用 HTTP（如 Gateway 代理）
+    const transport = isHttp ? http : https;
+    const options = {
       hostname,
+      port,
       path,
       method: 'POST',
-      agent: httpsAgent,
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`,
         'Content-Length': Buffer.byteLength(data)
       },
       timeout
-    }, (res) => {
+    };
+    if (!isHttp) options.agent = httpsAgent;
+    const req = transport.request(options, (res) => {
       let raw = '';
       res.on('data', c => raw += c);
       res.on('end', () => {
@@ -278,10 +283,12 @@ function apiRequest({ hostname, path, apiKey, body, timeout = 120_000 }) {
 }
 
 function kimiRequest(body) {
+  // 通过 OpenClaw Gateway 代理调用 Kimi（Key 由 Gateway 解密管理）
   return apiRequest({
-    hostname: 'api.kimi.com',
-    path: '/coding/v1/chat/completions',
-    apiKey: KIMI_KEY,
+    hostname: '127.0.0.1',
+    port: 18789,
+    path: '/v1/chat/completions',
+    apiKey: GATEWAY_TOKEN,
     body
   });
 }
