@@ -4,11 +4,11 @@
  *
  * 架构：提交即返回 taskId → 后台队列处理 → 客户端轮询结果
  * 并发控制：最多 3 个同时批改，队列深度上限 200
- * 模型分工：OCR(qwen-vl-plus) → 批改(deepseek-v4-pro)
+ * 模型分工：OCR(kimi-code) → 批改(deepseek-v4-pro)
  * Prompt：prompts/grading-v5.js
  *
  * 环境变量：
- *   DASHSCOPE_API_KEY - 百炼 API Key（OCR 用）
+ *   KIMI_API_KEY      - Kimi API Key（OCR 用，由 start-api.sh 注入）
  *   DEEPSEEK_API_KEY  - DeepSeek API Key（批改用）
  */
 
@@ -60,9 +60,9 @@ function loadEnv() {
 }
 loadEnv();
 
-const DASHSCOPE_KEY = process.env.DASHSCOPE_API_KEY;
+const KIMI_KEY = process.env.KIMI_API_KEY;
 const DEEPSEEK_KEY = process.env.DEEPSEEK_API_KEY;
-const MODEL_OCR = process.env.MODEL_OCR || 'qwen-vl-plus';
+const MODEL_OCR = process.env.MODEL_OCR || 'kimi-code';
 const MODEL_GRADING = process.env.MODEL_GRADING || 'deepseek-v4-pro';
 const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex');
 const JWT_EXPIRES_IN = '7d';
@@ -277,11 +277,11 @@ function apiRequest({ hostname, path, apiKey, body, timeout = 120_000 }) {
   });
 }
 
-function dashscopeRequest(body) {
+function kimiRequest(body) {
   return apiRequest({
-    hostname: 'dashscope.aliyuncs.com',
-    path: '/compatible-mode/v1/chat/completions',
-    apiKey: DASHSCOPE_KEY,
+    hostname: 'api.kimi.com',
+    path: '/coding/v1/chat/completions',
+    apiKey: KIMI_KEY,
     body
   });
 }
@@ -472,8 +472,8 @@ async function gradeText(text, topic) {
 }
 
 async function gradeImage(imageUrl, topic) {
-  log('info', 'OCR 识别', { provider: 'DashScope', model: MODEL_OCR });
-  const ocrResult = await dashscopeRequest({
+  log('info', 'OCR 识别', { provider: 'Kimi', model: MODEL_OCR });
+  const ocrResult = await kimiRequest({
     model: MODEL_OCR,
     messages: [{
       role: 'user',
@@ -710,7 +710,7 @@ async function readRedMarks(redMarkImages) {
     contentParts.push({ type: 'image_url', image_url: { url: img } });
   }
 
-  const result = await dashscopeRequest({
+  const result = await kimiRequest({
     model: MODEL_OCR,
     messages: [{ role: 'user', content: contentParts }],
     temperature: 0.1,
@@ -744,7 +744,7 @@ async function readQuestionTexts(imageBase64, targetQuestionNumbers) {
   const qnList = targetQuestionNumbers.join('、');
   const prompt = QUESTION_READER_PROMPT.replace(/\{targetQuestions\}/g, qnList);
 
-  const result = await dashscopeRequest({
+  const result = await kimiRequest({
     model: MODEL_OCR,
     messages: [{ role: 'user', content: [
       { type: 'text', text: prompt },
@@ -776,7 +776,7 @@ async function readQuestionTexts(imageBase64, targetQuestionNumbers) {
  * VL 统一分析：同时看原图 + 红笔分离图，一次性输出完整错题列表
  */
 async function analyzePaperWithVL(originalImageBase64, redMarksBase64, pageIndex) {
-  const result = await dashscopeRequest({
+  const result = await kimiRequest({
     model: MODEL_OCR,
     messages: [{ role: 'user', content: [
       { type: 'text', text: PAPER_ANALYZER_PROMPT },
@@ -1270,7 +1270,7 @@ app.get('/health', (req, res) => {
     status: 'ok',
     service: 'gaozhong-ai-api',
     version: '2.0-async',
-    providers: { ocr: { name: 'DashScope', model: MODEL_OCR }, grading: { name: 'DeepSeek', model: MODEL_GRADING } },
+    providers: { ocr: { name: 'Kimi', model: MODEL_OCR }, grading: { name: 'DeepSeek', model: MODEL_GRADING } },
     prompt: { version: PROMPT_VERSION, file: 'prompts/grading-v5.js' },
     queue: { grading: { active: gradingQueue.active, pending: gradingQueue.pending }, error: { active: errorQueue.active, pending: errorQueue.pending }, paper: { active: paperQueue.active, pending: paperQueue.pending, maxConcurrent: PAPER_MAX_CONCURRENT } },
     tasks: { memory: tasks.size, persistent: getStats() },
