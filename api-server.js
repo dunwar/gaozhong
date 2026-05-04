@@ -8,8 +8,7 @@
  * Prompt：prompts/grading-v5.js
  *
  * 环境变量：
- *   KIMI_API_KEY      - Kimi k2.6 API Key（OCR 直连 Moonshot）
- *   GATEWAY_TOKEN     - OpenClaw Gateway Token（兜底方案）
+ *   KIMI_API_KEY      - 阿里云百炼 API Key（OCR 用 kimi-k2.6）
  *   DEEPSEEK_API_KEY  - DeepSeek API Key（批改用）
  */
 
@@ -288,26 +287,17 @@ function apiRequest({ hostname, path, apiKey, body, port = null, timeout = 120_0
 }
 
 function kimiRequest(body) {
-  // 优先直连 Moonshot API（kimi-k2.6 支持 vision）
+  // 阿里云百炼 DashScope（kimi-k2.6 支持 vision，长超时）
   if (KIMI_KEY) {
     return apiRequest({
-      hostname: 'api.moonshot.cn',
-      path: '/v1/chat/completions',
+      hostname: 'dashscope.aliyuncs.com',
+      path: '/compatible-mode/v1/chat/completions',
       apiKey: KIMI_KEY,
-      body
+      body,
+      timeout: 300_000
     });
   }
-  // 兜底：Gateway 代理（仅文本，不支持图片）
-  if (GATEWAY_TOKEN) {
-    return apiRequest({
-      hostname: '127.0.0.1',
-      port: 18789,
-      path: '/v1/chat/completions',
-      apiKey: GATEWAY_TOKEN,
-      body
-    });
-  }
-  throw new Error('No OCR API key configured (KIMI_API_KEY or OPENCLAW_GATEWAY_TOKEN)');
+  throw new Error('KIMI_API_KEY not configured');
 }
 
 function deepseekRequest(body) {
@@ -489,7 +479,7 @@ async function gradeText(text, topic) {
   const result = await deepseekRequest({
     model: MODEL_GRADING,
     messages: [{ role: 'user', content: prompt }],
-    temperature: 0.5,
+    temperature: 1,
     max_tokens: 6000
   });
   return parseResult(result);
@@ -506,7 +496,7 @@ async function gradeImage(imageUrl, topic) {
         { type: 'image_url', image_url: { url: imageUrl } }
       ]
     }],
-    temperature: 0.3,
+    temperature: 1,
     max_tokens: 4000
   });
 
@@ -763,7 +753,7 @@ async function readRedMarks(redMarkImages) {
   const result = await kimiRequest({
     model: MODEL_OCR,
     messages: [{ role: 'user', content: contentParts }],
-    temperature: 0.1,
+    temperature: 1,
     max_tokens: 2000
   });
 
@@ -800,7 +790,7 @@ async function readQuestionTexts(imageBase64, targetQuestionNumbers) {
       { type: 'text', text: prompt },
       { type: 'image_url', image_url: { url: imageBase64 } }
     ]}],
-    temperature: 0.1,
+    temperature: 1,
     max_tokens: 3000
   });
 
@@ -835,7 +825,7 @@ async function analyzePaperWithVL(originalImageBase64, redMarksBase64, pageIndex
       { type: 'text', text: '【图 2：红笔分离图（只有红色批改标记）】' },
       { type: 'image_url', image_url: { url: redMarksBase64 } }
     ]}],
-    temperature: 0.1,
+    temperature: 1,
     max_tokens: 4000
   });
 
@@ -862,9 +852,9 @@ async function analyzePaperWithVL(originalImageBase64, redMarksBase64, pageIndex
  * 替代 v1 的 VL 提取 + DeepSeek 两步式流水线
  */
 async function analyzePaperV2(originalImageBase64, redMarksBase64, subject, pageIndex) {
-  // 压缩图片：限制 1200px 宽 + JPEG 65% 质量，防止 Gateway 截断
-  const compressedOriginal = compressImage(originalImageBase64);
-  const compressedRedMarks = compressImage(redMarksBase64, 1200, 60);
+  // 压缩图片：限制宽度和 JPEG 质量，控制请求体积
+  const compressedOriginal = compressImage(originalImageBase64, 1024, 50);   // 更激进压缩
+  const compressedRedMarks = compressImage(redMarksBase64, 800, 50);
   
   const prompt = renderPaperAnalyzerPrompt(subject);
   const result = await kimiRequest({
@@ -876,8 +866,8 @@ async function analyzePaperV2(originalImageBase64, redMarksBase64, subject, page
       { type: 'text', text: '【图 2：红笔分离图（只有红色批改标记）】' },
       { type: 'image_url', image_url: { url: compressedRedMarks } }
     ]}],
-    temperature: 0.1,
-    max_tokens: 16000
+    temperature: 1,
+    max_tokens: 8000
   });
 
   const content = result.choices?.[0]?.message?.content;
