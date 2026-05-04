@@ -28,7 +28,8 @@ import { renderPaperAnalysisPrompt } from './prompts/paper-analysis-v4.js';
 import { STUDY_GUIDANCE_PROMPT_V1 } from './prompts/study-guidance-v1.js';
 import { MARK_READER_PROMPT } from './prompts/mark-reader-v1.js';
 import { QUESTION_READER_PROMPT } from './prompts/question-reader-v1.js';
-import { PAPER_ANALYZER_PROMPT } from './prompts/paper-analyzer-v1.js';
+import { PAPER_ANALYZER_PROMPT } from './prompts/paper-analyzer-v1.js'; // v1 fallback
+import { PAPER_ANALYZER_PROMPT_V2, renderPaperAnalyzerPrompt } from './prompts/paper-analyzer-v2.js';
 import { extractPage, collectRedMarkImages } from './ocr-extractor.js';
 import { mergeResults, prepareErrorList } from './smart-merger.js';
 import { initDB, saveDB, saveRecord, getRecord, getHistory, getStats, createUser, getUserByEmail, getUserById, updateUser, changePassword, listUsers, saveErrorProblem, saveErrorKnowledgeTags, getErrorProblem, listErrorProblems, getErrorStats, getKnowledgeStats, getErrorsByKnowledgePoint, searchKnowledgePoints, createPaperSession, updatePaperSession, getPaperSession, listPaperSessions, listErrorsByPaper, listErrorsByTime, listErrorsBySubject, listErrorsForGuidance } from './db.js';
@@ -815,6 +816,41 @@ async function analyzePaperWithVL(originalImageBase64, redMarksBase64, pageIndex
 }
 
 /**
+ * 统一分析 v2：一个 Prompt 完成 OCR + 红笔语义 + 错题归因
+ * 替代 v1 的 VL 提取 + DeepSeek 两步式流水线
+ */
+async function analyzePaperV2(originalImageBase64, redMarksBase64, subject, pageIndex) {
+  const prompt = renderPaperAnalyzerPrompt(subject);
+  const result = await kimiRequest({
+    model: MODEL_OCR,
+    messages: [{ role: 'user', content: [
+      { type: 'text', text: prompt },
+      { type: 'text', text: '【图 1：试卷原图】' },
+      { type: 'image_url', image_url: { url: originalImageBase64 } },
+      { type: 'text', text: '【图 2：红笔分离图（只有红色批改标记）】' },
+      { type: 'image_url', image_url: { url: redMarksBase64 } }
+    ]}],
+    temperature: 0.1,
+    max_tokens: 16000
+  });
+
+  const content = result.choices?.[0]?.message?.content;
+  if (!content) return { wrongQuestions: [], paperMeta: null };
+
+  const cleaned = content.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+  let parsed;
+  try { parsed = JSON.parse(cleaned); } catch {
+    const m = cleaned.match(/\{[\s\S]*\}/);
+    if (m) {
+      try { parsed = JSON.parse(m[0]); } catch { parsed = { wrongQuestions: [] }; }
+    } else { parsed = { wrongQuestions: [] }; }
+  }
+
+  const wrongQuestions = (parsed.wrongQuestions || []).map(q => ({ ...q, pageIndex }));
+  return { wrongQuestions, paperMeta: parsed.paperMeta || null, learningProfile: parsed.learningProfile || null };
+}
+
+/**
  * 阶段 2：深度分析 — 用 DeepSeek 对错题进行诊断
  * 批量处理：每批 ≤8 道题，避免 token 溢出导致 JSON 截断
  */
@@ -977,9 +1013,7 @@ function validateScanResults(questions) {
  * 新流水线：executePaperTask
  *
  * 阶段 1: 全页预处理 (本地, ~3s) → PaddleOCR 文本 + 红笔分离图
- * 阶段 2: VL 读取红笔标记 (API, ~10s) → 仅看红笔分离图
- * 阶段 3: 智能合并 (本地, <1s) → 精确错题列表
- * 阶段 4: DeepSeek 深度分析 (API, ~30s) → 仅分析真错题
+ * 阶段 2: 统一分析 v2 — Kimi Code 一步完成 OCR+红笔语义+错题归因
  */
 async function executePaperTask(task) {
   const { id, input } = task;
@@ -1014,20 +1048,21 @@ async function executePaperTask(task) {
         continue;
       }
 
-      // ===== VL 统一分析（原图 + 红笔图联动）=====
+      // ===== v2 统一分析（OCR+红笔语义+错题归因 一步完成）=====
       paperTasks.get(id).progress = {
-        stage: 'analyze-vl',
-        message: `AI 正在分析第 ${i + 1}/${totalPages} 页错题…`,
+        stage: 'analyze-v2',
+        message: `AI 正在分析第 ${i + 1}/${totalPages} 页（识别+诊断）…`,
         current: i + 1, total: totalPages
       };
 
-      const wrongQuestions = await analyzePaperWithVL(
+      const { wrongQuestions, paperMeta } = await analyzePaperV2(
         preprocessResult.corrected || img,
         preprocessResult.red_marks,
+        input.subject,
         i + 1
       );
 
-      log('info', 'VL 统一分析完成', {
+      log('info', 'v2 统一分析完成', {
         taskId: id, page: i + 1,
         wrongCount: wrongQuestions.length,
         questions: wrongQuestions.map(q => `Q${q.questionNumber}`)
@@ -1040,146 +1075,100 @@ async function executePaperTask(task) {
       log('info', '未检测到错题', { taskId: id });
       updatePaperSession(id, { status: 'done', errorCount: 0, totalQuestions: 0, correctCount: 0 });
       paperTasks.get(id).status = 'done';
-      paperTasks.get(id).result = { subject: input.subject, sessionId: id, totalQuestions: 0, correctCount: 0, totalErrors: 0, pipeline: 'v2-unified-vl' };
+      paperTasks.get(id).result = { subject: input.subject, sessionId: id, totalQuestions: 0, correctCount: 0, totalErrors: 0, pipeline: 'v2-unified' };
       paperTasks.get(id).progress = { stage: 'done', message: '未检测到错题 ✅' };
       return;
     }
 
-    // ===== 阶段 2：过滤无题干题目（如纯听力题）=====
+    // ===== 阶段 2：过滤 + 保存（v2 已含诊断，无需二次 DeepSeek 调用）=====
     const MIN_QUESTION_LENGTH = 8;
-    const analyzedWrong = allWrongQuestions.filter(q => {
+    let savedCount = 0, skippedCount = 0;
+
+    for (const q of allWrongQuestions) {
       const text = q.questionText || '';
       const hasContent = text.replace(/[0-9\.\、\s\n]/g, '').length >= MIN_QUESTION_LENGTH;
+      const errorId = crypto.randomUUID().slice(0, 8);
+
       if (!hasContent) {
-        log('info', '跳过无题干错题', { taskId: id, q: q.questionNumber, textLen: text.length });
-        const errorId = crypto.randomUUID().slice(0, 8);
+        skippedCount++;
         saveErrorProblem({
           id: errorId, userId: input.userId, subject: input.subject,
-          topic: `第${q.questionNumber}题（${q.questionType || '听力'}）`,
-          questionText: '(无题干，听力题)',
+          topic: `第${q.questionNumber}题（听力/无题干）`,
+          questionText: '(无题干，自动跳过)',
           questionType: q.questionType || '听力',
           answerOptions: JSON.stringify(q.options || []),
           wrongAnswer: q.studentAnswer || '',
           correctAnswer: q.correctAnswer || '',
           errorType: '听力题无题干',
-          correctSolution: '该题为听力题，无文字题干，无法自动分析。请自行复习听力原文。',
-          difficulty: 0,
-          knowledgeExplanation: '{}',
-          gradingEvidence: q.mark || '',
-          aiRaw: JSON.stringify({ skipped: true, reason: 'listening_no_text', original: q }),
+          correctSolution: '听力题无文字题干，无法自动分析。请自行复习听力原文。',
+          difficulty: 0, knowledgeExplanation: '{}',
+          gradingEvidence: q.evidence || q.mark || '',
+          aiRaw: JSON.stringify({ skipped: true, reason: 'no_question_text', v2: q }),
           notes: '听力题自动跳过',
           sessionId: id, paperIndex: q.pageIndex || 1, status: 'done',
           createdAt: Date.now()
         });
+        continue;
       }
-      return hasContent;
-    });
 
-    const skippedCount = allWrongQuestions.length - analyzedWrong.length;
-    log('info', '题干过滤完成', { taskId: id, total: allWrongQuestions.length, analyzed: analyzedWrong.length, skipped: skippedCount });
-
-    // ===== 阶段 3：DeepSeek 深度分析 =====
-    let analysisResults = [];
-    if (analyzedWrong.length > 0) {
-      paperTasks.get(id).progress = {
-        stage: 'analyze-deepseek',
-        message: `AI 正在分析 ${analyzedWrong.length} 道错题…`,
-        total: analyzedWrong.length
-      };
-
-      const errorList = analyzedWrong.map(q => ({
-        questionNumber: q.questionNumber,
-        questionType: q.questionType || '选择题',
-        questionText: q.questionText || '',
-        options: q.options || [],
-        studentAnswer: q.studentAnswer || '',
-        correctAnswer: q.correctAnswer || '',
-        gradingMark: q.mark || '',
-        redInkContent: q.mark || '',
-        confidence: 'high'
-      }));
-
-      analysisResults = await analyzeErrors(input.subject, errorList);
-    }
-
-    // ===== 阶段 4：保存结果到数据库 =====
-    let savedCount = 0;
-    for (let i = 0; i < analyzedWrong.length; i++) {
-      const q = analyzedWrong[i];
-      const analysis = analysisResults.find(a => a.questionNumber === q.questionNumber) || {};
-      const errorId = crypto.randomUUID().slice(0, 8);
-
-      const knowledgeCards = analysis.knowledgeCards || [];
+      // v2 已包含完整诊断，直接使用
+      const knowledgeGaps = q.knowledgeGaps || [];
       const knowledgeExplJson = JSON.stringify(
-        knowledgeCards.reduce((acc, c) => {
-          acc[c.concept] = `${c.explanation}\n本题用法：${c.inThisProblem || ''}`;
-          return acc;
-        }, {})
+        knowledgeGaps.reduce((acc, kp) => { acc[kp] = ''; return acc; }, {})
       );
 
       saveErrorProblem({
         id: errorId, userId: input.userId, subject: input.subject,
         topic: `第${q.questionNumber}题（${q.questionType || '选择题'}）`,
         questionText: q.questionText || '',
-        questionType: q.questionType || '',
+        questionType: q.questionType || '选择题',
         answerOptions: JSON.stringify(q.options || []),
         wrongAnswer: q.studentAnswer || '',
-        correctAnswer: q.correctAnswer || (analysis.correctAnswer || ''),
-        errorType: analysis.errorType || '未知',
-        correctSolution: analysis.solution || analysis.correctSolution || '',
-        difficulty: analysis.difficulty || 3,
+        correctAnswer: q.correctAnswer || '',
+        errorType: Array.isArray(q.errorType) ? q.errorType.join('、') : (q.errorType || '未知'),
+        correctSolution: q.diagnosis || q.remedy || '',
+        difficulty: q.confidence ? Math.round(6 - q.confidence * 5) : 3,
         knowledgeExplanation: knowledgeExplJson,
-        gradingEvidence: q.mark || '',
-        aiRaw: JSON.stringify({
-          vl: { questionNumber: q.questionNumber, mark: q.mark, studentAnswer: q.studentAnswer },
-          analysis: { diagnosis: analysis.diagnosis, solution: analysis.solution, mnemonic: analysis.mnemonic, knowledgeCards }
-        }),
-        notes: analysis.mnemonic || '',
+        gradingEvidence: q.evidence || '',
+        aiRaw: JSON.stringify({ pipeline: 'v2-unified', analysis: q }),
+        notes: q.remedy || '',
         sessionId: id, paperIndex: q.pageIndex || 1, status: 'done',
         createdAt: Date.now()
       });
 
-      const kps = analysis.knowledgePoints || [];
-      const matchedKpIds = [];
-      for (const kpName of kps) {
-        const matches = searchKnowledgePoints(kpName, input.subject);
-        if (matches.length > 0) matchedKpIds.push(matches[0].id);
+      if (knowledgeGaps.length > 0) {
+        const matchedKpIds = [];
+        for (const kpName of knowledgeGaps) {
+          const matches = searchKnowledgePoints(kpName, input.subject);
+          if (matches.length > 0) matchedKpIds.push(matches[0].id);
+        }
+        if (matchedKpIds.length > 0) saveErrorKnowledgeTags(errorId, matchedKpIds);
       }
-      if (matchedKpIds.length > 0) saveErrorKnowledgeTags(errorId, matchedKpIds);
       savedCount++;
     }
 
     const totalQuestions = allWrongQuestions.length;
-    const correctCount = 0;
-
     updatePaperSession(id, {
-      status: 'done',
-      errorCount: savedCount,
-      totalQuestions,
-      correctCount,
-      aiRaw: JSON.stringify({ pipeline: 'v2-unified-vl', allWrongQuestions, analyzedWrong, analysisResults })
+      status: 'done', errorCount: savedCount, totalQuestions, correctCount: 0,
+      aiRaw: JSON.stringify({ pipeline: 'v2-unified', allWrongQuestions })
     });
 
     paperTasks.get(id).status = 'done';
     paperTasks.get(id).result = {
-      subject: input.subject,
-      sessionId: id,
-      totalQuestions,
-      correctCount,
-      totalErrors: savedCount,
-      skippedNoText: skippedCount,
-      pipeline: 'v2-unified-vl',
-      errors: analysisResults.slice(0, 50)
+      subject: input.subject, sessionId: id,
+      totalQuestions, correctCount: 0, totalErrors: savedCount,
+      skippedNoText: skippedCount, pipeline: 'v2-unified',
+      learningProfile: allWrongQuestions[0]?.learningProfile || null
     };
     paperTasks.get(id).progress = {
       stage: 'done',
-      message: `${totalQuestions} 题 ❌${savedCount}${skippedCount > 0 ? ` (${skippedCount}题听力跳过)` : ''} | VL 精准识别`
+      message: `${totalQuestions} 题 ❌${savedCount}${skippedCount > 0 ? ` (${skippedCount}题听力跳过)` : ''} | v2 统一分析`
     };
 
-    log('info', '新流水线 v2 完成', {
+    log('info', 'v2 统一流水线完成', {
       taskId: id, subject: input.subject,
       total: totalQuestions, errors: savedCount, skipped: skippedCount,
-      pipeline: 'v2-unified-vl'
+      pipeline: 'v2-unified'
     });
 
   } catch (err) {
