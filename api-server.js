@@ -29,7 +29,7 @@ import { STUDY_GUIDANCE_PROMPT_V1 } from './prompts/study-guidance-v1.js';
 import { MARK_READER_PROMPT } from './prompts/mark-reader-v1.js';
 import { QUESTION_READER_PROMPT } from './prompts/question-reader-v1.js';
 import { PAPER_ANALYZER_PROMPT } from './prompts/paper-analyzer-v1.js'; // v1 fallback
-import { PAPER_ANALYZER_PROMPT_V2, renderPaperAnalyzerPrompt } from './prompts/paper-analyzer-v2.js';
+import { PAPER_ANALYZER_VERSION, buildAnalyzerMessages, postFilter } from './prompts/paper-analyzer-v3.js';
 import { extractPage, collectRedMarkImages } from './ocr-extractor.js';
 import { mergeResults, prepareErrorList } from './smart-merger.js';
 import { initDB, saveDB, saveRecord, getRecord, getHistory, getStats, createUser, getUserByEmail, getUserById, updateUser, changePassword, listUsers, saveErrorProblem, saveErrorKnowledgeTags, getErrorProblem, listErrorProblems, getErrorStats, getKnowledgeStats, getErrorsByKnowledgePoint, searchKnowledgePoints, createPaperSession, updatePaperSession, getPaperSession, listPaperSessions, listErrorsByPaper, listErrorsByTime, listErrorsBySubject, listErrorsForGuidance } from './db.js';
@@ -888,6 +888,60 @@ async function analyzePaperV2(originalImageBase64, redMarksBase64, subject, page
 }
 
 /**
+ * v3：单次 API 调用，对话内两步链式推理 + 硬过滤
+ */
+async function analyzePaperV3(originalImageBase64, redMarksBase64, pageIndex) {
+  const compressedOriginal = compressImage(originalImageBase64, 1024, 50);
+  const compressedRedMarks = compressImage(redMarksBase64, 800, 50);
+
+  const messages = buildAnalyzerMessages('英语');
+  messages[0].content.push(
+    { type: 'image_url', image_url: { url: compressedOriginal } },
+    { type: 'image_url', image_url: { url: compressedRedMarks } }
+  );
+
+  const result = await kimiRequest({
+    model: MODEL_OCR,
+    messages,
+    temperature: 1,
+    max_tokens: 8000
+  });
+
+  const content = result.choices?.[0]?.message?.content;
+  log('info', 'v3 原始响应', { contentLen: content?.length || 0, preview: (content || '').substring(0, 500), endPreview: (content || '').slice(-200) });
+  if (!content) { log('warn', 'v3 模型返回空'); return { wrongQuestions: [], paperMeta: null }; }
+
+  // 更鲁棒的 JSON 提取：先去掉 markdown 代码块标记，再提取最外层 {} 或 []
+  let jsonStr = content
+    .replace(/^```(?:json)?\s*\n?/gm, '')
+    .replace(/\n?```\s*$/gm, '')
+    .replace(/```/g, '')
+    .trim();
+
+  let parsed;
+  try { parsed = JSON.parse(jsonStr); } catch (e1) {
+    // 尝试匹配完整 JSON 对象/数组
+    const m = jsonStr.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
+    if (m) {
+      try { parsed = JSON.parse(m[0]); } catch {
+        log('warn', 'v3 JSON 解析完全失败', { contentEnd: jsonStr.slice(-200) });
+        return { wrongQuestions: [], paperMeta: null };
+      }
+    } else {
+      log('warn', 'v3 无法提取 JSON', { contentEnd: jsonStr.slice(-200) });
+      return { wrongQuestions: [], paperMeta: null };
+    }
+  }
+
+  let wrongQuestions = Array.isArray(parsed) ? parsed : (parsed.wrongQuestions || []);
+  wrongQuestions = postFilter(wrongQuestions).map(q => ({ ...q, pageIndex }));
+
+  log('info', 'v3 过滤结果', { raw: (Array.isArray(parsed) ? parsed.length : parsed.wrongQuestions?.length || 0), filtered: wrongQuestions.length });
+
+  return { wrongQuestions, paperMeta: parsed.paperMeta || null };
+}
+
+/**
  * 阶段 2：深度分析 — 用 DeepSeek 对错题进行诊断
  * 批量处理：每批 ≤8 道题，避免 token 溢出导致 JSON 截断
  */
@@ -1085,23 +1139,22 @@ async function executePaperTask(task) {
         continue;
       }
 
-      // ===== v2 统一分析（OCR+红笔语义+错题归因 一步完成）=====
+      // ===== | v3 链式分析（OCR+红笔语义+错题归因 一步完成）=====
       paperTasks.get(id).progress = {
-        stage: 'analyze-v2',
+        stage: 'analyze-v3',
         message: `AI 正在分析第 ${i + 1}/${totalPages} 页（识别+诊断）…`,
         current: i + 1, total: totalPages
       };
 
-      log('info', 'v2 调用', { taskId: id, page: i + 1, correctedLen: preprocessResult.corrected?.length || 0, redMarksLen: preprocessResult.red_marks?.length || 0 });
+      log('info', 'v3 调用', { taskId: id, page: i + 1, correctedLen: preprocessResult.corrected?.length || 0, redMarksLen: preprocessResult.red_marks?.length || 0 });
 
-      const { wrongQuestions, paperMeta } = await analyzePaperV2(
-        preprocessResult.corrected,  // 预处理后的压缩图（含红笔，~1MB）
+      const { wrongQuestions, paperMeta } = await analyzePaperV3(
+        preprocessResult.corrected,
         preprocessResult.red_marks,
-        input.subject,
         i + 1
       );
 
-      log('info', 'v2 统一分析完成', {
+      log('info', 'v3 分析完成', {
         taskId: id, page: i + 1,
         wrongCount: wrongQuestions.length,
         questions: wrongQuestions.map(q => `Q${q.questionNumber}`)
@@ -1114,7 +1167,7 @@ async function executePaperTask(task) {
       log('info', '未检测到错题', { taskId: id });
       updatePaperSession(id, { status: 'done', errorCount: 0, totalQuestions: 0, correctCount: 0 });
       paperTasks.get(id).status = 'done';
-      paperTasks.get(id).result = { subject: input.subject, sessionId: id, totalQuestions: 0, correctCount: 0, totalErrors: 0, pipeline: 'v2-unified' };
+      paperTasks.get(id).result = { subject: input.subject, sessionId: id, totalQuestions: 0, correctCount: 0, totalErrors: 0, pipeline: 'v3-chained' };
       paperTasks.get(id).progress = { stage: 'done', message: '未检测到错题 ✅' };
       return;
     }
@@ -1169,7 +1222,7 @@ async function executePaperTask(task) {
         difficulty: q.confidence ? Math.round(6 - q.confidence * 5) : 3,
         knowledgeExplanation: knowledgeExplJson,
         gradingEvidence: q.evidence || '',
-        aiRaw: JSON.stringify({ pipeline: 'v2-unified', analysis: q }),
+        aiRaw: JSON.stringify({ pipeline: 'v3-chained', analysis: q }),
         notes: q.remedy || '',
         sessionId: id, paperIndex: q.pageIndex || 1, status: 'done',
         createdAt: Date.now()
@@ -1189,25 +1242,25 @@ async function executePaperTask(task) {
     const totalQuestions = allWrongQuestions.length;
     updatePaperSession(id, {
       status: 'done', errorCount: savedCount, totalQuestions, correctCount: 0,
-      aiRaw: JSON.stringify({ pipeline: 'v2-unified', allWrongQuestions })
+      aiRaw: JSON.stringify({ pipeline: 'v3-chained', allWrongQuestions })
     });
 
     paperTasks.get(id).status = 'done';
     paperTasks.get(id).result = {
       subject: input.subject, sessionId: id,
       totalQuestions, correctCount: 0, totalErrors: savedCount,
-      skippedNoText: skippedCount, pipeline: 'v2-unified',
+      skippedNoText: skippedCount, pipeline: 'v3-chained',
       learningProfile: allWrongQuestions[0]?.learningProfile || null
     };
     paperTasks.get(id).progress = {
       stage: 'done',
-      message: `${totalQuestions} 题 ❌${savedCount}${skippedCount > 0 ? ` (${skippedCount}题听力跳过)` : ''} | v2 统一分析`
+      message: `${totalQuestions} 题 ❌${savedCount}${skippedCount > 0 ? ` (${skippedCount}题听力跳过)` : ''} | v3 链式分析`
     };
 
     log('info', 'v2 统一流水线完成', {
       taskId: id, subject: input.subject,
       total: totalQuestions, errors: savedCount, skipped: skippedCount,
-      pipeline: 'v2-unified'
+      pipeline: 'v3-chained'
     });
 
   } catch (err) {
