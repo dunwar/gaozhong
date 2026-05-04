@@ -171,6 +171,34 @@ setInterval(() => {
 }, CLEANUP_INTERVAL_MS);
 
 // ========== 限流器（简单令牌桶） ==========
+// ========== 用户每日 Token 预算 ==========
+const userTokenBudget = new Map();            // userId → { date, used }
+const USER_DAILY_TOKEN_LIMIT = 10_000_000;     // 普通用户每日 1000 万 token
+const ADMIN_EMAIL = 'admin@gaozhong.online';
+
+function checkUserTokenBudget(userId, estimatedTokens) {
+  if (!userId) return { allowed: true };       // 游客不限制
+  const today = new Date().toISOString().slice(0, 10);
+  const entry = userTokenBudget.get(userId);
+  if (!entry || entry.date !== today) {
+    userTokenBudget.set(userId, { date: today, used: estimatedTokens });
+    return { allowed: true, used: estimatedTokens, limit: USER_DAILY_TOKEN_LIMIT };
+  }
+  entry.used += estimatedTokens;
+  if (entry.used > USER_DAILY_TOKEN_LIMIT) {
+    return { allowed: false, used: entry.used, limit: USER_DAILY_TOKEN_LIMIT };
+  }
+  return { allowed: true, used: entry.used, limit: USER_DAILY_TOKEN_LIMIT };
+}
+
+// 每日清理过期预算
+setInterval(() => {
+  const today = new Date().toISOString().slice(0, 10);
+  for (const [uid, entry] of userTokenBudget) {
+    if (entry.date !== today) userTokenBudget.delete(uid);
+  }
+}, 60 * 60 * 1000);
+
 const rateLimitMap = new Map();
 const RATE_LIMIT_WINDOW = 60_000;   // 1 分钟窗口
 const RATE_LIMIT_MAX = 20;          // 每 IP 每分钟最多 20 次提交
@@ -187,6 +215,23 @@ function checkRateLimit(ip) {
     return { allowed: false, retryAfter: Math.ceil((entry.windowStart + RATE_LIMIT_WINDOW - now) / 1000) };
   }
   return { allowed: true };
+}
+
+// 组合校验：IP 限流 + 用户 Token 预算
+function checkLimits(req, estimatedTokens = 5000) {
+  const ip = req.ip || req.socket.remoteAddress || 'unknown';
+  const rl = checkRateLimit(ip);
+  if (!rl.allowed) return { allowed: false, error: '请求过于频繁', retryAfter: rl.retryAfter, status: 429 };
+
+  // admin 跳过 token 限制
+  if (req.user?.email === ADMIN_EMAIL) return { allowed: true };
+
+  const userId = req.user?.id;
+  const budget = checkUserTokenBudget(userId, estimatedTokens);
+  if (!budget.allowed) {
+    return { allowed: false, error: `今日 Token 额度已用完（${(budget.used/1e6).toFixed(1)}M/${USER_DAILY_TOKEN_LIMIT/1e6}M），请明天再试`, status: 429 };
+  }
+  return { allowed: true, budget };
 }
 
 // ============ 以下：原有业务逻辑（保持完整） ============
@@ -934,16 +979,9 @@ async function executePaperTask(task) {
   try {
     paperTasks.get(id).status = 'processing';
 
-    // ===== 阶段 1：全页预处理 + OCR 文本提取 =====
+    // ===== 阶段 1：预处理所有页面 + VL 统一分析 =====
     const totalPages = input.images.length;
-    paperTasks.get(id).progress = {
-      stage: 'preprocess',
-      message: `正在预处理 ${totalPages} 页试卷…`,
-      current: 0, total: totalPages
-    };
-
-    let pages = [];
-    const redMarkImages = [];
+    const allWrongQuestions = [];
 
     for (let i = 0; i < input.images.length; i++) {
       const img = input.images[i];
@@ -951,171 +989,114 @@ async function executePaperTask(task) {
 
       paperTasks.get(id).progress = {
         stage: 'preprocess',
-        message: `预处理第 ${i + 1}/${totalPages} 页 (OCR+笔迹分离)…`,
+        message: `预处理第 ${i + 1}/${totalPages} 页 (OCR+ 笔迹分离)…`,
         current: i + 1, total: totalPages
       };
 
+      // 调用预处理服务获取原图 + 红笔分离图
+      let preprocessResult = null;
       try {
-        const page = await extractPage(img, i + 1);
-        pages.push(page);
-        if (page.hasRedInk) redMarkImages.push(page.redMarksBase64);
-        log('info', '页面OCR提取完成', {
-          taskId: id, page: i + 1,
-          textBlocks: page.layoutRaw?.length || 0,
-          questionGroups: page.questions.length,
-          hasRedInk: page.hasRedInk
-        });
+        preprocessResult = await preprocessImage(img);
       } catch (err) {
-        log('warn', '页面预处理失败', { taskId: id, page: i + 1, error: err.message });
+        log('warn', '预处理失败', { taskId: id, page: i + 1, error: err.message });
+        continue;
       }
-    }
 
-    if (pages.length === 0) throw new Error('所有页面预处理失败');
-
-    const totalQuestionGroups = pages.reduce((s, p) => s + p.questions.length, 0);
-    log('info', 'OCR提取完成', {
-      taskId: id, pages: pages.length,
-      questionGroups: totalQuestionGroups,
-      pagesWithRedInk: redMarkImages.length
-    });
-
-    // ===== 阶段 2：VL 读取红笔标记 =====
-    paperTasks.get(id).progress = {
-      stage: 'read-marks',
-      message: 'AI 正在识别批改标记…',
-      redMarkPages: redMarkImages.length
-    };
-
-    let marks = [];
-    if (redMarkImages.length > 0) {
-      try {
-        marks = await readRedMarks(redMarkImages);
-        log('info', '红笔标记读取完成', { taskId: id, marksFound: marks.length, marks });
-      } catch (err) {
-        log('warn', '红笔标记读取失败', { taskId: id, error: err.message });
+      if (!preprocessResult || !preprocessResult.red_marks) {
+        log('warn', '预处理无红笔分离图', { taskId: id, page: i + 1 });
+        continue;
       }
-    } else {
-      log('info', '无红笔标记页，所有题视为正确', { taskId: id });
-    }
 
-    // ===== 阶段 2.5：PaddleOCR 失败时 VL 提取题目文本 =====
-    if (totalQuestionGroups === 0 && marks.length > 0) {
-      log('info', 'PaddleOCR未检测到文本，启动VL题目提取', { taskId: id, markedQuestions: marks.map(m => m.questionNumber) });
-
+      // ===== VL 统一分析（原图 + 红笔图联动）=====
       paperTasks.get(id).progress = {
-        stage: 'read-questions',
-        message: 'PaddleOCR 未识别到文本，AI 正在读取题目…',
-        redMarks: marks.length
+        stage: 'analyze-vl',
+        message: `AI 正在分析第 ${i + 1}/${totalPages} 页错题…`,
+        current: i + 1, total: totalPages
       };
 
-      // 收集所有有标记的题号（动态列表，提取后移除避免重复）
-      let allMarkedQNs = [...new Set(marks.filter(m => m.questionNumber).map(m => m.questionNumber))];
+      const wrongQuestions = await analyzePaperWithVL(
+        preprocessResult.corrected || img,
+        preprocessResult.red_marks,
+        i + 1
+      );
 
-      // 逐页调用 VL 提取题目文本（发送原图 + 目标题号）
-      for (let i = 0; i < input.images.length; i++) {
-        if (allMarkedQNs.length === 0) break;
+      log('info', 'VL 统一分析完成', {
+        taskId: id, page: i + 1,
+        wrongCount: wrongQuestions.length,
+        questions: wrongQuestions.map(q => `Q${q.questionNumber}`)
+      });
 
-        const img = input.images[i];
-        if (!img.startsWith('data:image')) continue;
-
-        try {
-          paperTasks.get(id).progress = {
-            stage: 'read-questions',
-            message: `AI 正在读取第 ${i + 1}/${input.images.length} 页题目…`,
-            current: i + 1, total: input.images.length
-          };
-
-          const vlQuestions = await readQuestionTexts(img, allMarkedQNs);
-          if (vlQuestions.length > 0) {
-            let pageEntry = pages.find(p => p.pageIndex === i + 1);
-            if (!pageEntry) {
-              pageEntry = { pageIndex: i + 1, questions: [], redMarksBase64: null, correctedBase64: img, hasRedInk: false, layoutRaw: [], imageSize: null };
-              pages.push(pageEntry);
-            }
-            pageEntry.questions = vlQuestions.map(q => ({
-              questionNumber: q.questionNumber,
-              questionType: q.questionType || '未知',
-              questionText: q.questionText || '',
-              options: q.options || [],
-              studentAnswer: q.studentAnswer || '',
-              rawText: q.questionText || '',
-              y: 0, yEnd: 0,
-              blocks: []
-            }));
-            log('info', 'VL题目提取完成', { taskId: id, page: i + 1, questions: vlQuestions.length });
-
-            // 已提取的题号从待处理列表中移除，避免跨页重复
-            const extractedQNs = new Set(vlQuestions.map(q => q.questionNumber));
-            allMarkedQNs = allMarkedQNs.filter(qn => !extractedQNs.has(qn));
-          }
-        } catch (err) {
-          log('warn', 'VL题目提取失败', { taskId: id, page: i + 1, error: err.message });
-        }
-      }
+      allWrongQuestions.push(...wrongQuestions);
     }
 
-    // ===== 阶段 3：智能合并 =====
-    const finalQuestionGroups = pages.reduce((s, p) => s + p.questions.length, 0);
+    if (allWrongQuestions.length === 0) {
+      log('info', '未检测到错题', { taskId: id });
+      updatePaperSession(id, { status: 'done', errorCount: 0, totalQuestions: 0, correctCount: 0 });
+      paperTasks.get(id).status = 'done';
+      paperTasks.get(id).result = { subject: input.subject, sessionId: id, totalQuestions: 0, correctCount: 0, totalErrors: 0, pipeline: 'v2-unified-vl' };
+      paperTasks.get(id).progress = { stage: 'done', message: '未检测到错题 ✅' };
+      return;
+    }
 
-    const { allQuestions, wrongQuestions, correctCount, wrongCount } = mergeResults(pages, marks);
-    log('info', '合并完成', {
-      taskId: id,
-      total: allQuestions.length,
-      correct: correctCount,
-      wrong: wrongCount,
-      fromRedMarks: marks.length
-    });
-
-    // ===== 过滤无题干错题（如纯听力题）=====
-    const MIN_QUESTION_LENGTH = 8; // 最少8个字符才算有效题目
-    const analyzedWrong = wrongQuestions.filter(q => {
-      const text = q.questionText || q.rawText || '';
+    // ===== 阶段 2：过滤无题干题目（如纯听力题）=====
+    const MIN_QUESTION_LENGTH = 8;
+    const analyzedWrong = allWrongQuestions.filter(q => {
+      const text = q.questionText || '';
       const hasContent = text.replace(/[0-9\.\、\s\n]/g, '').length >= MIN_QUESTION_LENGTH;
       if (!hasContent) {
         log('info', '跳过无题干错题', { taskId: id, q: q.questionNumber, textLen: text.length });
-        // 直接保存为"无法分析"状态
         const errorId = crypto.randomUUID().slice(0, 8);
         saveErrorProblem({
           id: errorId, userId: input.userId, subject: input.subject,
-          topic: `第${q.questionNumber}题（${q.questionType || '未知'}）`,
-          questionText: '(无题干，无法分析)',
-          questionType: q.questionType || '',
+          topic: `第${q.questionNumber}题（${q.questionType || '听力'}）`,
+          questionText: '(无题干，听力题)',
+          questionType: q.questionType || '听力',
           answerOptions: JSON.stringify(q.options || []),
           wrongAnswer: q.studentAnswer || '',
           correctAnswer: q.correctAnswer || '',
-          errorType: '无题干',
-          correctSolution: '该题为听力/看图等无文字题型，无法自动分析。请自行复习。',
+          errorType: '听力题无题干',
+          correctSolution: '该题为听力题，无文字题干，无法自动分析。请自行复习听力原文。',
           difficulty: 0,
           knowledgeExplanation: '{}',
-          gradingEvidence: q.gradingMark || '',
-          aiRaw: JSON.stringify({ skipped: true, reason: 'no_question_text', originalText: text }),
-          notes: '无题干自动跳过',
+          gradingEvidence: q.mark || '',
+          aiRaw: JSON.stringify({ skipped: true, reason: 'listening_no_text', original: q }),
+          notes: '听力题自动跳过',
           sessionId: id, paperIndex: q.pageIndex || 1, status: 'done',
           createdAt: Date.now()
         });
       }
       return hasContent;
     });
-    const skippedQuestions = wrongQuestions.length - analyzedWrong.length;
-    log('info', '题干过滤完成', { taskId: id, total: wrongQuestions.length, analyzed: analyzedWrong.length, skipped: skippedQuestions });
 
-    // ===== 阶段 4：DeepSeek 深度分析（仅有效错题） =====
+    const skippedCount = allWrongQuestions.length - analyzedWrong.length;
+    log('info', '题干过滤完成', { taskId: id, total: allWrongQuestions.length, analyzed: analyzedWrong.length, skipped: skippedCount });
+
+    // ===== 阶段 3：DeepSeek 深度分析 =====
     let analysisResults = [];
     if (analyzedWrong.length > 0) {
       paperTasks.get(id).progress = {
-        stage: 'analyze',
+        stage: 'analyze-deepseek',
         message: `AI 正在分析 ${analyzedWrong.length} 道错题…`,
-        totalQuestions: allQuestions.length,
-        correctCount, wrongCount: analyzedWrong.length
+        total: analyzedWrong.length
       };
 
-      const errorList = prepareErrorList(analyzedWrong);
+      const errorList = analyzedWrong.map(q => ({
+        questionNumber: q.questionNumber,
+        questionType: q.questionType || '选择题',
+        questionText: q.questionText || '',
+        options: q.options || [],
+        studentAnswer: q.studentAnswer || '',
+        correctAnswer: q.correctAnswer || '',
+        gradingMark: q.mark || '',
+        redInkContent: q.mark || '',
+        confidence: 'high'
+      }));
+
       analysisResults = await analyzeErrors(input.subject, errorList);
     }
 
-    // ===== 保存分析结果到数据库 =====
-    const sessionId = id; let savedCount = 0;
-
+    // ===== 阶段 4：保存结果到数据库 =====
+    let savedCount = 0;
     for (let i = 0; i < analyzedWrong.length; i++) {
       const q = analyzedWrong[i];
       const analysis = analysisResults.find(a => a.questionNumber === q.questionNumber) || {};
@@ -1131,8 +1112,8 @@ async function executePaperTask(task) {
 
       saveErrorProblem({
         id: errorId, userId: input.userId, subject: input.subject,
-        topic: `第${q.questionNumber}题（${q.questionType || '未知'}）`,
-        questionText: q.questionText || q.rawText || '',
+        topic: `第${q.questionNumber}题（${q.questionType || '选择题'}）`,
+        questionText: q.questionText || '',
         questionType: q.questionType || '',
         answerOptions: JSON.stringify(q.options || []),
         wrongAnswer: q.studentAnswer || '',
@@ -1141,14 +1122,13 @@ async function executePaperTask(task) {
         correctSolution: analysis.solution || analysis.correctSolution || '',
         difficulty: analysis.difficulty || 3,
         knowledgeExplanation: knowledgeExplJson,
-        gradingEvidence: q.gradingMark || '',
+        gradingEvidence: q.mark || '',
         aiRaw: JSON.stringify({
-          ocr: { questionText: q.questionText, questionType: q.questionType, options: q.options },
-          marks: { mark: q.gradingMark, correctAnswer: q.correctAnswer, confidence: q.confidence },
+          vl: { questionNumber: q.questionNumber, mark: q.mark, studentAnswer: q.studentAnswer },
           analysis: { diagnosis: analysis.diagnosis, solution: analysis.solution, mnemonic: analysis.mnemonic, knowledgeCards }
         }),
         notes: analysis.mnemonic || '',
-        sessionId, paperIndex: q.pageIndex || 1, status: 'done',
+        sessionId: id, paperIndex: q.pageIndex || 1, status: 'done',
         createdAt: Date.now()
       });
 
@@ -1162,34 +1142,37 @@ async function executePaperTask(task) {
       savedCount++;
     }
 
-    updatePaperSession(sessionId, {
+    const totalQuestions = allWrongQuestions.length;
+    const correctCount = 0;
+
+    updatePaperSession(id, {
       status: 'done',
       errorCount: savedCount,
-      totalQuestions: allQuestions.length,
+      totalQuestions,
       correctCount,
-      aiRaw: JSON.stringify({ pipeline: 'v2-redmark-driven', pages, marks, allQuestions, wrongQuestions, analysisResults })
+      aiRaw: JSON.stringify({ pipeline: 'v2-unified-vl', allWrongQuestions, analyzedWrong, analysisResults })
     });
 
     paperTasks.get(id).status = 'done';
     paperTasks.get(id).result = {
       subject: input.subject,
-      sessionId,
-      totalQuestions: allQuestions.length,
+      sessionId: id,
+      totalQuestions,
       correctCount,
       totalErrors: savedCount,
-      skippedNoText: skippedQuestions,
-      pipeline: 'v2-redmark-driven',
+      skippedNoText: skippedCount,
+      pipeline: 'v2-unified-vl',
       errors: analysisResults.slice(0, 50)
     };
     paperTasks.get(id).progress = {
       stage: 'done',
-      message: `${allQuestions.length} 题 ✅${correctCount} ❌${savedCount}${skippedQuestions > 0 ? ` (${skippedQuestions}题无题干已跳过)` : ''} | 批改: ${marks.length}个`
+      message: `${totalQuestions} 题 ❌${savedCount}${skippedCount > 0 ? ` (${skippedCount}题听力跳过)` : ''} | VL 精准识别`
     };
 
-    log('info', '新流水线完成', {
+    log('info', '新流水线 v2 完成', {
       taskId: id, subject: input.subject,
-      total: allQuestions.length, correct: correctCount, errors: savedCount,
-      marks: marks.length, pipeline: 'v2-redmark-driven'
+      total: totalQuestions, errors: savedCount, skipped: skippedCount,
+      pipeline: 'v2-unified-vl'
     });
 
   } catch (err) {
@@ -1200,7 +1183,6 @@ async function executePaperTask(task) {
     try { updatePaperSession(id, { status: 'failed' }); } catch (_) {}
   }
 }
-
 // ========== V2 AI 学习指导执行器 ==========
 
 async function executeGuidanceTask(task) {
@@ -1444,11 +1426,9 @@ app.get('/admin/users', authMiddleware, adminMiddleware, (req, res) => {
 app.post('/analyze', (req, res) => {
   const ip = req.ip || req.socket.remoteAddress || 'unknown';
 
-  // 限流检查
-  const rl = checkRateLimit(ip);
-  if (!rl.allowed) {
-    return res.status(429).json({ error: '请求过于频繁，请稍后再试', retryAfter: rl.retryAfter });
-  }
+  // 限流 + Token 预算检查（作文批改 ~15000 token）
+  const limits = checkLimits(req, 15000);
+  if (!limits.allowed) return res.status(limits.status || 429).json({ error: limits.error, retryAfter: limits.retryAfter });
 
   // 队列深度检查
   if (gradingQueue.pending >= MAX_QUEUE_DEPTH) {
@@ -1573,9 +1553,9 @@ app.get('/stats', (req, res) => {
 
 // 提交错题诊断（异步）
 app.post('/error/diagnose', (req, res) => {
-  const ip = req.ip || req.socket.remoteAddress || 'unknown';
-  const rl = checkRateLimit(ip);
-  if (!rl.allowed) return res.status(429).json({ error: '请求过于频繁', retryAfter: rl.retryAfter });
+  // 限流 + Token 预算检查（错题诊断 ~8000 token）
+  const limits = checkLimits(req, 8000);
+  if (!limits.allowed) return res.status(limits.status || 429).json({ error: limits.error, retryAfter: limits.retryAfter });
   if (errorQueue.pending >= MAX_QUEUE_DEPTH) return res.status(503).json({ error: '排队人数过多' });
 
   const { subject, topic, questionText, wrongAnswer, file } = req.body;
@@ -1693,9 +1673,9 @@ app.get('/knowledge/errors', authMiddleware, (req, res) => {
 // ========== V2 整卷分析 API ==========
 
 app.post('/paper/analyze', authMiddleware, (req, res) => {
-  const ip = req.ip || req.socket.remoteAddress || 'unknown';
-  const rl = checkRateLimit(ip);
-  if (!rl.allowed) return res.status(429).json({ error: '请求过于频繁', retryAfter: rl.retryAfter });
+  // 限流 + Token 预算检查（整卷分析 ~50000 token）
+  const limits = checkLimits(req, 50000);
+  if (!limits.allowed) return res.status(limits.status || 429).json({ error: limits.error, retryAfter: limits.retryAfter });
   if (paperQueue.pending >= MAX_QUEUE_DEPTH) return res.status(503).json({ error: '排队人数过多' });
 
   const { subject, images, title } = req.body;
@@ -1731,9 +1711,9 @@ app.get('/paper/sessions', authMiddleware, (req, res) => {
 // ========== V2 AI 学习指导 API ==========
 
 app.post('/paper/guidance', authMiddleware, (req, res) => {
-  const ip = req.ip || req.socket.remoteAddress || 'unknown';
-  const rl = checkRateLimit(ip);
-  if (!rl.allowed) return res.status(429).json({ error: '请求过于频繁', retryAfter: rl.retryAfter });
+  // 限流 + Token 预算检查（学习指导 ~10000 token）
+  const limits = checkLimits(req, 10000);
+  if (!limits.allowed) return res.status(limits.status || 429).json({ error: limits.error, retryAfter: limits.retryAfter });
 
   const { subject, timeFrom, timeTo, timeRange } = req.body;
   if (!subject) return res.status(400).json({ error: '请选择学科' });
