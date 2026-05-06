@@ -23,19 +23,18 @@
 - [x] 异步任务队列（并发上限 3）
 - [x] 批改历史（登录用户/游客双模式）
 
-### 2.3 错题上传（红笔驱动流水线）🔄
-**架构**：红笔标记驱动 → VL 仅读标记 + 读题 → DeepSeek 分析
+### 2.3 错题上传（v4 两阶段流水线）🔄
+**架构**：VL 视觉扫描（单图） → DeepSeek 深度分析
 
-- [x] 阶段0：`preprocess-server.py` — OpenCV 预处理（校正/对比度/红笔分离/蓝黑笔分离 + PaddleOCR 版面分析）
-- [x] 阶段1：`prompts/mark-reader-v1.js` — VL 只看红笔分离图，输出批改标记列表
-- [x] 阶段2：`prompts/question-reader-v1.js` — VL 按题号从原图提取题目文本（PaddleOCR 失败时备选）
-- [x] 阶段3：`ocr-extractor.js` + `smart-merger.js` — OCR文本提取 + 标记合并为精确错题列表
-- [x] 阶段4：`prompts/paper-analysis-v4.js` — DeepSeek 深度分析（批量≤8题，max_tokens=16000）
-- [x] 学科选择：数学 / 物理 / 化学 / 生物 / 英语 / 语文
+- [x] 阶段0：`preprocess-server.py` — OpenCV 预处理（校正/对比度增强）
+- [x] 阶段1：`prompts/paper-scanner-v4.js` — VL 单图视觉扫描（Kimi k2.6），仅做"定位+判定"，输出错题列表含题型分类（standard/listening/reading）
+- [x] 阶段2：`prompts/paper-analysis-v4.js` — DeepSeek 深度分析（仅 standard + reading，批量≤8题）
+- [x] 听力题特殊处理：仅记录错题，不做归因分析
+- [x] 阅读理解特殊处理：提取文章全文，注入 DeepSeek 分析上下文
+- [x] 题型三分法：standard（标准题）/ listening（听力，无题干）/ reading（阅读理解）
+- [x] 单图输入（移除红笔分离图），消除双图交叉引用导致的 VL 幻觉
 - [x] 异步任务队列 + 前端轮询进度
-- [x] 无题干过滤：questionText<8字符自动跳过（如纯听力题）
-- [x] 跨页题号去重：page1提取后从page2请求中移除
-- [ ] 🐛 PaddleOCR 持续返回 0 文本块（详见"已知问题"）
+- [ ] 🐛 PaddleOCR 持续返回 0 文本块（v4 已不再依赖 PaddleOCR）
 
 ### 2.4 AI 整卷分析 Prompt ✅
 - [x] `prompts/paper-analysis-v1.js`（初始版本，OCR → DeepSeek 单阶段）
@@ -162,41 +161,16 @@ ALTER TABLE error_problems ADD COLUMN paper_index INTEGER;  -- 同一 session �
 | 7 | 前端：AI 学习指导模块 ✅ |
 | 8 | 构建部署 + 测试 ✅ |
 
-## 9. 🐛 已知问题（2026-05-03）
+## 9. 🐛 已知问题（2026-05-06 v4 更新）
 
-### 9.1 PaddleOCR 版面分析持续失败
-
-**现象**：每次预处理 `textBlocks: 0`，PaddleOCR 检测不到任何文本区域。
-
-**已尝试**：
-- BGR→RGB 转换（`cv2.cvtColor(img, cv2.COLOR_BGR2RGB)`）→ 待验证
-- 确认 `paddleocr: true`（模型加载成功）
-- 确认 `ocr.ocr(img, cls=False)` API 调用未报异常，但返回空
-
-**影响**：VL 兜底通道自动补位，流水线仍能运行，但比纯 OCR 慢约 12s（VL 读题开销）。
-
-**待排查**：
-1. PaddleOCR 3.5 的 `ocr.ocr()` 接口是否与 2.x 有差异
-2. 图像尺寸/分辨率是否影响检测（`use_angle_cls` 已废弃）
-3. `cls=False` 参数在 3.5 中是否已移除
-4. 预处理后的图像格式（deskew+CLAHE）是否影响 PaddleOCR
+### 9.1 PaddleOCR 版面分析持续失败（v4 不再依赖）
+PaddleOCR 持续 `textBlocks: 0`。v4 已彻底移除对 PaddleOCR 的依赖，VL 单图直接扫描原图。`ocr-extractor.js` 和 `smart-merger.js` 可归档。
 
 ### 9.2 前端体验
+DeepSeek 分析阶段耗时 60-120s，前端轮询显示"AI 正在分析 X 道错题…"无更细进度。**待优化**：显示批次进度。
 
-**现象**：DeepSeek 分析阶段耗时 60-120s，前端轮询显示"AI 正在分析 X 道错题…"无更细进度。
-
-**影响**：用户等待焦虑。
-
-**待优化**：显示 DeepSeek 批次进度（如"分析第 1/2 批…"）。
-
-### 9.3 VL 标记识别遗漏
-
-**现象**：部分红笔标记未被 VL 识别（如实际 8 道错题仅识别 3 道）。
-
-**可能原因**：
-1. 红笔分离图中标记对比度不够
-2. VL 的 mark-reader prompt 未覆盖所有标记类型
-3. 多页红笔分离图合并可能导致标记混淆
+### 9.3 阅读理解文章提取验证
+v4 新增阅读理解文章自动提取（passageText），需实际测试验证 VL 提取准确性。如果文章跨页，需考虑合并策略。
 
 ## 10. 变更记录
 
@@ -218,3 +192,4 @@ ALTER TABLE error_problems ADD COLUMN paper_index INTEGER;  -- 同一 session �
 | 2026-05-03 | 双通道互补：PaddleOCR失败→VL自动补位读题 | ✅ |
 | 2026-05-03 | 无题干过滤 + 跨页题号去重 + BGR→RGB修复 | ✅ |
 | 2026-05-03 | 🐛 PaddleOCR 持续零输出，待深度排查 | 🔄 |
+| 2026-05-06 | v4 流水线重构：单图 VL 扫描 + DeepSeek 分析解耦 + 题型三分法 | 🔄 |
