@@ -742,7 +742,7 @@ function compressImage(base64Url, maxWidth = 1200, quality = 65) {
  * 输出：{ passageText, errors: [{ questionNumber, questionText, questionType, options, studentAnswer, correctAnswer, markDescription }] }
  */
 async function scanPageV4(imageBase64, subject, pageIndex) {
-  const compressed = compressImage(imageBase64, 1024, 50);
+  const compressed = compressImage(imageBase64, 1600, 80);
 
   const messages = buildScannerMessages({ subject, imageBase64: compressed });
 
@@ -750,12 +750,12 @@ async function scanPageV4(imageBase64, subject, pageIndex) {
     model: MODEL_OCR,
     messages,
     temperature: 1,
-    max_tokens: 8000
+    max_tokens: 3000
   });
 
   const content = result.choices?.[0]?.message?.content;
   log('info', 'v4 扫描响应', { contentLen: content?.length || 0, preview: (content || '').substring(0, 400), endPreview: (content || '').slice(-200) });
-  if (!content) { log('warn', 'v4 扫描返回空'); return { passageText: '', errors: [] }; }
+  if (!content) { log('warn', 'v4 扫描返回空'); return { passageText: '', errors: [], warning: null }; }
 
   // JSON 提取
   let jsonStr = content
@@ -770,29 +770,33 @@ async function scanPageV4(imageBase64, subject, pageIndex) {
     if (m) {
       try { parsed = JSON.parse(m[0]); } catch {
         log('warn', 'v4 JSON 解析失败', { contentEnd: jsonStr.slice(-200) });
-        return { passageText: '', errors: [] };
+        return { passageText: '', errors: [], warning: null };
       }
     } else {
       log('warn', 'v4 无法提取 JSON', { contentEnd: jsonStr.slice(-200) });
-      return { passageText: '', errors: [] };
+      return { passageText: '', errors: [], warning: null };
     }
   }
 
-  let errors = Array.isArray(parsed) ? parsed : (parsed.errors || []);
-  errors = postFilter(errors).map(q => ({ ...q, pageIndex }));
+  const rawErrors = Array.isArray(parsed) ? parsed : (parsed.errors || []);
+  const { errors, warning } = postFilter(rawErrors, pageIndex);
+  const errorsWithPage = errors.map(q => ({ ...q, pageIndex }));
   const passageText = parsed.passageText || '';
 
-  log('info', 'v4 扫描完成', { pageIndex, raw: Array.isArray(parsed) ? parsed.length : (parsed.errors?.length || 0), filtered: errors.length, hasPassage: !!passageText });
+  if (warning) log('warn', 'v4 异常检测', { pageIndex, warning });
 
-  return { passageText, errors };
+  log('info', 'v4 扫描完成', { pageIndex, raw: rawErrors.length, filtered: errorsWithPage.length, hasPassage: !!passageText });
+
+  return { passageText, errors: errorsWithPage, warning };
 }
 
 /**
  * 阶段 2：深度分析 — 用 DeepSeek 对错题进行诊断
- * 批量处理：每批 ≤8 道题，避免 token 溢出导致 JSON 截断
+ * 批量处理：每批 ≤6 道题，多批并行（并发上限 3），避免超时
  */
 async function analyzeErrors(subject, wrongQuestions) {
-  const BATCH_SIZE = 8;
+  const BATCH_SIZE = 6;
+  const MAX_CONCURRENT_BATCHES = 3;
   const batches = [];
   for (let i = 0; i < wrongQuestions.length; i += BATCH_SIZE) {
     batches.push(wrongQuestions.slice(i, i + BATCH_SIZE));
@@ -800,23 +804,24 @@ async function analyzeErrors(subject, wrongQuestions) {
 
   log('info', '错题AI分析', {
     provider: 'DeepSeek', model: MODEL_GRADING, subject,
-    errorCount: wrongQuestions.length, batches: batches.length
+    errorCount: wrongQuestions.length, batches: batches.length, mode: 'parallel'
   });
 
-  const allResults = [];
-
-  for (let b = 0; b < batches.length; b++) {
-    const batch = batches[b];
+  /**
+   * 处理单个批次
+   */
+  async function processBatch(batch, b) {
+    const startMs = Date.now();
     const prompt = renderPaperAnalysisPrompt(subject, batch);
-
     try {
       const result = await deepseekRequest({
         model: MODEL_GRADING,
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.3,
-        max_tokens: 16000
+        max_tokens: 8000
       });
 
+      const elapsed = ((Date.now() - startMs) / 1000).toFixed(1);
       const content = result.choices?.[0]?.message?.content;
       if (!content) throw new Error(`第${b + 1}批 AI 返回为空`);
 
@@ -826,15 +831,12 @@ async function analyzeErrors(subject, wrongQuestions) {
       try {
         parsed = JSON.parse(cleaned);
       } catch (e1) {
-        // Try array extraction
         const m = cleaned.match(/\[[\s\S]*\]/);
         if (m) {
           try { parsed = JSON.parse(m[0]); } catch (e2) {
-            // JSON truncated: try to salvage by closing the array
             const salvage = m[0].replace(/,\s*$/, '') + ']';
             try { parsed = JSON.parse(salvage); } catch (e3) {
               log('warn', '分批JSON解析失败', { batch: b + 1, error: e3.message, contentLen: content.length, contentEnd: content.slice(-200) });
-              // Last resort: extract individual objects
               const objects = [...m[0].matchAll(/\{[^{}]*\{[^{}]*\}[^{}]*\}|\{[^{}]*\}/g)];
               if (objects.length > 0) {
                 parsed = objects.map(o => { try { return JSON.parse(o[0]); } catch (_) { return null; } }).filter(Boolean);
@@ -844,7 +846,6 @@ async function analyzeErrors(subject, wrongQuestions) {
         }
         if (!parsed) {
           log('warn', '分批JSON完全不可解析', { batch: b + 1, error: e1.message, contentSample: content.substring(0, 500) });
-          // Return partial results with raw content as fallback
           parsed = batch.map((q, i) => ({
             questionNumber: q.questionNumber,
             errorType: '未知',
@@ -857,13 +858,13 @@ async function analyzeErrors(subject, wrongQuestions) {
         }
       }
 
-      if (Array.isArray(parsed)) {
-        allResults.push(...parsed);
-      }
+      log('info', `批次 ${b + 1}/${batches.length} 完成`, { elapsed: `${elapsed}s`, questions: batch.length });
+      return Array.isArray(parsed) ? parsed : [];
+
     } catch (err) {
-      log('error', '分批分析失败', { batch: b + 1, error: err.message });
-      // Don't fail the entire task — add placeholders
-      batch.forEach(q => allResults.push({
+      log('error', '分批分析失败', { batch: b + 1, elapsed: `${((Date.now() - startMs) / 1000).toFixed(1)}s`, error: err.message });
+      // 失败批次返回占位符
+      return batch.map(q => ({
         questionNumber: q.questionNumber,
         errorType: '未知',
         diagnosis: `AI 调用失败：${err.message}`,
@@ -873,6 +874,16 @@ async function analyzeErrors(subject, wrongQuestions) {
         difficulty: 3
       }));
     }
+  }
+
+  // 并发处理所有批次（上限 3 并发）
+  const allResults = [];
+  for (let i = 0; i < batches.length; i += MAX_CONCURRENT_BATCHES) {
+    const chunk = batches.slice(i, i + MAX_CONCURRENT_BATCHES);
+    const chunkResults = await Promise.all(
+      chunk.map((batch, j) => processBatch(batch, i + j))
+    );
+    for (const r of chunkResults) allResults.push(...r);
   }
 
   return allResults;
@@ -961,6 +972,7 @@ async function executePaperTask(task) {
 
     const totalPages = input.images.length;
     const allScanErrors = [];  // { pageIndex, errors: [], passageText }
+    const allWarnings = [];    // 异常检测警告
 
     // ===== 阶段 1+2：逐页预处理 + VL 扫描 =====
     for (let i = 0; i < input.images.length; i++) {
@@ -990,14 +1002,19 @@ async function executePaperTask(task) {
         current: i + 1, total: totalPages
       };
 
-      const { passageText, errors } = await scanPageV4(imageToScan, input.subject, i + 1);
+      const { passageText, errors, warning } = await scanPageV4(imageToScan, input.subject, i + 1);
 
       log('info', 'v4 扫描完成', {
         taskId: id, page: i + 1,
         errorCount: errors.length,
         questions: errors.map(q => `Q${q.questionNumber}`),
-        hasPassage: !!passageText
+        hasPassage: !!passageText,
+        hasWarning: !!warning
       });
+
+      if (warning) {
+        allWarnings.push(warning);
+      }
 
       allScanErrors.push({ pageIndex: i + 1, errors, passageText });
     }
@@ -1143,12 +1160,13 @@ async function executePaperTask(task) {
     };
     paperTasks.get(id).progress = {
       stage: 'done',
-      message: `${totalQuestions} 错题 | ✅分析 ${savedCount} ${listeningCount > 0 ? `| 🎧听力 ${listeningCount}（仅记录）` : ''} | v4`
+      message: `${totalQuestions} 错题 | ✅分析 ${savedCount} ${listeningCount > 0 ? `| 🎧听力 ${listeningCount}（仅记录）` : ''}${allWarnings.length > 0 ? ` | ⚠️ ${allWarnings[0]}` : ''} | v4.1`
     };
 
     log('info', 'v4 流水线完成', {
       taskId: id, subject: input.subject,
-      total: totalQuestions, analyzed: savedCount, listening: listeningCount
+      total: totalQuestions, analyzed: savedCount, listening: listeningCount,
+      warnings: allWarnings.length
     });
 
   } catch (err) {
