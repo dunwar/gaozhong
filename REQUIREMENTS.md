@@ -27,7 +27,7 @@
 **架构**：VL 视觉扫描（单图） → DeepSeek 深度分析
 
 - [x] 阶段0：`preprocess-server.py` — OpenCV 预处理（校正/对比度增强）
-- [x] 阶段1：`prompts/paper-scanner-v4.js` — VL 单图视觉扫描（Kimi k2.6），仅做"定位+判定"，输出错题列表含题型分类（standard/listening/reading）
+- [x] 阶段1：`prompts/paper-scanner-v4.js` (v4.2) — VL 单图视觉扫描（Kimi k2.6），仅做"定位+判定"，输出错题列表含题型分类（standard/listening/reading）
 - [x] 阶段2：`prompts/paper-analysis-v4.js` — DeepSeek 深度分析（仅 standard + reading，批量≤8题）
 - [x] 听力题特殊处理：仅记录错题，不做归因分析
 - [x] 阅读理解特殊处理：提取文章全文，注入 DeepSeek 分析上下文
