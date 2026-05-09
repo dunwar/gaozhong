@@ -737,12 +737,46 @@ function compressImage(base64Url, maxWidth = 1200, quality = 65) {
 }
 
 /**
+ * 红笔像素验证：检测图片中是否有显著红笔标记
+ * 使用 ImageMagick 提取红色通道特征
+ * @returns {{ hasRed: boolean, redRatio: number }}
+ */
+function checkRedMarkings(imageBase64) {
+  try {
+    const match = imageBase64.match(/^data:([^;]+);base64,(.+)$/);
+    if (!match) return { hasRed: false, redRatio: 0 };
+
+    const buf = Buffer.from(match[2], 'base64');
+
+    // 统计像素：红色 (R > G*1.4 AND R > B*1.4 AND R > 100) 的占比
+    const redPixelCount = execFileSync('convert', [
+      '-',
+      // 选出红色像素
+      '-fx', '(r > g*1.4 && r > b*1.4 && r > 0.39) ? 1 : 0',
+      // 统计均值 = 红色像素占比
+      '-format', '%[fx:mean]',
+      'info:'
+    ], { input: buf, timeout: 5000 });
+
+    const redRatio = parseFloat(redPixelCount.toString().trim());
+    // 红笔标记通常占图片面积 0.3%-5%
+    const hasRed = redRatio > 0.002 && redRatio < 0.15;
+
+    log('info', '红笔像素检测', { redRatio: redRatio.toFixed(4), hasRed });
+    return { hasRed, redRatio };
+  } catch (e) {
+    log('warn', '红笔像素检测失败', { error: e.message });
+    return { hasRed: true, redRatio: -1 }; // 无法检测时不做过滤
+  }
+}
+
+/**
  * v4：单图视觉扫描 — 仅定位+判定，不做知识分析
  * 输入：预处理后的原图（单图）
  * 输出：{ passageText, errors: [{ questionNumber, questionText, questionType, options, studentAnswer, correctAnswer, markDescription }] }
  */
 async function scanPageV4(imageBase64, subject, pageIndex) {
-  const compressed = compressImage(imageBase64, 1600, 80);
+  const compressed = compressImage(imageBase64, 1200, 55);
 
   const messages = buildScannerMessages({ subject, imageBase64: compressed });
 
@@ -750,7 +784,7 @@ async function scanPageV4(imageBase64, subject, pageIndex) {
     model: MODEL_OCR,
     messages,
     temperature: 1,
-    max_tokens: 3000
+    max_tokens: 2000
   });
 
   const content = result.choices?.[0]?.message?.content;
@@ -779,10 +813,24 @@ async function scanPageV4(imageBase64, subject, pageIndex) {
   }
 
   const rawErrors = Array.isArray(parsed) ? parsed : (parsed.errors || []);
-  const { errors, warning } = postFilter(rawErrors, pageIndex);
+  const { errors, warning: filterWarning } = postFilter(rawErrors, pageIndex);
+
+  // 红笔像素验证：图片无显著红笔标记 + VL 声称有多道错题 → 可能是幻觉
+  const redCheck = checkRedMarkings(compressed);
+  let redWarning = null;
+  if (!redCheck.hasRed && errors.length >= 3) {
+    redWarning = `第${pageIndex || '?'}页：图片未检测到红笔标记，但 VL 识别到 ${errors.length} 道错题，可能误判，请人工复核`;
+    log('warn', '红笔验证-疑似误判', { pageIndex, errorCount: errors.length, redRatio: redCheck.redRatio });
+  } else if (!redCheck.hasRed && errors.length > 0 && errors.length < 3) {
+    // 少量错题 + 无红笔 → 仍保留但打标记
+    redWarning = `第${pageIndex || '?'}页：仅 ${errors.length} 题，但未检测到红笔标记，请复核`;
+  }
+
   const errorsWithPage = errors.map(q => ({ ...q, pageIndex }));
   const passageText = parsed.passageText || '';
 
+  const allWarnings = [filterWarning, redWarning].filter(Boolean);
+  const warning = allWarnings.length > 0 ? allWarnings.join('; ') : null;
   if (warning) log('warn', 'v4 异常检测', { pageIndex, warning });
 
   log('info', 'v4 扫描完成', { pageIndex, raw: rawErrors.length, filtered: errorsWithPage.length, hasPassage: !!passageText });
@@ -974,27 +1022,10 @@ async function executePaperTask(task) {
     const allScanErrors = [];  // { pageIndex, errors: [], passageText }
     const allWarnings = [];    // 异常检测警告
 
-    // ===== 阶段 1+2：逐页预处理 + VL 扫描 =====
-    for (let i = 0; i < input.images.length; i++) {
-      const img = input.images[i];
-      if (!img.startsWith('data:image')) continue;
-
-      paperTasks.get(id).progress = {
-        stage: 'preprocess',
-        message: `预处理第 ${i + 1}/${totalPages} 页…`,
-        current: i + 1, total: totalPages
-      };
-
-      // 调用预处理服务获取矫正增强图
-      let preprocessResult = null;
-      try {
-        preprocessResult = await preprocessImage(img);
-      } catch (err) {
-        log('warn', '预处理失败', { taskId: id, page: i + 1, error: err.message });
-      }
-
-      // 使用矫正图（如果预处理可用），否则用原图
-      const imageToScan = preprocessResult?.corrected || img;
+    // ===== 阶段 1+2：并行 VL 扫描（跳过预处理，v4 不依赖 PaddleOCR） =====
+    // 并行扫描所有页面，显著缩短多页等待时间
+    const scanPromises = input.images.map((img, i) => {
+      if (!img.startsWith('data:image')) return null;
 
       paperTasks.get(id).progress = {
         stage: 'scan-v4',
@@ -1002,21 +1033,22 @@ async function executePaperTask(task) {
         current: i + 1, total: totalPages
       };
 
-      const { passageText, errors, warning } = await scanPageV4(imageToScan, input.subject, i + 1);
-
-      log('info', 'v4 扫描完成', {
-        taskId: id, page: i + 1,
-        errorCount: errors.length,
-        questions: errors.map(q => `Q${q.questionNumber}`),
-        hasPassage: !!passageText,
-        hasWarning: !!warning
+      return scanPageV4(img, input.subject, i + 1).then(result => {
+        log('info', 'v4 扫描完成', {
+          taskId: id, page: i + 1,
+          errorCount: result.errors.length,
+          questions: result.errors.map(q => `Q${q.questionNumber}`),
+          hasPassage: !!result.passageText,
+          hasWarning: !!result.warning
+        });
+        return { pageIndex: i + 1, ...result };
       });
+    }).filter(Boolean);
 
-      if (warning) {
-        allWarnings.push(warning);
-      }
-
-      allScanErrors.push({ pageIndex: i + 1, errors, passageText });
+    const scanResults = await Promise.all(scanPromises);
+    for (const r of scanResults) {
+      if (r.warning) allWarnings.push(r.warning);
+      allScanErrors.push({ pageIndex: r.pageIndex, errors: r.errors, passageText: r.passageText });
     }
 
     // 合并所有页面的错题
