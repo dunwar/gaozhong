@@ -25,7 +25,7 @@ import { GRADING_PROMPT, PROMPT_VERSION } from './prompts/grading-v5.js';
 import { ERROR_DIAGNOSIS_PROMPT } from './prompts/error-diagnosis.js';
 import { renderPaperAnalysisPrompt } from './prompts/paper-analysis-v4.js';
 import { STUDY_GUIDANCE_PROMPT_V1 } from './prompts/study-guidance-v1.js';
-import { PAPER_SCANNER_VERSION, buildScannerMessages, postFilter, classifyErrors } from './prompts/paper-scanner-v4.js';
+import { PAPER_SCANNER_VERSION, buildScannerMessages, postFilter, classifyErrors } from './prompts/paper-scanner-v5.js';
 import { initDB, saveDB, saveRecord, getRecord, getHistory, getStats, createUser, getUserByEmail, getUserById, updateUser, changePassword, listUsers, saveErrorProblem, saveErrorKnowledgeTags, getErrorProblem, listErrorProblems, getErrorStats, getKnowledgeStats, getErrorsByKnowledgePoint, searchKnowledgePoints, createPaperSession, updatePaperSession, getPaperSession, listPaperSessions, listErrorsByPaper, listErrorsByTime, listErrorsBySubject, listErrorsForGuidance } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -692,7 +692,7 @@ async function preprocessImage(base64) {
     const res = await fetch(`${PREPROCESS_URL}/preprocess`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ image: base64, options: { deskew: true, red: true, blue: true, layout: true } }),
+      body: JSON.stringify({ image: base64, options: { deskew: true, red: true, blue: false, layout: false } }),
       signal: AbortSignal.timeout(30000)
     });
     if (!res.ok) return null;
@@ -771,14 +771,19 @@ function checkRedMarkings(imageBase64) {
 }
 
 /**
- * v4：单图视觉扫描 — 仅定位+判定，不做知识分析
- * 输入：预处理后的原图（单图）
+ * v5：双图视觉扫描 — 原图（上下文）+ 红笔分离图（标记检测）
+ * 输入：原图 + 红笔分离图（可选，如果没有则退化为 v4 单图模式）
  * 输出：{ passageText, errors: [{ questionNumber, questionText, questionType, options, studentAnswer, correctAnswer, markDescription }] }
  */
-async function scanPageV4(imageBase64, subject, pageIndex) {
+async function scanPageV5(imageBase64, redMarksBase64, subject, pageIndex) {
   const compressed = compressImage(imageBase64, 1200, 55);
+  const redCompressed = redMarksBase64 ? compressImage(redMarksBase64, 1200, 75) : null;
 
-  const messages = buildScannerMessages({ subject, imageBase64: compressed });
+  const messages = buildScannerMessages({
+    subject,
+    imageBase64: compressed,
+    redMarksBase64: redCompressed
+  });
 
   const result = await kimiRequest({
     model: MODEL_OCR,
@@ -788,8 +793,8 @@ async function scanPageV4(imageBase64, subject, pageIndex) {
   });
 
   const content = result.choices?.[0]?.message?.content;
-  log('info', 'v4 扫描响应', { contentLen: content?.length || 0, preview: (content || '').substring(0, 400), endPreview: (content || '').slice(-200) });
-  if (!content) { log('warn', 'v4 扫描返回空'); return { passageText: '', errors: [], warning: null }; }
+  log('info', 'v5 扫描响应', { contentLen: content?.length || 0, preview: (content || '').substring(0, 400), endPreview: (content || '').slice(-200), hasRedMarks: !!redMarksBase64 });
+  if (!content) { log('warn', 'v5 扫描返回空'); return { passageText: '', errors: [], warning: null }; }
 
   // JSON 提取
   let jsonStr = content
@@ -803,11 +808,11 @@ async function scanPageV4(imageBase64, subject, pageIndex) {
     const m = jsonStr.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
     if (m) {
       try { parsed = JSON.parse(m[0]); } catch {
-        log('warn', 'v4 JSON 解析失败', { contentEnd: jsonStr.slice(-200) });
+        log('warn', 'v5 JSON 解析失败', { contentEnd: jsonStr.slice(-200) });
         return { passageText: '', errors: [], warning: null };
       }
     } else {
-      log('warn', 'v4 无法提取 JSON', { contentEnd: jsonStr.slice(-200) });
+      log('warn', 'v5 无法提取 JSON', { contentEnd: jsonStr.slice(-200) });
       return { passageText: '', errors: [], warning: null };
     }
   }
@@ -815,14 +820,13 @@ async function scanPageV4(imageBase64, subject, pageIndex) {
   const rawErrors = Array.isArray(parsed) ? parsed : (parsed.errors || []);
   const { errors, warning: filterWarning } = postFilter(rawErrors, pageIndex);
 
-  // 红笔像素验证：图片无显著红笔标记 + VL 声称有多道错题 → 可能是幻觉
+  // 红笔信号验证：预处理返回的 red_signal 过低但 VL 声称多道错题 → 疑似幻觉
   const redCheck = checkRedMarkings(compressed);
   let redWarning = null;
   if (!redCheck.hasRed && errors.length >= 3) {
     redWarning = `第${pageIndex || '?'}页：图片未检测到红笔标记，但 VL 识别到 ${errors.length} 道错题，可能误判，请人工复核`;
     log('warn', '红笔验证-疑似误判', { pageIndex, errorCount: errors.length, redRatio: redCheck.redRatio });
   } else if (!redCheck.hasRed && errors.length > 0 && errors.length < 3) {
-    // 少量错题 + 无红笔 → 仍保留但打标记
     redWarning = `第${pageIndex || '?'}页：仅 ${errors.length} 题，但未检测到红笔标记，请复核`;
   }
 
@@ -831,9 +835,9 @@ async function scanPageV4(imageBase64, subject, pageIndex) {
 
   const allWarnings = [filterWarning, redWarning].filter(Boolean);
   const warning = allWarnings.length > 0 ? allWarnings.join('; ') : null;
-  if (warning) log('warn', 'v4 异常检测', { pageIndex, warning });
+  if (warning) log('warn', 'v5 异常检测', { pageIndex, warning });
 
-  log('info', 'v4 扫描完成', { pageIndex, raw: rawErrors.length, filtered: errorsWithPage.length, hasPassage: !!passageText });
+  log('info', 'v5 扫描完成', { pageIndex, raw: rawErrors.length, filtered: errorsWithPage.length, hasPassage: !!passageText, hasRedMarks: !!redMarksBase64 });
 
   return { passageText, errors: errorsWithPage, warning };
 }
@@ -1006,11 +1010,11 @@ function validateScanResults(questions) {
 }
 
 /**
- * v4 流水线：executePaperTask
+ * v5 流水线：executePaperTask
  *
- * 阶段 1: 预处理 (OpenCV, ~3s) → 矫正图
- * 阶段 2: VL 视觉扫描 v4 (Kimi k2.6, 单图) → 错题列表 + 题型分类
- * 阶段 3: DeepSeek 深度分析 (仅 standard + reading 题型)
+ * 阶段 0: 预处理 (OpenCV, ~3s/页) → 矫正图 + 红笔分离图 + 红笔信号
+ * 阶段 1: VL 双图扫描 v5 (Kimi k2.6, 原图+红笔图) → 错题列表 + 题型分类
+ * 阶段 2: DeepSeek 深度分析 (仅 standard + reading 题型)
  *         听力题仅记录不做分析
  */
 async function executePaperTask(task) {
@@ -1021,25 +1025,52 @@ async function executePaperTask(task) {
     const totalPages = input.images.length;
     const allScanErrors = [];  // { pageIndex, errors: [], passageText }
     const allWarnings = [];    // 异常检测警告
+    const redSignalByPage = {}; // 每页红笔信号强度
 
-    // ===== 阶段 1+2：并行 VL 扫描（跳过预处理，v4 不依赖 PaddleOCR） =====
-    // 并行扫描所有页面，显著缩短多页等待时间
-    const scanPromises = input.images.map((img, i) => {
-      if (!img.startsWith('data:image')) return null;
+    // ===== 阶段 0：预处理所有页面（并行）=====
+    paperTasks.get(id).progress = {
+      stage: 'preprocess',
+      message: `预处理试卷图片…`,
+      current: 0, total: totalPages
+    };
+
+    const preprocessResults = await Promise.all(
+      input.images.map(async (img, i) => {
+        if (!img.startsWith('data:image')) return null;
+        const result = await preprocessImage(img);
+        if (result) {
+          redSignalByPage[i + 1] = result.red_signal || 0;
+          log('info', '预处理完成', {
+            page: i + 1,
+            hasRedMarks: !!(result.red_marks && result.red_marks.length > 200),
+            redSignal: result.red_signal
+          });
+        }
+        return { pageIndex: i + 1, result };
+      })
+    );
+
+    // ===== 阶段 1：VL 双图扫描（并行）=====
+    const scanPromises = preprocessResults.map((pr, i) => {
+      if (!pr || !pr.result) return null;
 
       paperTasks.get(id).progress = {
-        stage: 'scan-v4',
-        message: `AI 正在扫描第 ${i + 1}/${totalPages} 页（识别错题）…`,
+        stage: 'scan-v5',
+        message: `AI 正在扫描第 ${i + 1}/${totalPages} 页（双图对比识别错题）…`,
         current: i + 1, total: totalPages
       };
 
-      return scanPageV4(img, input.subject, i + 1).then(result => {
-        log('info', 'v4 扫描完成', {
+      const correctedImg = pr.result.corrected || input.images[i];
+      const redMarksImg = pr.result.red_marks || null;
+
+      return scanPageV5(correctedImg, redMarksImg, input.subject, i + 1).then(result => {
+        log('info', 'v5 扫描完成', {
           taskId: id, page: i + 1,
           errorCount: result.errors.length,
           questions: result.errors.map(q => `Q${q.questionNumber}`),
           hasPassage: !!result.passageText,
-          hasWarning: !!result.warning
+          hasWarning: !!result.warning,
+          hasRedMarks: !!redMarksImg
         });
         return { pageIndex: i + 1, ...result };
       });
@@ -1063,7 +1094,7 @@ async function executePaperTask(task) {
       log('info', '未检测到错题', { taskId: id });
       updatePaperSession(id, { status: 'done', errorCount: 0, totalQuestions: 0, correctCount: 0 });
       paperTasks.get(id).status = 'done';
-      paperTasks.get(id).result = { subject: input.subject, sessionId: id, totalQuestions: 0, correctCount: 0, totalErrors: 0, pipeline: 'v4-scan+analyze' };
+      paperTasks.get(id).result = { subject: input.subject, sessionId: id, totalQuestions: 0, correctCount: 0, totalErrors: 0, pipeline: 'v5-dual-image' };
       paperTasks.get(id).progress = { stage: 'done', message: '未检测到错题 ✅' };
       return;
     }
@@ -1089,7 +1120,7 @@ async function executePaperTask(task) {
         difficulty: 0,
         knowledgeExplanation: '{}',
         gradingEvidence: q.markDescription || '',
-        aiRaw: JSON.stringify({ pipeline: 'v4', skipped: true, reason: 'listening', scan: q }),
+        aiRaw: JSON.stringify({ pipeline: 'v5-dual-image', skipped: true, reason: 'listening', scan: q }),
         notes: '听力题 — 仅记录错题，不做归因分析',
         sessionId: id, paperIndex: q.pageIndex || 1, status: 'done',
         createdAt: Date.now()
@@ -1156,7 +1187,7 @@ async function executePaperTask(task) {
           difficulty: analysis.difficulty || 3,
           knowledgeExplanation: knowledgeExplJson,
           gradingEvidence: q.markDescription || '',
-          aiRaw: JSON.stringify({ pipeline: 'v4-scan+analyze', scan: q, analysis }),
+          aiRaw: JSON.stringify({ pipeline: 'v5-dual-image', scan: q, analysis }),
           notes: analysis.remedy || '',
           sessionId: id, paperIndex: q.pageIndex || 1, status: 'done',
           createdAt: Date.now()
@@ -1179,7 +1210,7 @@ async function executePaperTask(task) {
     const totalQuestions = allErrors.length;
     updatePaperSession(id, {
       status: 'done', errorCount: savedCount + listeningCount, totalQuestions, correctCount: 0,
-      aiRaw: JSON.stringify({ pipeline: 'v4-scan+analyze', allErrors, passages: passageMap })
+      aiRaw: JSON.stringify({ pipeline: 'v5-dual-image', allErrors, passages: passageMap })
     });
 
     paperTasks.get(id).status = 'done';
@@ -1188,14 +1219,14 @@ async function executePaperTask(task) {
       totalQuestions, correctCount: 0,
       totalErrors: savedCount + listeningCount,
       analyzedCount: savedCount, listeningCount,
-      pipeline: 'v4-scan+analyze'
+      pipeline: 'v5-dual-image'
     };
     paperTasks.get(id).progress = {
       stage: 'done',
-      message: `${totalQuestions} 错题 | ✅分析 ${savedCount} ${listeningCount > 0 ? `| 🎧听力 ${listeningCount}（仅记录）` : ''}${allWarnings.length > 0 ? ` | ⚠️ ${allWarnings[0]}` : ''} | v4.1`
+      message: `${totalQuestions} 错题 | ✅分析 ${savedCount} ${listeningCount > 0 ? `| 🎧听力 ${listeningCount}（仅记录）` : ''}${allWarnings.length > 0 ? ` | ⚠️ ${allWarnings[0]}` : ''} | v5.0`
     };
 
-    log('info', 'v4 流水线完成', {
+    log('info', 'v5 流水线完成', {
       taskId: id, subject: input.subject,
       total: totalQuestions, analyzed: savedCount, listening: listeningCount,
       warnings: allWarnings.length
@@ -1724,7 +1755,24 @@ app.post('/paper/analyze', authMiddleware, (req, res) => {
 app.get('/paper/task/:taskId', (req, res) => {
   const task = paperTasks.get(req.params.taskId);
   if (!task) return res.status(404).json({ error: '任务不存在或已过期' });
-  res.json({ taskId: task.id, status: task.status, progress: task.progress, result: task.status === 'done' ? task.result : undefined, error: task.status === 'failed' ? task.error : undefined, createdAt: task.createdAt, updatedAt: task.updatedAt });
+
+  // ETA 预估：基于平均处理时间 90s/份
+  const AVG_PAGE_SECONDS = 90;
+  const queueIndex = paperQueue.pending; // 前方排队数
+  const etaSeconds = task.status === 'queued'
+    ? (queueIndex + 1) * AVG_PAGE_SECONDS
+    : task.status === 'processing'
+      ? Math.max(30, AVG_PAGE_SECONDS - ((Date.now() - (task.startedAt || task.createdAt)) / 1000))
+      : 0;
+
+  res.json({
+    taskId: task.id, status: task.status, progress: task.progress,
+    result: task.status === 'done' ? task.result : undefined,
+    error: task.status === 'failed' ? task.error : undefined,
+    createdAt: task.createdAt, updatedAt: task.updatedAt,
+    etaSeconds: Math.max(0, Math.round(etaSeconds)),
+    queuePosition: task.status === 'queued' ? queueIndex + 1 : 0
+  });
 });
 
 app.get('/paper/sessions', authMiddleware, (req, res) => {

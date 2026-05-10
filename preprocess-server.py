@@ -121,29 +121,34 @@ def deskew_image(img):
 
 
 def separate_red_ink(img):
-    """分离红色笔迹（批改标记）"""
+    """分离红色笔迹（批改标记）— 增强版
+    扩大 HSV 红色范围，覆盖深红/橙红/粉红，形态学膨胀使 × 更清晰
+    """
     import cv2
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
 
-    # 红色范围（HSV）：0-10（红1）和 160-180（红2）
-    lower_red1 = np.array([0, 50, 50])
-    upper_red1 = np.array([10, 255, 255])
-    lower_red2 = np.array([160, 50, 50])
+    # 红色范围 1：0-15°（含橙红），降低饱和度下限以捕捉浅色红笔
+    lower_red1 = np.array([0, 30, 40])
+    upper_red1 = np.array([15, 255, 255])
+    # 红色范围 2：155-180°（含粉红/紫红），同样降低饱和度
+    lower_red2 = np.array([155, 30, 40])
     upper_red2 = np.array([180, 255, 255])
 
     mask1 = cv2.inRange(hsv, lower_red1, upper_red1)
     mask2 = cv2.inRange(hsv, lower_red2, upper_red2)
     red_mask = cv2.bitwise_or(mask1, mask2)
 
-    # 形态学增强（让细小红笔迹更明显）
-    kernel = np.ones((2, 2), np.uint8)
-    red_mask = cv2.morphologyEx(red_mask, cv2.MORPH_CLOSE, kernel)
+    # 形态学：先闭运算（补空洞），再膨胀（让细线/× 更粗更清晰）
+    kernel_close = np.ones((3, 3), np.uint8)
+    red_mask = cv2.morphologyEx(red_mask, cv2.MORPH_CLOSE, kernel_close)
+    kernel_dilate = np.ones((2, 2), np.uint8)
+    red_mask = cv2.dilate(red_mask, kernel_dilate, iterations=1)
 
     # 提取红色部分到白底
     red_only = np.full_like(img, 255)  # 白底
     red_only[red_mask > 0] = img[red_mask > 0]
 
-    return red_only
+    return red_only, red_mask
 
 
 def separate_blue_ink(img):
@@ -254,8 +259,16 @@ def preprocess():
 
         # 3. 红色笔迹分离
         if options.get('red', True):
-            red = separate_red_ink(img)
+            red, red_mask = separate_red_ink(img)
             result['red_marks'] = cv2_to_b64(red)
+            # 红笔信号强度：非白像素占比，用于判断是否有红笔标记
+            red_pixels = np.sum(red_mask > 0)
+            total_pixels = red_mask.size
+            result['red_signal'] = round(red_pixels / total_pixels, 5) if total_pixels > 0 else 0
+            # 红笔二值图：白底黑字（mask 逆转为黑底白字再转白底黑字）
+            import cv2
+            red_binary = cv2.bitwise_not(red_mask)  # 黑底 → 白底；标记区域 → 黑
+            result['red_marks_binary'] = cv2_to_b64(cv2.cvtColor(red_binary, cv2.COLOR_GRAY2BGR))
 
         # 4. 学生手写分离
         if options.get('blue', True):
