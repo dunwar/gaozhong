@@ -74,12 +74,18 @@
               </button>
             </div>
           </div>
+          <div class="flex items-center gap-2 mb-3">
+            <span class="text-xs text-gray-500">视图：</span>
+            <button @click="viewMode='original'" :class="viewMode==='original'?'bg-gray-700 text-white':'bg-gray-100'" class="px-2 py-0.5 rounded text-xs">原图</button>
+            <button @click="viewMode='red'" :class="viewMode==='red'?'bg-red-600 text-white':'bg-gray-100'" class="px-2 py-0.5 rounded text-xs">🔴红笔</button>
+            <button @click="viewMode='annotated'" :class="viewMode==='annotated'?'bg-purple-600 text-white':'bg-gray-100'" class="px-2 py-0.5 rounded text-xs">🟣标注</button>
+          </div>
 
           <div class="relative border border-gray-200 rounded-lg overflow-hidden bg-gray-50 cursor-crosshair"
                @click="addMarkByClick"
                ref="imageContainer">
             <img
-              :src="currentImage?.originalUrl"
+              :src="currentViewUrl"
               class="w-full"
               alt="试卷图片"
               @load="onImageLoad"
@@ -254,6 +260,7 @@ const session = ref(null)
 const images = ref([])
 const errors = ref([])
 const currentPage = ref(1)
+const viewMode = ref('original')
 const imageContainer = ref(null)
 const imageNatural = ref({ w: 1, h: 1 })
 
@@ -270,6 +277,14 @@ const rejectedCount = computed(() => Object.values(reviewStates).filter(s => s =
 const correctedCount = computed(() => Object.values(reviewStates).filter(s => s === 'corrected').length)
 
 const currentImage = computed(() => images.value.find(i => i.pageIndex === currentPage.value))
+
+const currentViewUrl = computed(() => {
+  const img = currentImage.value
+  if (!img) return ''
+  if (viewMode.value === 'red') return img.redMarksUrl || img.originalUrl
+  if (viewMode.value === 'annotated') return img.annotatedUrl || img.redMarksUrl || img.originalUrl
+  return img.originalUrl
+})
 
 const currentImageMarks = computed(() => {
   return errors.value

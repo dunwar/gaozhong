@@ -1093,7 +1093,7 @@ async function executePaperTask(task) {
     const sessionDir = path.join(PAPERS_DIR, id);
     if (!fs.existsSync(sessionDir)) fs.mkdirSync(sessionDir, { recursive: true });
 
-    // 保存原始图片
+    // 保存原始图片 + 红笔图 + 标注图
     const savedPaths = [];
     for (let i = 0; i < input.images.length; i++) {
       const img = input.images[i];
@@ -1113,6 +1113,22 @@ async function executePaperTask(task) {
       } catch (_) {}
     }
     updatePaperSession(id, { imagePaths: JSON.stringify(savedPaths) });
+
+    // 保存红笔分离图和标注图（供复核对比）
+    for (const pr of preprocessResults) {
+      if (!pr || !pr.result) continue;
+      const idx = pr.pageIndex;
+      // 红笔分离图
+      if (pr.result.red_marks) {
+        const rm = pr.result.red_marks.match(/^data:image\/\w+;base64,(.+)$/);
+        if (rm) fs.writeFileSync(path.join(sessionDir, `red_${idx}.jpg`), Buffer.from(rm[1], 'base64'));
+      }
+      // 标注图
+      if (pr.result.annotated) {
+        const am = pr.result.annotated.match(/^data:image\/\w+;base64,(.+)$/);
+        if (am) fs.writeFileSync(path.join(sessionDir, `annotated_${idx}.jpg`), Buffer.from(am[1], 'base64'));
+      }
+    }
 
     paperTasks.get(id).progress = {
       stage: 'preprocess',
@@ -1136,12 +1152,15 @@ async function executePaperTask(task) {
       })
     );
 
-    // ===== 阶段 1：使用标注图 + 分科 Prompt 扫描 =====
+    // ===== 阶段 1：使用标注图（优先）或矫正原图 + 分科 Prompt 扫描 =====
     const scanTasks = preprocessResults.map((pr, i) => {
       if (!pr || !pr.result) return null;
-      // 优先用标注图，fallback 到红笔分离图，再 fallback 到矫正图
-      const annotatedImg = pr.result.annotated || pr.result.red_marks || pr.result.corrected || input.images[i];
-      return { annotatedImg, pageIndex: i + 1, marks: pr.result.marks || [] };
+      // v6 标注图（蓝黑淡化+彩色框），无则用矫正原图
+      const annotatedImg = pr.result.annotated || null;
+      const fallbackImg = pr.result.corrected || input.images[i];
+      // 优先标注图，否则用原图（至少能看到完整内容）
+      const scanImg = annotatedImg || fallbackImg;
+      return { scanImg, pageIndex: i + 1, marks: pr.result.marks || [], annotatedAvailable: !!annotatedImg };
     }).filter(Boolean);
 
     const scanResults = [];
@@ -1154,16 +1173,18 @@ async function executePaperTask(task) {
             message: `AI 扫描第 ${t.pageIndex}/${totalPages} 页（${input.subject}·${getScannerVersion(input.subject)}）…`,
             current: t.pageIndex, total: totalPages
           };
-          return scanPageV6(t.annotatedImg, input.subject, t.pageIndex);
+          return scanPageV6(t.scanImg, input.subject, t.pageIndex);
         })
       );
       for (let j = 0; j < batchResults.length; j++) {
         const result = batchResults[j];
         const pageIdx = batch[j].pageIndex;
         const markCount = batch[j].marks.length;
+        const hasAnnotated = batch[j].annotatedAvailable;
         log('info', 'v6 扫描完成', {
           taskId: id, page: pageIdx, errorCount: result.errors.length,
-          scanner: getScannerVersion(input.subject), programmaticMarks: markCount
+          scanner: getScannerVersion(input.subject), programmaticMarks: markCount,
+          annotated: hasAnnotated
         });
         scanResults.push({ pageIndex: pageIdx, ...result, _markCount: markCount });
       }
@@ -1928,12 +1949,31 @@ app.get('/paper/:sessionId/thumb/:pageIndex', (req, res) => {
   const { sessionId, pageIndex } = req.params;
   const thumbPath = path.join('/app/data/papers', sessionId, `thumb_${pageIndex}.jpg`);
   if (!fs.existsSync(thumbPath)) {
-    // fallback to original
     return res.redirect(`/api/paper/${sessionId}/images/${pageIndex}`);
   }
   res.setHeader('Content-Type', 'image/jpeg');
   res.setHeader('Cache-Control', 'public, max-age=86400');
   fs.createReadStream(thumbPath).pipe(res);
+});
+
+// 红笔分离图
+app.get('/paper/:sessionId/red/:pageIndex', (req, res) => {
+  const { sessionId, pageIndex } = req.params;
+  const redPath = path.join('/app/data/papers', sessionId, `red_${pageIndex}.jpg`);
+  if (!fs.existsSync(redPath)) return res.status(404).json({ error: '红笔图不存在' });
+  res.setHeader('Content-Type', 'image/jpeg');
+  res.setHeader('Cache-Control', 'public, max-age=86400');
+  fs.createReadStream(redPath).pipe(res);
+});
+
+// 标注图
+app.get('/paper/:sessionId/annotated/:pageIndex', (req, res) => {
+  const { sessionId, pageIndex } = req.params;
+  const annPath = path.join('/app/data/papers', sessionId, `annotated_${pageIndex}.jpg`);
+  if (!fs.existsSync(annPath)) return res.status(404).json({ error: '标注图不存在（需重启预处理服务）' });
+  res.setHeader('Content-Type', 'image/jpeg');
+  res.setHeader('Cache-Control', 'public, max-age=86400');
+  fs.createReadStream(annPath).pipe(res);
 });
 
 // ========== 错题复核 API ==========
@@ -1955,7 +1995,9 @@ app.get('/paper/:sessionId/review', authMiddleware, (req, res) => {
       images.push({
         pageIndex: i + 1,
         url: `/api/paper/${req.params.sessionId}/thumb/${i + 1}`,
-        originalUrl: `/api/paper/${req.params.sessionId}/images/${i + 1}`
+        originalUrl: `/api/paper/${req.params.sessionId}/images/${i + 1}`,
+        redMarksUrl: `/api/paper/${req.params.sessionId}/red/${i + 1}`,
+        annotatedUrl: `/api/paper/${req.params.sessionId}/annotated/${i + 1}`
       });
     }
   } else {
@@ -1969,7 +2011,9 @@ app.get('/paper/:sessionId/review', authMiddleware, (req, res) => {
           images.push({
             pageIndex: parseInt(m[1]),
             url: `/api/paper/${req.params.sessionId}/thumb/${m[1]}`,
-            originalUrl: `/api/paper/${req.params.sessionId}/images/${m[1]}`
+            originalUrl: `/api/paper/${req.params.sessionId}/images/${m[1]}`,
+          redMarksUrl: `/api/paper/${req.params.sessionId}/red/${m[1]}`,
+          annotatedUrl: `/api/paper/${req.params.sessionId}/annotated/${m[1]}`
           });
         }
       }
