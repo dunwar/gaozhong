@@ -177,7 +177,20 @@ export function buildScannerMessages({ subject, imageBase64, redMarksBase64 }) {
 export function postFilter(errors, pageIndex) {
   const rawCount = errors.length;
 
-  const filtered = errors
+  // 题号去重：同一题号只保留第一条
+  const seen = new Set();
+  const deduped = [];
+  for (const q of errors) {
+    const key = q.questionNumber;
+    if (seen.has(key)) {
+      // 已存在同题号 → 合并 options（取并集）或直接跳过
+      continue;
+    }
+    seen.add(key);
+    deduped.push(q);
+  }
+
+  const filtered = deduped
     .filter(q => {
       const sa = (q.studentAnswer || '').trim().toUpperCase();
       const ca = (q.correctAnswer || '').trim().toUpperCase();

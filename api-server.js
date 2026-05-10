@@ -789,18 +789,18 @@ async function scanPageV5(imageBase64, redMarksBase64, subject, pageIndex) {
     model: MODEL_OCR,
     messages,
     temperature: 1,
-    max_tokens: 2000
+    max_tokens: 6000
   });
 
   const content = result.choices?.[0]?.message?.content;
   log('info', 'v5 扫描响应', { contentLen: content?.length || 0, preview: (content || '').substring(0, 400), endPreview: (content || '').slice(-200), hasRedMarks: !!redMarksBase64 });
   if (!content) { log('warn', 'v5 扫描返回空'); return { passageText: '', errors: [], warning: null }; }
 
-  // JSON 提取
+  // JSON 提取（更健壮：处理 ```json 包裹、部分截断）
   let jsonStr = content
-    .replace(/^```(?:json)?\s*\n?/gm, '')
-    .replace(/\n?```\s*$/gm, '')
-    .replace(/```/g, '')
+    .replace(/^```json\s*\n?/i, '')
+    .replace(/^```\s*\n?/i, '')
+    .replace(/\n?```\s*$/, '')
     .trim();
 
   let parsed;
