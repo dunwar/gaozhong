@@ -31,7 +31,7 @@ import { PROMPT as EN_PROMPT, buildMessages as enBuild } from './prompts/scanner
 import { PROMPT as MATH_PROMPT, buildMessages as mathBuild } from './prompts/scanner-math.js';
 import { PROMPT as CN_PROMPT, buildMessages as cnBuild } from './prompts/scanner-chinese.js';
 import { PROMPT as SCI_PROMPT, buildMessages as sciBuild } from './prompts/scanner-science.js';
-import { initDB, saveDB, saveRecord, getRecord, getHistory, getStats, createUser, getUserByEmail, getUserById, updateUser, changePassword, listUsers, saveErrorProblem, saveErrorKnowledgeTags, getErrorProblem, listErrorProblems, getErrorStats, getKnowledgeStats, getErrorsByKnowledgePoint, searchKnowledgePoints, createPaperSession, updatePaperSession, getPaperSession, listPaperSessions, listErrorsByPaper, listErrorsByTime, listErrorsBySubject, listErrorsForGuidance, saveReview, updateErrorReviewStatus, deleteErrorProblem, getSessionReviews } from './db.js';
+import { initDB, saveDB, saveRecord, getRecord, getHistory, getStats, createUser, getUserByEmail, getUserById, updateUser, changePassword, listUsers, saveErrorProblem, saveErrorKnowledgeTags, getErrorProblem, listErrorProblems, getErrorStats, getKnowledgeStats, getErrorsByKnowledgePoint, searchKnowledgePoints, createPaperSession, updatePaperSession, getPaperSession, listPaperSessions, listErrorsByPaper, listErrorsByTime, listErrorsBySubject, listErrorsForGuidance, saveReview, updateErrorReviewStatus, deleteErrorProblem, getSessionReviews, resetStalledPaperSessions } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3001;
@@ -2197,11 +2197,13 @@ const startup = async () => {
   // 确保管理员存在
   ensureAdmin();
 
-  // 清理启动前可能遗留的 processing 状态
-  const dbStats = getStats();
-  if (dbStats.total > 0) {
-    log('info', 'DB 统计', dbStats);
+  // 清理启动前遗留的 processing/pending 状态（server 重启导致内存队列丢失）
+  const stalledCount = resetStalledPaperSessions();
+  if (stalledCount > 0) {
+    log('info', '清理遗留任务', { count: stalledCount });
   }
+
+  // 数据库统计
 
   app.listen(PORT, () => {
     console.log(`🚀 gaozhong.online AI API v2 (异步队列) 已启动`);

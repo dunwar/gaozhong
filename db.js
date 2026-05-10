@@ -741,6 +741,15 @@ function deserializePaper(row) {
   };
 }
 
+/** 启动时清理遗留的 pending/processing 任务（server 重启导致内存队列丢失） */
+export function resetStalledPaperSessions() {
+  if (!db) return 0;
+  const result = db.exec(`UPDATE paper_sessions SET status = 'failed', updated_at = ? WHERE status IN ('pending', 'processing')`, [Date.now()]);
+  const count = db.getRowsModified();
+  saveDBDeferred();
+  return count;
+}
+
 // ========== V2 错题视图查询 ==========
 
 /** 按试卷分组：返回试卷列表，每份试卷包含错题汇总 */
