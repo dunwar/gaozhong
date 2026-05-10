@@ -848,6 +848,49 @@ async function scanPageV6(annotatedBase64, subject, pageIndex) {
   return { passageText, errors: errorsWithPage, warning: filterWarning };
 }
 
+// ========== 科目自动识别 ==========
+
+const AUTO_SUBJECTS = ['数学', '物理', '化学', '生物', '英语', '语文', '自动'];
+
+/**
+ * 用 VL 快速识别试卷科目（只取第一页压缩图，单次轻量调用）
+ * @returns {string} 识别出的科目，或原 subject（fallback）
+ */
+async function detectSubject(firstPageBase64, fallback) {
+  try {
+    const compressed = compressImage(firstPageBase64, 800, 40);
+    const messages = [{
+      role: 'system',
+      content: '你是高中试卷科目识别器。只看试卷内容（题目文字、公式、图表），判断这是什么科目的试卷。只回复一个词：数学/物理/化学/生物/英语/语文。不要说其他话。'
+    }, {
+      role: 'user',
+      content: [
+        { type: 'image_url', image_url: { url: compressed, detail: 'low' } }
+      ]
+    }];
+
+    const result = await kimiRequest({
+      model: MODEL_OCR,
+      messages,
+      temperature: 0.1,
+      max_tokens: 20
+    });
+
+    const content = (result.choices?.[0]?.message?.content || '').trim();
+    for (const s of AUTO_SUBJECTS) {
+      if (content.includes(s)) {
+        log('info', '自动识别科目', { detected: s, raw: content });
+        return s;
+      }
+    }
+    log('info', '科目识别失败，使用默认', { raw: content, fallback });
+    return fallback;
+  } catch (err) {
+    log('warn', '科目识别异常', { error: err.message });
+    return fallback;
+  }
+}
+
 /**
  * 阶段 2：深度分析 — 用 DeepSeek 对错题进行诊断
  * 批量处理：每批 ≤6 道题，多批并行（并发上限 3），避免超时
@@ -1026,6 +1069,19 @@ async function executePaperTask(task) {
   const { id, input } = task;
   try {
     paperTasks.get(id).status = 'processing';
+
+    // 自动识别科目
+    let subject = input.subject;
+    if (!subject || subject === '自动') {
+      const firstImg = input.images.find(img => img && img.startsWith('data:image'));
+      if (firstImg) {
+        paperTasks.get(id).progress = { stage: 'detect', message: '正在识别科目…' };
+        subject = await detectSubject(firstImg, '英语');
+        input.subject = subject;
+        // 同步更新 paper_sessions 的 subject
+        updatePaperSession(id, { subject });
+      }
+    }
 
     const totalPages = input.images.length;
     const allScanErrors = [];  // { pageIndex, errors: [], passageText }
@@ -1776,7 +1832,7 @@ app.post('/paper/analyze', authMiddleware, (req, res) => {
   if (!subject) return res.status(400).json({ error: '请选择学科' });
   if (!images || !Array.isArray(images) || images.length === 0) return res.status(400).json({ error: '请上传至少一张试卷图片' });
   if (images.length > 10) return res.status(400).json({ error: '单次最多上传 10 张图片' });
-  const validSubjects = ['数学', '物理', '化学', '生物', '英语', '语文'];
+  const validSubjects = ['数学', '物理', '化学', '生物', '英语', '语文', '自动'];
   if (!validSubjects.includes(subject)) return res.status(400).json({ error: `无效学科，支持：${validSubjects.join('、')}` });
 
   const taskId = createTaskId();
@@ -1832,7 +1888,7 @@ app.post('/paper/guidance', authMiddleware, (req, res) => {
 
   const { subject, timeFrom, timeTo, timeRange } = req.body;
   if (!subject) return res.status(400).json({ error: '请选择学科' });
-  const validSubjects = ['数学', '物理', '化学', '生物', '英语', '语文'];
+  const validSubjects = ['数学', '物理', '化学', '生物', '英语', '语文', '自动'];
   if (!validSubjects.includes(subject)) return res.status(400).json({ error: `无效学科，支持：${validSubjects.join('、')}` });
 
   const taskId = createTaskId();

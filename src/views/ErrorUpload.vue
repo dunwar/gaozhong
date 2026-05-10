@@ -267,6 +267,7 @@ const router = useRouter()
 
 const subjects = [
   { value: '数学', label: '📐 数学', activeClass: 'bg-blue-600 text-white' },
+  { value: '自动', label: '🤖 自动', activeClass: 'bg-indigo-600 text-white' },
   { value: '物理', label: '⚡ 物理', activeClass: 'bg-purple-600 text-white' },
   { value: '化学', label: '🧪 化学', activeClass: 'bg-green-600 text-white' },
   { value: '生物', label: '🧬 生物', activeClass: 'bg-teal-600 text-white' },
@@ -284,7 +285,7 @@ const MAX_IMAGES = 10
 const POLL_INTERVAL = 4000
 const MAX_POLL_TIME = 360000 // 6 分钟
 
-const form = reactive({ subject: '数学', title: '', images: [] })
+const form = reactive({ subject: '自动', title: '', images: [] })
 const previews = ref([])
 const errorMessage = ref('')
 

@@ -683,7 +683,7 @@ export function createPaperSession({ id, userId, subject, title, imageCount = 1,
 
 export function updatePaperSession(id, fields) {
   if (!db) return null;
-  const fieldMap = { status: 'status', errorCount: 'error_count', aiRaw: 'ai_raw', imageCount: 'image_count', title: 'title', totalQuestions: 'total_questions', correctCount: 'correct_count', imagePaths: 'image_paths' };
+  const fieldMap = { status: 'status', errorCount: 'error_count', aiRaw: 'ai_raw', imageCount: 'image_count', title: 'title', totalQuestions: 'total_questions', correctCount: 'correct_count', imagePaths: 'image_paths', subject: 'subject' };
   const sets = [];
   const vals = [];
   for (const [k, v] of Object.entries(fields)) {
