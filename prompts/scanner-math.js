@@ -131,14 +131,13 @@ export const PROMPT = `你是上海市高考数学阅卷老师。你面前的试
 questionType: "fill_blank" | "choice" | "solution" | "drawing"
 直接输出 JSON，无 markdown 包裹`;
 
-export function buildMessages({ subject, imageBase64 }) {
-  return [
-    {
-      role: 'user',
-      content: [
-        { type: 'text', text: PROMPT + `\n\n当前学科：${subject || '数学'}` },
-        { type: 'image_url', image_url: { url: imageBase64, detail: 'auto' } }
-      ]
-    }
+export function buildMessages({ subject, imageBase64, redImageBase64 }) {
+  const text = PROMPT + `\n\n当前学科：${subject || '数学'}`;
+  const images = [
+    { type: 'image_url', image_url: { url: imageBase64, detail: 'auto' } }
   ];
+  if (redImageBase64 && redImageBase64.length > 200) {
+    images.push({ type: 'image_url', image_url: { url: redImageBase64, detail: 'auto' } });
+  }
+  return [{ role: 'user', content: [{ type: 'text', text }, ...images] }];
 }

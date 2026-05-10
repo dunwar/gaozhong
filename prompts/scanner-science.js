@@ -138,15 +138,14 @@ export const PROMPT = `你是上海市高考{subject}阅卷老师。你面前的
 questionType: "choice" | "fill_blank" | "calculation" | "experiment" | "graph" | "essay"
 直接输出 JSON`;
 
-export function buildMessages({ subject, imageBase64 }) {
+export function buildMessages({ subject, imageBase64, redImageBase64 }) {
   const subj = subject || '物理';
-  return [
-    {
-      role: 'user',
-      content: [
-        { type: 'text', text: PROMPT.replace(/\{subject\}/g, subj) + `\n\n当前学科：${subj}` },
-        { type: 'image_url', image_url: { url: imageBase64, detail: 'auto' } }
-      ]
-    }
+  const text = PROMPT.replace(/\{subject\}/g, subj) + `\n\n当前学科：${subj}`;
+  const images = [
+    { type: 'image_url', image_url: { url: imageBase64, detail: 'auto' } }
   ];
+  if (redImageBase64 && redImageBase64.length > 200) {
+    images.push({ type: 'image_url', image_url: { url: redImageBase64, detail: 'auto' } });
+  }
+  return [{ role: 'user', content: [{ type: 'text', text }, ...images] }];
 }

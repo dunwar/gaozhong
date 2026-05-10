@@ -778,13 +778,14 @@ function checkRedMarkings(imageBase64) {
 
 // ========== 分科 Scanner Prompt 路由 ==========
 
-function getScannerMessages(subject, imageBase64) {
+function getScannerMessages(subject, imageBase64, redImageBase64) {
+  const opts = { subject, imageBase64, redImageBase64 };
   switch (subject) {
-    case '英语': return enBuild({ subject, imageBase64 });
-    case '数学': return mathBuild({ subject, imageBase64 });
-    case '语文': return cnBuild({ subject, imageBase64 });
-    case '物理': case '化学': case '生物': return sciBuild({ subject, imageBase64 });
-    default: return enBuild({ subject, imageBase64 });
+    case '英语': return enBuild(opts);
+    case '数学': return mathBuild(opts);
+    case '语文': return cnBuild(opts);
+    case '物理': case '化学': case '生物': return sciBuild(opts);
+    default: return enBuild(opts);
   }
 }
 
@@ -794,14 +795,15 @@ function getScannerVersion(subject) {
 }
 
 /**
- * v6：标注图扫描 — 使用预处理生成的标注图（蓝黑淡化+红笔彩色框高亮）
- * 分科路由：根据学科选择对应的 Scanner Prompt
+ * v6：分科扫描 — 标注图（单图）或 原图+红笔分离图（双图 fallback）
  */
-async function scanPageV6(annotatedBase64, subject, pageIndex) {
-  if (!annotatedBase64) { log('warn', 'v6 无标注图，跳过'); return { passageText: '', errors: [], warning: null }; }
+async function scanPageV6(scanBase64, redBase64, subject, pageIndex) {
+  if (!scanBase64) { log('warn', 'v6 无图片'); return { passageText: '', errors: [], warning: null }; }
 
-  const compressed = compressImage(annotatedBase64, 1400, 75);
-  const messages = getScannerMessages(subject, compressed);
+  const compressed = compressImage(scanBase64, 1400, 75);
+  const redCompressed = redBase64 ? compressImage(redBase64, 1200, 75) : null;
+
+  const messages = getScannerMessages(subject, compressed, redCompressed);
 
   const result = await kimiRequest({
     model: MODEL_OCR,
@@ -811,7 +813,7 @@ async function scanPageV6(annotatedBase64, subject, pageIndex) {
   });
 
   const content = result.choices?.[0]?.message?.content;
-  log('info', 'v6 扫描响应', { contentLen: content?.length || 0, hasContent: !!content, subject });
+  log('info', 'v6 扫描响应', { contentLen: content?.length || 0, hasContent: !!content, subject, preview: (content || '').substring(0, 300) });
   if (!content) { log('warn', 'v6 扫描返回空'); return { passageText: '', errors: [], warning: null }; }
 
   // JSON 提取（更健壮：处理 ```json 包裹、部分截断）
@@ -838,14 +840,24 @@ async function scanPageV6(annotatedBase64, subject, pageIndex) {
   const rawErrors = Array.isArray(parsed) ? parsed : (parsed.errors || []);
   const { errors, warning: filterWarning } = postFilter(rawErrors, pageIndex);
 
-  const errorsWithPage = errors.map(q => ({ ...q, pageIndex }));
+  // 硬性上限：单页超过 MAX_ERRORS_PER_PAGE 道 → 全部丢弃（VL 幻觉）
+  const MAX_ERRORS_PER_PAGE = 10;
+  let cappedErrors = errors;
+  let capWarning = null;
+  if (errors.length > MAX_ERRORS_PER_PAGE) {
+    capWarning = `第${pageIndex}页: VL 识别 ${errors.length} 道错题，超过上限 ${MAX_ERRORS_PER_PAGE}，疑似幻觉，已全部丢弃`;
+    log('warn', '错误数超上限', { pageIndex, detected: errors.length, max: MAX_ERRORS_PER_PAGE });
+    cappedErrors = [];
+  }
+
+  const errorsWithPage = cappedErrors.map(q => ({ ...q, pageIndex }));
   const passageText = parsed.passageText || '';
 
   if (filterWarning) log('warn', 'v6 异常检测', { pageIndex, warning: filterWarning });
 
-  log('info', 'v6 扫描完成', { pageIndex, raw: rawErrors.length, filtered: errorsWithPage.length, hasPassage: !!passageText, scannerVersion: getScannerVersion(subject) });
+  log('info', 'v6 扫描完成', { pageIndex, raw: rawErrors.length, filtered: cappedErrors.length, hasPassage: !!passageText, scannerVersion: getScannerVersion(subject), capped: !!capWarning });
 
-  return { passageText, errors: errorsWithPage, warning: filterWarning };
+  return { passageText, errors: errorsWithPage, warning: filterWarning || capWarning };
 }
 
 // ========== 科目自动识别 ==========
@@ -1114,22 +1126,6 @@ async function executePaperTask(task) {
     }
     updatePaperSession(id, { imagePaths: JSON.stringify(savedPaths) });
 
-    // 保存红笔分离图和标注图（供复核对比）
-    for (const pr of preprocessResults) {
-      if (!pr || !pr.result) continue;
-      const idx = pr.pageIndex;
-      // 红笔分离图
-      if (pr.result.red_marks) {
-        const rm = pr.result.red_marks.match(/^data:image\/\w+;base64,(.+)$/);
-        if (rm) fs.writeFileSync(path.join(sessionDir, `red_${idx}.jpg`), Buffer.from(rm[1], 'base64'));
-      }
-      // 标注图
-      if (pr.result.annotated) {
-        const am = pr.result.annotated.match(/^data:image\/\w+;base64,(.+)$/);
-        if (am) fs.writeFileSync(path.join(sessionDir, `annotated_${idx}.jpg`), Buffer.from(am[1], 'base64'));
-      }
-    }
-
     paperTasks.get(id).progress = {
       stage: 'preprocess',
       message: `预处理试卷图片…`,
@@ -1152,15 +1148,34 @@ async function executePaperTask(task) {
       })
     );
 
-    // ===== 阶段 1：使用标注图（优先）或矫正原图 + 分科 Prompt 扫描 =====
+    // 保存红笔分离图和标注图（供复核对比）
+    for (const pr of preprocessResults) {
+      if (!pr || !pr.result) continue;
+      const idx = pr.pageIndex;
+      if (pr.result.red_marks) {
+        const rm = pr.result.red_marks.match(/^data:image\/\w+;base64,(.+)$/);
+        if (rm) fs.writeFileSync(path.join(sessionDir, `red_${idx}.jpg`), Buffer.from(rm[1], 'base64'));
+      }
+      if (pr.result.annotated) {
+        const am = pr.result.annotated.match(/^data:image\/\w+;base64,(.+)$/);
+        if (am) fs.writeFileSync(path.join(sessionDir, `annotated_${idx}.jpg`), Buffer.from(am[1], 'base64'));
+      }
+    }
+
+    // ===== 阶段 1：分科 Prompt 扫描 =====
+    // 有标注图 → 单图（标注图）；无标注图 → 双图（原图+红笔分离图）
     const scanTasks = preprocessResults.map((pr, i) => {
       if (!pr || !pr.result) return null;
-      // v6 标注图（蓝黑淡化+彩色框），无则用矫正原图
       const annotatedImg = pr.result.annotated || null;
-      const fallbackImg = pr.result.corrected || input.images[i];
-      // 优先标注图，否则用原图（至少能看到完整内容）
-      const scanImg = annotatedImg || fallbackImg;
-      return { scanImg, pageIndex: i + 1, marks: pr.result.marks || [], annotatedAvailable: !!annotatedImg };
+      const correctedImg = pr.result.corrected || input.images[i];
+      const redImg = pr.result.red_marks || null;
+      return {
+        scanImg: annotatedImg || correctedImg,
+        redImg: annotatedImg ? null : redImg, // 有标注图时不需要红笔图辅助
+        pageIndex: i + 1,
+        marks: pr.result.marks || [],
+        annotatedAvailable: !!annotatedImg
+      };
     }).filter(Boolean);
 
     const scanResults = [];
@@ -1173,7 +1188,7 @@ async function executePaperTask(task) {
             message: `AI 扫描第 ${t.pageIndex}/${totalPages} 页（${input.subject}·${getScannerVersion(input.subject)}）…`,
             current: t.pageIndex, total: totalPages
           };
-          return scanPageV6(t.scanImg, input.subject, t.pageIndex);
+          return scanPageV6(t.scanImg, t.redImg, input.subject, t.pageIndex);
         })
       );
       for (let j = 0; j < batchResults.length; j++) {

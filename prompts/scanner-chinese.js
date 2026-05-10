@@ -108,14 +108,13 @@ export const PROMPT = `你是上海市高考语文阅卷老师。你面前的试
 questionType: "dictation" | "choice" | "classical_chinese" | "reading" | "poetry" | "writing"
 直接输出 JSON`;
 
-export function buildMessages({ subject, imageBase64 }) {
-  return [
-    {
-      role: 'user',
-      content: [
-        { type: 'text', text: PROMPT + `\n\n当前学科：${subject || '语文'}` },
-        { type: 'image_url', image_url: { url: imageBase64, detail: 'auto' } }
-      ]
-    }
+export function buildMessages({ subject, imageBase64, redImageBase64 }) {
+  const text = PROMPT + `\n\n当前学科：${subject || '语文'}`;
+  const images = [
+    { type: 'image_url', image_url: { url: imageBase64, detail: 'auto' } }
   ];
+  if (redImageBase64 && redImageBase64.length > 200) {
+    images.push({ type: 'image_url', image_url: { url: redImageBase64, detail: 'auto' } });
+  }
+  return [{ role: 'user', content: [{ type: 'text', text }, ...images] }];
 }
