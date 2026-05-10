@@ -30,12 +30,14 @@ reading: 阅读理解
 每页不超过10道错题。不确定的跳过。`;
 
 export function buildMessages({ subject, imageBase64, redImageBase64 }) {
-  const text = PROMPT;
   const images = [
     { type: 'image_url', image_url: { url: imageBase64, detail: 'auto' } }
   ];
   if (redImageBase64 && redImageBase64.length > 200) {
     images.push({ type: 'image_url', image_url: { url: redImageBase64, detail: 'auto' } });
   }
-  return [{ role: 'user', content: [{ type: 'text', text }, ...images] }];
+  return [
+    { role: 'system', content: '你只输出JSON，绝不输出任何其他文字。格式：{"errors":[...]}' },
+    { role: 'user', content: [{ type: 'text', text: PROMPT }, ...images] }
+  ];
 }

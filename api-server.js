@@ -694,20 +694,31 @@ const PREPROCESS_URL = process.env.PREPROCESS_URL || 'http://172.17.0.1:5001';
  * 对图片做：透视矫正 + 对比度增强 + 红笔分离 + 蓝黑笔分离 + 版面分析
  */
 async function preprocessImage(base64) {
-  try {
-    const res = await fetch(`${PREPROCESS_URL}/preprocess`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ image: base64, options: { deskew: true, red: true, blue: false, layout: false } }),
-      signal: AbortSignal.timeout(30000)
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    return data.status === 'ok' ? data.result : null;
-  } catch (err) {
-    log('warn', '预处理服务不可用', { url: PREPROCESS_URL, error: err.message });
-    return null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 60000);
+      const res = await fetch(`${PREPROCESS_URL}/preprocess`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: base64, options: { deskew: true, red: true, blue: false, layout: false } }),
+        signal: controller.signal
+      });
+      clearTimeout(timeout);
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data.status === 'ok' ? data.result : null;
+    } catch (err) {
+      if (attempt < 2) {
+        log('warn', '预处理重试', { attempt: attempt + 1, error: err.message });
+        await new Promise(r => setTimeout(r, 2000));
+      } else {
+        log('warn', '预处理服务不可用', { url: PREPROCESS_URL, error: err.message });
+        return null;
+      }
+    }
   }
+  return null;
 }
 
 /**
@@ -825,14 +836,28 @@ async function scanPageV6(scanBase64, redBase64, subject, pageIndex) {
 
   let parsed;
   try { parsed = JSON.parse(jsonStr); } catch (e1) {
-    const m = jsonStr.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
-    if (m) {
-      try { parsed = JSON.parse(m[0]); } catch {
-        log('warn', 'v6 JSON 解析失败', { contentEnd: jsonStr.slice(-200) });
-        return { passageText: '', errors: [], warning: null };
+    // Fallback 1: 找包含 "errors" 的 JSON 对象
+    const errIdx = jsonStr.indexOf('"errors"');
+    if (errIdx >= 0) {
+      // 从包含 errors 的 { 开始提取
+      const start = jsonStr.lastIndexOf('{', errIdx);
+      if (start >= 0) {
+        // 找匹配的 }
+        let depth = 0, end = start;
+        for (let i = start; i < jsonStr.length; i++) {
+          if (jsonStr[i] === '{') depth++;
+          if (jsonStr[i] === '}') { depth--; if (depth === 0) { end = i + 1; break; } }
+        }
+        try { parsed = JSON.parse(jsonStr.substring(start, end)); } catch (_) {}
       }
-    } else {
-      log('warn', 'v6 无法提取 JSON', { contentEnd: jsonStr.slice(-200) });
+    }
+    // Fallback 2: 通用正则
+    if (!parsed) {
+      const m = jsonStr.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
+      if (m) { try { parsed = JSON.parse(m[0]); } catch (_) {} }
+    }
+    if (!parsed) {
+      log('warn', 'v6 JSON 解析失败', { contentEnd: jsonStr.slice(-200) });
       return { passageText: '', errors: [], warning: null };
     }
   }
