@@ -26,11 +26,6 @@ import { ERROR_DIAGNOSIS_PROMPT } from './prompts/error-diagnosis.js';
 import { renderPaperAnalysisPrompt } from './prompts/paper-analysis-v4.js';
 import { STUDY_GUIDANCE_PROMPT_V1 } from './prompts/study-guidance-v1.js';
 import { PAPER_SCANNER_VERSION, buildScannerMessages, postFilter, classifyErrors } from './prompts/paper-scanner-v5.js';
-// v6: 分科 Scanner Prompt
-import { PROMPT as EN_PROMPT, buildMessages as enBuild } from './prompts/scanner-english.js';
-import { PROMPT as MATH_PROMPT, buildMessages as mathBuild } from './prompts/scanner-math.js';
-import { PROMPT as CN_PROMPT, buildMessages as cnBuild } from './prompts/scanner-chinese.js';
-import { PROMPT as SCI_PROMPT, buildMessages as sciBuild } from './prompts/scanner-science.js';
 import { initDB, saveDB, saveRecord, getRecord, getHistory, getStats, createUser, getUserByEmail, getUserById, updateUser, changePassword, listUsers, saveErrorProblem, saveErrorKnowledgeTags, getErrorProblem, listErrorProblems, getErrorStats, getKnowledgeStats, getErrorsByKnowledgePoint, searchKnowledgePoints, createPaperSession, updatePaperSession, getPaperSession, listPaperSessions, listErrorsByPaper, listErrorsByTime, listErrorsBySubject, listErrorsForGuidance, saveReview, updateErrorReviewStatus, deleteErrorProblem, getSessionReviews, resetStalledPaperSessions } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -787,102 +782,32 @@ function checkRedMarkings(imageBase64) {
   }
 }
 
-// ========== 分科 Scanner Prompt 路由 ==========
+// v7: 裁剪区域 VL 直判 — 每道题一个小图 + 一句话 prompt
+const SCAN_REGION_PROMPT = `图中是一道题的学生作答区域。学生用蓝/黑色笔作答，老师用红笔批改。
+判断学生是否做错。红笔✗打叉/划掉/写正确答案 → 做错。红笔✓打勾 → 做对。
+只输出JSON: {"isWrong":true/false,"studentAnswer":"学生写了什么","correctAnswer":"正确答案(如果红笔写了)","reason":"简短原因"}`;
 
-function getScannerMessages(subject, imageBase64, redImageBase64) {
-  const opts = { subject, imageBase64, redImageBase64 };
-  switch (subject) {
-    case '英语': return enBuild(opts);
-    case '数学': return mathBuild(opts);
-    case '语文': return cnBuild(opts);
-    case '物理': case '化学': case '生物': return sciBuild(opts);
-    default: return enBuild(opts);
-  }
-}
-
-function getScannerVersion(subject) {
-  const map = { '英语': 'v6-en', '数学': 'v6-math', '语文': 'v6-cn', '物理': 'v6-sci', '化学': 'v6-sci', '生物': 'v6-sci' };
-  return map[subject] || 'v6-en';
-}
-
-/**
- * v6：分科扫描 — 标注图（单图）或 原图+红笔分离图（双图 fallback）
- */
-async function scanPageV6(scanBase64, redBase64, subject, pageIndex) {
-  if (!scanBase64) { log('warn', 'v6 无图片'); return { passageText: '', errors: [], warning: null }; }
-
-  const compressed = compressImage(scanBase64, 1400, 75);
-  const redCompressed = redBase64 ? compressImage(redBase64, 1200, 75) : null;
-
-  const messages = getScannerMessages(subject, compressed, redCompressed);
-
-  const result = await kimiRequest({
-    model: MODEL_OCR,
-    messages,
-    temperature: 1,
-    max_tokens: 8000
-  });
-
-  const content = result.choices?.[0]?.message?.content;
-  log('info', 'v6 扫描响应', { contentLen: content?.length || 0, hasContent: !!content, subject, preview: (content || '').substring(0, 300) });
-  if (!content) { log('warn', 'v6 扫描返回空'); return { passageText: '', errors: [], warning: null }; }
-
-  // JSON 提取（更健壮：处理 ```json 包裹、部分截断）
-  let jsonStr = content
-    .replace(/^```json\s*\n?/i, '')
-    .replace(/^```\s*\n?/i, '')
-    .replace(/\n?```\s*$/, '')
-    .trim();
-
-  let parsed;
-  try { parsed = JSON.parse(jsonStr); } catch (e1) {
-    // Fallback 1: 找包含 "errors" 的 JSON 对象
-    const errIdx = jsonStr.indexOf('"errors"');
-    if (errIdx >= 0) {
-      // 从包含 errors 的 { 开始提取
-      const start = jsonStr.lastIndexOf('{', errIdx);
-      if (start >= 0) {
-        // 找匹配的 }
-        let depth = 0, end = start;
-        for (let i = start; i < jsonStr.length; i++) {
-          if (jsonStr[i] === '{') depth++;
-          if (jsonStr[i] === '}') { depth--; if (depth === 0) { end = i + 1; break; } }
-        }
-        try { parsed = JSON.parse(jsonStr.substring(start, end)); } catch (_) {}
-      }
+async function scanRegion(regionBase64) {
+  if (!regionBase64) return null;
+  const compressed = compressImage(regionBase64, 600, 70);
+  try {
+    const result = await kimiRequest({
+      model: MODEL_OCR,
+      messages: [
+        { role: 'system', content: '只输出JSON，无其他文字。' },
+        { role: 'user', content: [{ type: 'text', text: SCAN_REGION_PROMPT }, { type: 'image_url', image_url: { url: compressed, detail: 'auto' } }] }
+      ],
+      temperature: 0.3,
+      max_tokens: 300
+    });
+    const content = (result.choices?.[0]?.message?.content || '').trim();
+    try {
+      return JSON.parse(content.replace(/```json|```/g, '').trim());
+    } catch {
+      const m = content.match(/\{[^}]+\}/);
+      return m ? JSON.parse(m[0]) : null;
     }
-    // Fallback 2: 通用正则
-    if (!parsed) {
-      const m = jsonStr.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
-      if (m) { try { parsed = JSON.parse(m[0]); } catch (_) {} }
-    }
-    if (!parsed) {
-      log('warn', 'v6 JSON 解析失败', { contentEnd: jsonStr.slice(-200) });
-      return { passageText: '', errors: [], warning: null };
-    }
-  }
-
-  const rawErrors = Array.isArray(parsed) ? parsed : (parsed.errors || []);
-  const { errors, warning: filterWarning } = postFilter(rawErrors, pageIndex);
-
-  // 硬性上限：单页超过 MAX_ERRORS_PER_PAGE 道 → 全部丢弃（VL 幻觉）
-  const MAX_ERRORS_PER_PAGE = 10;
-  let cappedErrors = errors;
-  let capWarning = null;
-  if (errors.length > MAX_ERRORS_PER_PAGE) {
-    capWarning = `第${pageIndex}页: VL 识别 ${errors.length} 道错题，超过上限 ${MAX_ERRORS_PER_PAGE}，疑似幻觉，已全部丢弃`;
-    log('warn', '错误数超上限', { pageIndex, detected: errors.length, max: MAX_ERRORS_PER_PAGE });
-    cappedErrors = [];
-  }
-
-  const errorsWithPage = cappedErrors.map(q => ({ ...q, pageIndex }));
-  const passageText = parsed.passageText || '';
-
-  if (filterWarning) log('warn', 'v6 异常检测', { pageIndex, warning: filterWarning });
-
-  log('info', 'v6 扫描完成', { pageIndex, raw: rawErrors.length, filtered: cappedErrors.length, hasPassage: !!passageText, scannerVersion: getScannerVersion(subject), capped: !!capWarning });
-
-  return { passageText, errors: errorsWithPage, warning: filterWarning || capWarning };
+  } catch { return null; }
 }
 
 // ========== 科目自动识别 ==========
@@ -1096,11 +1021,11 @@ function validateScanResults(questions) {
 }
 
 /**
- * v6 流水线：executePaperTask
+ * v7 流水线：executePaperTask
  *
- * 阶段 0: 预处理 → 矫正图 + 红笔分离 + 标注图（蓝黑淡化+红笔彩色框）
- * 阶段 1: VL 分科扫描 v6 → 使用标注图 + 分科 Prompt → 错题列表
- * 阶段 2: DeepSeek 深度分析
+ * 阶段 0: 预处理 → 裁剪题目区域（PaddleOCR 定位 + 红笔检测）
+ * 阶段 1: VL 逐区域直判（每道题小图 + 一句话 prompt）
+ * 阶段 2: DeepSeek 深度分析（仅 confirmed wrong）
  */
 async function executePaperTask(task) {
   const { id, input } = task;
@@ -1187,203 +1112,116 @@ async function executePaperTask(task) {
       }
     }
 
-    // ===== 阶段 1：分科 Prompt 扫描 =====
-    // 有标注图 → 单图（标注图）；无标注图 → 双图（原图+红笔分离图）
-    const scanTasks = preprocessResults.map((pr, i) => {
-      if (!pr || !pr.result) return null;
-      const annotatedImg = pr.result.annotated || null;
-      const correctedImg = pr.result.corrected || input.images[i];
-      const redImg = pr.result.red_marks || null;
-      return {
-        scanImg: annotatedImg || correctedImg,
-        redImg: annotatedImg ? null : redImg, // 有标注图时不需要红笔图辅助
-        pageIndex: i + 1,
-        marks: pr.result.marks || [],
-        annotatedAvailable: !!annotatedImg
-      };
-    }).filter(Boolean);
+    // ===== 阶段 1：VL 逐区域直判 =====
+    const allWrongQuestions = [];
 
-    const scanResults = [];
-    for (let b = 0; b < scanTasks.length; b += VL_SCAN_CONCURRENCY) {
-      const batch = scanTasks.slice(b, b + VL_SCAN_CONCURRENCY);
-      const batchResults = await Promise.all(
-        batch.map(t => {
-          paperTasks.get(id).progress = {
-            stage: 'scan-v6',
-            message: `AI 扫描第 ${t.pageIndex}/${totalPages} 页（${input.subject}·${getScannerVersion(input.subject)}）…`,
-            current: t.pageIndex, total: totalPages
-          };
-          return scanPageV6(t.scanImg, t.redImg, input.subject, t.pageIndex);
-        })
-      );
-      for (let j = 0; j < batchResults.length; j++) {
-        const result = batchResults[j];
-        const pageIdx = batch[j].pageIndex;
-        const markCount = batch[j].marks.length;
-        const hasAnnotated = batch[j].annotatedAvailable;
-        log('info', 'v6 扫描完成', {
-          taskId: id, page: pageIdx, errorCount: result.errors.length,
-          scanner: getScannerVersion(input.subject), programmaticMarks: markCount,
-          annotated: hasAnnotated
-        });
-        scanResults.push({ pageIndex: pageIdx, ...result, _markCount: markCount });
+    for (let i = 0; i < preprocessResults.length; i++) {
+      const pr = preprocessResults[i];
+      if (!pr || !pr.result) continue;
+      const pageIdx = pr.pageIndex;
+      const regions = pr.result.regions || [];
+
+      paperTasks.get(id).progress = {
+        stage: 'scan-v7',
+        message: `AI 扫描第 ${pageIdx}/${totalPages} 页（${regions.length} 个区域）…`,
+        current: pageIdx, total: totalPages
+      };
+
+      // 只扫描有红笔的区域
+      const redRegions = regions.filter(r => r.has_red);
+      log('info', 'v7 区域扫描', { page: pageIdx, total: regions.length, hasRed: redRegions.length });
+
+      // 并发扫描有红笔的区域（每批最多 5 个）
+      const REGION_BATCH = 5;
+      for (let b = 0; b < redRegions.length; b += REGION_BATCH) {
+        const batch = redRegions.slice(b, b + REGION_BATCH);
+        const batchResults = await Promise.all(
+          batch.map(r => scanRegion(r.base64))
+        );
+        for (let j = 0; j < batchResults.length; j++) {
+          const r = batchResults[j];
+          if (r && r.isWrong) {
+            allWrongQuestions.push({
+              pageIndex: pageIdx,
+              questionText: '',
+              studentAnswer: r.studentAnswer || '',
+              correctAnswer: r.correctAnswer || '',
+              markDescription: r.reason || '',
+              questionType: 'unknown',
+              options: {}
+            });
+          }
+        }
       }
     }
 
-    for (const r of scanResults) {
-      if (r.warning) allWarnings.push(r.warning);
-      allScanErrors.push({ pageIndex: r.pageIndex, errors: r.errors, passageText: r.passageText });
-    }
-
-    // 合并所有页面的错题
-    const allErrors = allScanErrors.flatMap(p => p.errors);
-    // 收集所有阅读理解文章（按页索引）
-    const passageMap = {};
-    for (const p of allScanErrors) {
-      if (p.passageText) passageMap[p.pageIndex] = p.passageText;
-    }
-
-    if (allErrors.length === 0) {
+    if (allWrongQuestions.length === 0) {
       log('info', '未检测到错题', { taskId: id });
-      updatePaperSession(id, { status: 'done', errorCount: 0, totalQuestions: 0, correctCount: 0 });
+      updatePaperSession(id, { status: 'done', errorCount: 0 });
       paperTasks.get(id).status = 'done';
-      paperTasks.get(id).result = { subject: input.subject, sessionId: id, totalQuestions: 0, correctCount: 0, totalErrors: 0, pipeline: 'v6-annotated' };
+      paperTasks.get(id).result = { subject: input.subject, sessionId: id, totalErrors: 0, pipeline: 'v7-region' };
       paperTasks.get(id).progress = { stage: 'done', message: '未检测到错题 ✅' };
       return;
     }
 
-    // ===== 阶段 3：按题型分类处理 =====
-    const { standard, listening, reading } = classifyErrors(allErrors);
+    // ===== 阶段 2：DeepSeek 深度分析 =====
+    const needsAnalysis = allWrongQuestions.filter(q => {
+      const text = q.studentAnswer || q.correctAnswer || '';
+      return text.length > 0;
+    });
 
-    let savedCount = 0, listeningCount = 0;
-
-    // ----- 3a：听力题 — 仅记录，不分析 -----
-    for (const q of listening) {
-      const errorId = crypto.randomUUID().slice(0, 8);
-      saveErrorProblem({
-        id: errorId, userId: input.userId, subject: input.subject,
-        topic: `第${q.questionNumber}题（听力）`,
-        questionText: q.questionText || '(听力题，无题干)',
-        questionType: '听力',
-        answerOptions: JSON.stringify(q.options || {}),
-        wrongAnswer: q.studentAnswer || '',
-        correctAnswer: q.correctAnswer || '',
-        errorType: '听力题（无文字题干）',
-        correctSolution: '听力题无文字题干，无法自动归因分析。请自行复习听力原文。',
-        difficulty: 0,
-        knowledgeExplanation: '{}',
-        gradingEvidence: q.markDescription || '',
-        aiRaw: JSON.stringify({ pipeline: 'v6-annotated', skipped: true, reason: 'listening', scan: q }),
-        notes: '听力题 — 仅记录错题，不做归因分析',
-        sessionId: id, paperIndex: q.pageIndex || 1, status: 'done',
-        createdAt: Date.now()
-      });
-      listeningCount++;
-    }
-
-    // ----- 3b: 标准题 + 阅读理解题 — DeepSeek 分析 -----
-    const needsAnalysis = [...standard, ...reading];
-
+    let savedCount = 0;
     if (needsAnalysis.length > 0) {
       paperTasks.get(id).progress = {
         stage: 'analyze-deepseek',
-        message: `DeepSeek 正在分析 ${needsAnalysis.length} 道错题…`,
-        current: 0, total: needsAnalysis.length
+        message: `DeepSeek 分析 ${needsAnalysis.length} 道错题…`,
+        total: needsAnalysis.length
       };
 
-      // 为阅读理解题注入 passageText 上下文
-      const enrichedForAnalysis = needsAnalysis.map(q => {
-        if (q.questionType === 'reading') {
-          const passage = passageMap[q.pageIndex] || '';
-          const passageContext = passage ? `【阅读理解文章】\n${passage}\n\n【题目】` : '';
-          return {
-            ...q,
-            questionText: passageContext + (q.questionText || ''),
-            // 保留原 options 格式兼容 renderPaperAnalysisPrompt
-            options: q.options && typeof q.options === 'object' && !Array.isArray(q.options)
-              ? Object.entries(q.options).map(([k, v]) => `${k}. ${v}`)
-              : (q.options || [])
-          };
-        }
-        // 标准题也处理 options 格式
-        return {
-          ...q,
-          options: q.options && typeof q.options === 'object' && !Array.isArray(q.options)
-            ? Object.entries(q.options).map(([k, v]) => `${k}. ${v}`)
-            : (q.options || [])
-        };
-      });
+      const analysisResults = await analyzeErrors(input.subject, needsAnalysis);
 
-      const analysisResults = await analyzeErrors(input.subject, enrichedForAnalysis);
-
-      // 保存分析结果
       for (let j = 0; j < needsAnalysis.length; j++) {
         const q = needsAnalysis[j];
         const analysis = analysisResults[j] || {};
         const errorId = crypto.randomUUID().slice(0, 8);
-
-        const knowledgePoints = analysis.knowledgePoints || [];
-        const knowledgeExplJson = JSON.stringify(
-          knowledgePoints.reduce((acc, kp) => { acc[kp] = ''; return acc; }, {})
-        );
-
         saveErrorProblem({
           id: errorId, userId: input.userId, subject: input.subject,
-          topic: `第${q.questionNumber}题（${q.questionType === 'reading' ? '阅读理解' : '选择题'}）`,
+          topic: `错题 ${j + 1}`,
           questionText: q.questionText || '',
-          questionType: q.questionType || '选择题',
+          questionType: q.questionType || 'unknown',
           answerOptions: JSON.stringify(q.options || {}),
           wrongAnswer: q.studentAnswer || '',
           correctAnswer: q.correctAnswer || '',
           errorType: analysis.errorType || '未知',
-          correctSolution: (analysis.diagnosis || '') + '\n\n' + (analysis.solution || ''),
+          correctSolution: (analysis.diagnosis || '') + '\n' + (analysis.solution || ''),
           difficulty: analysis.difficulty || 3,
-          knowledgeExplanation: knowledgeExplJson,
+          knowledgeExplanation: '{}',
           gradingEvidence: q.markDescription || '',
-          aiRaw: JSON.stringify({ pipeline: 'v6-annotated', scan: q, analysis }),
-          notes: analysis.remedy || '',
+          aiRaw: JSON.stringify({ pipeline: 'v7-region', region: q, analysis }),
+          notes: '',
           sessionId: id, paperIndex: q.pageIndex || 1, status: 'done',
           createdAt: Date.now()
         });
-
-        // 关联知识点
-        if (knowledgePoints.length > 0) {
-          const matchedKpIds = [];
-          for (const kpName of knowledgePoints) {
-            const matches = searchKnowledgePoints(kpName, input.subject);
-            if (matches.length > 0) matchedKpIds.push(matches[0].id);
-          }
-          if (matchedKpIds.length > 0) saveErrorKnowledgeTags(errorId, matchedKpIds);
-        }
         savedCount++;
       }
     }
 
-    // 汇总
-    const totalQuestions = allErrors.length;
     updatePaperSession(id, {
-      status: 'done', errorCount: savedCount + listeningCount, totalQuestions, correctCount: 0,
-      aiRaw: JSON.stringify({ pipeline: 'v6-annotated', allErrors, passages: passageMap })
+      status: 'done', errorCount: savedCount, totalQuestions: allWrongQuestions.length
     });
 
     paperTasks.get(id).status = 'done';
     paperTasks.get(id).result = {
       subject: input.subject, sessionId: id,
-      totalQuestions, correctCount: 0,
-      totalErrors: savedCount + listeningCount,
-      analyzedCount: savedCount, listeningCount,
-      pipeline: 'v6-annotated'
+      totalErrors: savedCount,
+      pipeline: 'v7-region'
     };
     paperTasks.get(id).progress = {
       stage: 'done',
-      message: `${totalQuestions} 错题 | ✅分析 ${savedCount} ${listeningCount > 0 ? `| 🎧听力 ${listeningCount}（仅记录）` : ''}${allWarnings.length > 0 ? ` | ⚠️ ${allWarnings[0]}` : ''} | v6.0`
+      message: `${allWrongQuestions.length} 个红笔区域 → ${savedCount} 道错题已分析 | v7.0`
     };
 
-    log('info', 'v6 流水线完成', {
-      taskId: id, subject: input.subject,
-      total: totalQuestions, analyzed: savedCount, listening: listeningCount,
-      warnings: allWarnings.length
-    });
+    log('info', 'v7 流水线完成', { taskId: id, subject: input.subject, regions: allWrongQuestions.length, analyzed: savedCount });
 
   } catch (err) {
     log('error', '整卷分析失败', { taskId: id, error: err.message, stack: err.stack?.substring(0, 300) });
@@ -1482,7 +1320,7 @@ app.get('/health', (req, res) => {
     version: '2.0-async',
     providers: { ocr: { name: 'Kimi', model: MODEL_OCR }, grading: { name: 'DeepSeek', model: MODEL_GRADING } },
     prompt: { version: PROMPT_VERSION, file: 'prompts/grading-v5.js' },
-    scanner: { version: 'v6.0', engine: '分科标注化', file: 'prompts/scanner-english/math/chinese/science.js' },
+    scanner: { version: 'v7.0', engine: '区域裁剪VL直判', file: 'api-server.js' },
     queue: { grading: { active: gradingQueue.active, pending: gradingQueue.pending }, error: { active: errorQueue.active, pending: errorQueue.pending }, paper: { active: paperQueue.active, pending: paperQueue.pending, maxConcurrent: PAPER_MAX_CONCURRENT } },
     tasks: { memory: tasks.size, persistent: getStats() },
     uptime: Math.floor(process.uptime())

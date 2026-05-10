@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
 """
-gaozhong.online — 试卷图片预处理微服务
+gaozhong.online — 试卷图片预处理微服务 v7
 ============================================
-接收 base64 试卷图片，输出：
-  1. corrected_image  — 透视矫正后的原图
-  2. red_marks        — 红色笔迹分离（批改标记）
-  3. layout_boxes     — PaddleOCR 版面分析结果
+v7: 废除红笔符号检测和标注图生成，改为区域裁剪。
+    用 PaddleOCR 检测文本区域 → 分组为题目块 → 检查各块有无红笔 → 裁剪输出
 
 依赖: paddleocr, opencv-python, pillow, flask, numpy
 端口: 5001
@@ -219,213 +217,109 @@ def extract_layout(img):
         return None
 
 
-# ========== v6: 红笔标记检测 + 标注图生成 ==========
+# ========== v7: 题目区域裁剪 ==========
 
-def detect_red_marks(red_mask, min_area=50):
+def crop_question_regions(img, red_mask):
     """
-    从红色 mask 中检测批改符号：✗ ×、✓ 勾、○ 圈、手写红字
-    返回: [{ type: 'cross'|'tick'|'circle'|'text', bbox: [x,y,w,h], center: [cx,cy], area, confidence }]
+    用 PaddleOCR 版面分析定位题目区域，检查各区域是否有红笔，裁剪输出。
+    返回: [{ bbox: [x,y,w,h], has_red: bool, red_ratio: float, base64: str }]
     """
     import cv2
-    # 膨胀让断开的线条连接
-    kernel = np.ones((3, 3), np.uint8)
-    dilated = cv2.dilate(red_mask, kernel, iterations=1)
+    layout = extract_layout(img)
 
-    contours, hierarchy = cv2.findContours(dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    marks = []
+    # 如果 PaddleOCR 不可用，回退到均匀切片
+    if not layout:
+        print("[preprocess] PaddleOCR 未加载，使用均匀切片", flush=True)
+        return fallback_grid_crop(img, red_mask)
 
-    for cnt in contours:
-        area = cv2.contourArea(cnt)
-        if area < min_area:
+    # 按 Y 坐标分组文本块 → 题目区域
+    blocks = sorted(layout, key=lambda b: b['y'])
+    groups = []
+    current = None
+    GAP_THRESHOLD = 30  # Y 间距阈值
+
+    for b in blocks:
+        if b['confidence'] < 0.3:
             continue
+        if not current:
+            current = {'y_min': b['y'], 'y_max': b['y'] + b['height'],
+                       'x_min': b['x'], 'x_max': b['x'] + b['width']}
+        elif abs(b['y'] - current['y_max']) < GAP_THRESHOLD:
+            current['y_max'] = max(current['y_max'], b['y'] + b['height'])
+            current['x_min'] = min(current['x_min'], b['x'])
+            current['x_max'] = max(current['x_max'], b['x'] + b['width'])
+        else:
+            groups.append(current)
+            current = {'y_min': b['y'], 'y_max': b['y'] + b['height'],
+                       'x_min': b['x'], 'x_max': b['x'] + b['width']}
+    if current:
+        groups.append(current)
 
-        x, y, w, h = cv2.boundingRect(cnt)
-        cx, cy = x + w // 2, y + h // 2
+    # 为每个区域添加 padding，裁剪，检查红笔
+    h, w = img.shape[:2]
+    regions = []
+    for g in groups:
+        pad = 8
+        x1 = max(0, g['x_min'] - pad)
+        y1 = max(0, g['y_min'] - pad)
+        x2 = min(w, g['x_max'] + pad)
+        y2 = min(h, g['y_max'] + pad)
+        if x2 - x1 < 50 or y2 - y1 < 20:
+            continue  # 跳过太小的区域
 
-        # 轮廓近似
-        peri = cv2.arcLength(cnt, True)
-        approx = cv2.approxPolyDP(cnt, 0.02 * peri, True)
-        hull = cv2.convexHull(cnt, returnPoints=False)
-        hull_area = cv2.contourArea(cv2.convexHull(cnt))
+        # 检查该区域有无红笔
+        region_mask = red_mask[y1:y2, x1:x2] if red_mask is not None else np.zeros((y2-y1, x2-x1), dtype=np.uint8)
+        red_pixels = np.sum(region_mask > 0)
+        total = region_mask.size if region_mask.size > 0 else 1
+        red_ratio = round(red_pixels / total, 5)
 
-        # 基础特征
-        aspect_ratio = w / max(h, 1)
-        solidity = area / max(hull_area, 1)
-        extent = area / max(w * h, 1)
+        # 裁剪原图该区域
+        crop = img[y1:y2, x1:x2]
+        b64 = cv2_to_b64(crop, quality=80)
 
-        # 圆形度: 4π*Area / Perimeter² — 完美圆=1
-        circularity = (4 * np.pi * area) / max(peri * peri, 1)
-
-        # 凸缺陷分析（用于检测交叉线和勾）
-        defects = None
-        if hull is not None and len(hull) > 3:
-            try:
-                defects = cv2.convexityDefects(cnt, hull)
-            except:
-                pass
-
-        defect_count = len(defects) if defects is not None else 0
-
-        mark_type = 'text'
-        confidence = 0.5
-
-        # ── 分类逻辑 ──
-        if circularity > 0.55 and aspect_ratio > 0.5 and aspect_ratio < 2.0:
-            # 高圆形度 → 圈（教师圈出答案）
-            mark_type = 'circle'
-            confidence = min(circularity, 1.0)
-        elif defect_count >= 2 and solidity < 0.85:
-            # 多个凸缺陷 + 非凸 → 交叉符号（✗）
-            mark_type = 'cross'
-            confidence = min(defect_count / 5, 1.0)
-        elif defect_count >= 1 and aspect_ratio > 1.3 and solidity < 0.8:
-            # 有凸缺陷 + 长形 + 非凸 → 勾（✓）
-            mark_type = 'tick'
-            confidence = 0.7
-        elif w > 15 and h > 10 and solidity < 0.7:
-            # 区域较大 + 形状不规则 → 手写红字
-            mark_type = 'text'
-            confidence = 0.6
-        elif area < 200:
-            # 小面积 → 可能是点或短划，归类为标记但不判定类型
-            mark_type = 'text'
-            confidence = 0.3
-
-        marks.append({
-            'type': mark_type,
-            'bbox': [int(x), int(y), int(w), int(h)],
-            'center': [int(cx), int(cy)],
-            'area': int(area),
-            'confidence': round(confidence, 3)
+        regions.append({
+            'bbox': [int(x1), int(y1), int(x2 - x1), int(y2 - y1)],
+            'has_red': bool(red_ratio > 0.001),
+            'red_ratio': float(red_ratio),
+            'base64': b64
         })
 
-    # 合并重叠标记（同一区域的多个检测合并为一个）
-    merged = merge_overlapping_marks(marks)
-    return merged
+    # 如果没有检测到任何区域，回退到网格
+    if not regions:
+        regions = fallback_grid_crop(img, red_mask)
+
+    return regions
 
 
-def merge_overlapping_marks(marks, iou_threshold=0.3):
-    """合并重叠的标记框（避免同一个 × 被当成多个符号）"""
-    if len(marks) <= 1:
-        return marks
-
+def fallback_grid_crop(img, red_mask):
+    """PaddleOCR 不可用时的均匀网格切片"""
     import cv2
-    merged = []
-    used = [False] * len(marks)
-
-    for i in range(len(marks)):
-        if used[i]:
-            continue
-        base = dict(marks[i])
-        xi1, yi1 = base['bbox'][0], base['bbox'][1]
-        xi2, yi2 = xi1 + base['bbox'][2], yi1 + base['bbox'][3]
-
-        for j in range(i + 1, len(marks)):
-            if used[j]:
-                continue
-            xj1, yj1 = marks[j]['bbox'][0], marks[j]['bbox'][1]
-            xj2, yj2 = xj1 + marks[j]['bbox'][2], yj1 + marks[j]['bbox'][3]
-
-            # 计算 IoU
-            inter_x1 = max(xi1, xj1)
-            inter_y1 = max(yi1, yj1)
-            inter_x2 = min(xi2, xj2)
-            inter_y2 = min(yi2, yj2)
-            if inter_x1 < inter_x2 and inter_y1 < inter_y2:
-                inter_area = (inter_x2 - inter_x1) * (inter_y2 - inter_y1)
-                union_area = base['area'] + marks[j]['area'] - inter_area
-                iou = inter_area / max(union_area, 1)
-                if iou > iou_threshold:
-                    # 合并：扩展 bbox，保持类型取最高置信度
-                    base['bbox'][0] = min(xi1, xj1)
-                    base['bbox'][1] = min(yi1, yj1)
-                    base['bbox'][2] = max(xi2, xj2) - base['bbox'][0]
-                    base['bbox'][3] = max(yi2, yj2) - base['bbox'][1]
-                    base['center'][0] = base['bbox'][0] + base['bbox'][2] // 2
-                    base['center'][1] = base['bbox'][1] + base['bbox'][3] // 2
-                    base['area'] = base['bbox'][2] * base['bbox'][3]
-                    if marks[j]['confidence'] > base['confidence']:
-                        base['type'] = marks[j]['type']
-                        base['confidence'] = marks[j]['confidence']
-                    used[j] = True
-        merged.append(base)
-        used[i] = True
-
-    return merged
-
-
-def create_annotated_image(img, red_mask, marks):
-    """
-    生成标注图：
-    - 蓝黑笔迹（学生手写）淡化到 35%
-    - 印刷体区域保持 100%
-    - 红笔标记用彩色框高亮（黄=✗, 绿=✓, 青=○, 品红=红字）
-    - 白色背景打底
-    """
-    import cv2
-
     h, w = img.shape[:2]
-    result = img.copy().astype(np.float32)
+    # 按行切片：每 100px 高一个区域
+    regions = []
+    row_h = 120
+    overlap = 20
+    y = 0
+    while y < h:
+        y1 = y
+        y2 = min(h, y + row_h)
+        region_mask = red_mask[y1:y2, 0:w] if red_mask is not None else np.zeros((y2-y1, w), dtype=np.uint8)
+        red_pixels = np.sum(region_mask > 0)
+        total = region_mask.size if region_mask.size > 0 else 1
+        red_ratio = round(red_pixels / total, 5)
 
-    # ── 构建蓝黑笔迹 mask（非红、非白色背景） ──
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    # 白色背景区域（灰度 > 200）
-    _, white_mask = cv2.threshold(gray, 210, 255, cv2.THRESH_BINARY)
-    white_mask_inv = cv2.bitwise_not(white_mask)
+        if w > 300 and y2 - y1 > 30:  # 跳过太窄的切片
+            crop = img[y1:y2, 0:w]
+            b64 = cv2_to_b64(crop, quality=80)
+            regions.append({
+                'bbox': [0, int(y1), int(w), int(y2 - y1)],
+                'has_red': bool(red_ratio > 0.001),
+                'red_ratio': float(red_ratio),
+                'base64': b64
+            })
+        y += row_h - overlap
 
-    # 蓝黑笔迹 = 非白区域 - 红笔区域（已膨胀）
-    blue_black_mask = cv2.bitwise_and(white_mask_inv, cv2.bitwise_not(red_mask))
-
-    # 轻微形态学让蓝黑 mask 更干净
-    kernel = np.ones((5, 5), np.uint8)
-    blue_black_mask = cv2.morphologyEx(blue_black_mask, cv2.MORPH_CLOSE, kernel)
-
-    # ── 蓝黑笔迹淡化（亮度×0.35）──
-    for c in range(3):
-        result[:, :, c] = np.where(blue_black_mask > 0, result[:, :, c] * 0.35, result[:, :, c])
-
-    # ── 背景提亮（接近白色）──
-    result = np.clip(result, 0, 255).astype(np.uint8)
-
-    # ── 绘制红笔标记彩色框 ──
-    color_map = {
-        'cross':  (0, 230, 230),   # 黄色 (BGR) — ✗ 打叉
-        'tick':   (0, 230, 100),   # 绿色 — ✓ 打勾
-        'circle': (230, 230, 0),   # 青色 — ○ 圈选
-        'text':   (230, 100, 230), # 品红 — 手写红字
-    }
-    label_map = {
-        'cross': 'X', 'tick': 'V', 'circle': 'O', 'text': 'Tx'
-    }
-
-    for m in marks:
-        x, y, bw, bh = m['bbox']
-        color = color_map.get(m['type'], (200, 200, 200))
-        label = label_map.get(m['type'], '?')
-
-        # 画半透明填充框
-        overlay = result.copy()
-        pad = 4
-        x1 = max(0, x - pad)
-        y1 = max(0, y - pad)
-        x2 = min(w, x + bw + pad)
-        y2 = min(h, y + bh + pad)
-        cv2.rectangle(overlay, (x1, y1), (x2, y2), color, -1)
-        result = cv2.addWeighted(result, 0.7, overlay, 0.3, 0)
-
-        # 画边框
-        cv2.rectangle(result, (x1, y1), (x2, y2), color, 3)
-
-        # 画标签
-        label_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)[0]
-        lx = x1
-        ly = y1 - 8 if y1 > 20 else y1 + bh + 20
-        # 标签背景
-        cv2.rectangle(result, (lx, ly - label_size[1] - 4), (lx + label_size[0] + 6, ly + 4), color, -1)
-        cv2.putText(result, label, (lx + 3, ly), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2)
-
-    result = np.clip(result, 0, 255).astype(np.uint8)
-    return result
+    return regions
 
 
 # ========== API 接口 ==========
@@ -466,40 +360,23 @@ def preprocess():
         # 2. 对比度增强（总是做）
         img = enhance_contrast(img)
 
-        # 3. 红色笔迹分离 + 标记检测
+        # 3. 红色笔迹分离 + 区域裁剪
         if options.get('red', True):
             red, red_mask = separate_red_ink(img)
             result['red_marks'] = cv2_to_b64(red)
-            # 红笔信号强度
-            red_pixels = np.sum(red_mask > 0)
-            total_pixels = red_mask.size
-            result['red_signal'] = round(red_pixels / total_pixels, 5) if total_pixels > 0 else 0
-            # 红笔二值图
-            import cv2
-            red_binary = cv2.bitwise_not(red_mask)
-            result['red_marks_binary'] = cv2_to_b64(cv2.cvtColor(red_binary, cv2.COLOR_GRAY2BGR))
-            # v6: 红笔标记检测
-            marks = detect_red_marks(red_mask)
-            result['marks'] = marks
-            result['mark_count'] = len(marks)
-            # v6: 标注图生成（如果有标记）
-            if marks:
-                annotated = create_annotated_image(img, red_mask, marks)
-                result['annotated'] = cv2_to_b64(annotated)
+            result['red_signal'] = round(float(np.sum(red_mask > 0) / red_mask.size), 5) if red_mask.size > 0 else 0
+            # v7: 裁剪题目区域
+            regions = crop_question_regions(img, red_mask)
+            result['regions'] = regions
+            result['region_count'] = len(regions)
+            result['regions_with_red'] = int(sum(1 for r in regions if r['has_red']))
 
-        # 4. 学生手写分离
+        # 4. 学生手写分离（保留，供复核使用）
         if options.get('blue', True):
             blue = separate_blue_ink(img)
             result['student_handwriting'] = cv2_to_b64(blue)
 
-        # 5. 版面分析
-        if options.get('layout', True):
-            layout = extract_layout(img)
-            if layout:
-                result['layout'] = layout
-                result['layout_count'] = len(layout)
-
-        # 6. 矫正后原图
+        # 5. 矫正后原图
         result['corrected'] = cv2_to_b64(img)
 
         return jsonify({
@@ -513,88 +390,10 @@ def preprocess():
         return jsonify({'status': 'error', 'error': str(e)}), 500
 
 
-@app.route('/detect-marks', methods=['POST'])
-def detect_marks():
-    """
-    检测红笔批改标记
-    输入: { "image": "base64..." }
-    输出: { "status": "ok", "marks": [{ type, bbox, center, area, confidence }], "count": N }
-    """
-    import cv2
-    try:
-        data = request.get_json()
-        if not data or 'image' not in data:
-            return jsonify({'status': 'error', 'error': '缺少 image 字段'}), 400
-        img = b64_to_cv2(data['image'])
-        if img is None or img.size == 0:
-            return jsonify({'status': 'error', 'error': '无法解码图片'}), 400
-
-        # 矫正 + 对比度
-        img = deskew_image(img)
-        img = enhance_contrast(img)
-
-        # 红笔分离 + 检测
-        red, red_mask = separate_red_ink(img)
-        marks = detect_red_marks(red_mask)
-
-        return jsonify({
-            'status': 'ok',
-            'marks': marks,
-            'count': len(marks),
-            'red_signal': round(np.sum(red_mask > 0) / red_mask.size, 5),
-            'image_size': {'width': img.shape[1], 'height': img.shape[0]}
-        })
-    except Exception as e:
-        traceback.print_exc()
-        return jsonify({'status': 'error', 'error': str(e)}), 500
-
-
-@app.route('/annotate', methods=['POST'])
-def annotate():
-    """
-    生成标注图：蓝黑笔迹淡化 + 红笔标记彩色高亮框
-    输入: { "image": "base64..." }
-    输出: { "status": "ok", "annotated": "base64...", "marks": [...] }
-    """
-    import cv2
-    try:
-        data = request.get_json()
-        if not data or 'image' not in data:
-            return jsonify({'status': 'error', 'error': '缺少 image 字段'}), 400
-        img = b64_to_cv2(data['image'])
-        if img is None or img.size == 0:
-            return jsonify({'status': 'error', 'error': '无法解码图片'}), 400
-
-        # 矫正 + 对比度
-        img = deskew_image(img)
-        img = enhance_contrast(img)
-
-        # 红笔分离 + 检测
-        red, red_mask = separate_red_ink(img)
-        marks = detect_red_marks(red_mask)
-
-        # 生成标注图
-        annotated = create_annotated_image(img, red_mask, marks)
-
-        return jsonify({
-            'status': 'ok',
-            'annotated': cv2_to_b64(annotated, quality=85),
-            'marks': marks,
-            'mark_count': len(marks),
-            'image_size': {'width': img.shape[1], 'height': img.shape[0]}
-        })
-    except Exception as e:
-        traceback.print_exc()
-        return jsonify({'status': 'error', 'error': str(e)}), 500
-
-
 if __name__ == '__main__':
     print("=" * 60)
-    print("gaozhong.online — 试卷预处理微服务 v6")
+    print("gaozhong.online — 试卷预处理微服务 v7")
     print("端口: 5001")
-    print("健康检查: GET /health")
-    print("预处理: POST /preprocess")
-    print("标记检测: POST /detect-marks")
-    print("标注图: POST /annotate")
+    print("预处理(裁剪区域): POST /preprocess")
     print("=" * 60, flush=True)
     app.run(host='0.0.0.0', port=5001, debug=False)
