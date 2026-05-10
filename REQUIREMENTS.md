@@ -23,18 +23,15 @@
 - [x] 异步任务队列（并发上限 3）
 - [x] 批改历史（登录用户/游客双模式）
 
-### 2.3 错题上传（v4 两阶段流水线）🔄
-**架构**：VL 视觉扫描（单图） → DeepSeek 深度分析
+### 2.3 错题上传（v5 双图增强流水线）🔄
+**架构**：预处理（红笔分离）→ VL 双图扫描（原图+红笔图）→ DeepSeek 深度分析
 
-- [x] 阶段0：`preprocess-server.py` — OpenCV 预处理（校正/对比度增强）
-- [x] 阶段1：`prompts/paper-scanner-v4.js` (v4.2) — VL 单图视觉扫描（Kimi k2.6），仅做"定位+判定"，输出错题列表含题型分类（standard/listening/reading）
-- [x] 阶段2：`prompts/paper-analysis-v4.js` — DeepSeek 深度分析（仅 standard + reading，批量≤8题）
-- [x] 听力题特殊处理：仅记录错题，不做归因分析
-- [x] 阅读理解特殊处理：提取文章全文，注入 DeepSeek 分析上下文
-- [x] 题型三分法：standard（标准题）/ listening（听力，无题干）/ reading（阅读理解）
-- [x] 单图输入（移除红笔分离图），消除双图交叉引用导致的 VL 幻觉
-- [x] 异步任务队列 + 前端轮询进度
-- [ ] 🐛 PaddleOCR 持续返回 0 文本块（v4 已不再依赖 PaddleOCR）
+- [x] 阶段0：`preprocess-server.py` — OpenCV 预处理（校正/对比度/红笔分离增强）
+- [x] 阶段1：`prompts/paper-scanner-v5.js` (v5.0) — VL 双图扫描（Kimi k2.6），原图(上下文)+红笔分离图(标记检测)，6 种红笔标记类型全覆盖
+- [x] 阶段2：`prompts/paper-analysis-v4.js` — DeepSeek 深度分析
+- [x] 上传体验：队列模式（连续添加+后台排队）+ ETA 预估 + 完成通知
+- [x] 红笔信号强度验证（red_signal 指标）
+- [ ] 🐛 宿主机 preprocess-server 需重启（HSV 范围扩大变更）
 
 ### 2.4 AI 整卷分析 Prompt ✅
 - [x] `prompts/paper-analysis-v1.js`（初始版本，OCR → DeepSeek 单阶段）

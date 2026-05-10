@@ -169,6 +169,27 @@ export async function initDB() {
   // paper_sessions 新增统计字段
   try { db.run(`ALTER TABLE paper_sessions ADD COLUMN total_questions INTEGER DEFAULT 0;`); } catch (_) {}
   try { db.run(`ALTER TABLE paper_sessions ADD COLUMN correct_count INTEGER DEFAULT 0;`); } catch (_) {}
+  // 图片持久化
+  try { db.run(`ALTER TABLE paper_sessions ADD COLUMN image_paths TEXT DEFAULT '';`); } catch (_) {}
+
+  // V4: 错题复核 — error_problems 新增复核字段
+  try { db.run(`ALTER TABLE error_problems ADD COLUMN review_status TEXT DEFAULT 'pending';`); } catch (_) {}
+  try { db.run(`ALTER TABLE error_problems ADD COLUMN position_data TEXT DEFAULT '';`); } catch (_) {}
+
+  // 错题复核记录表
+  db.run(`
+    CREATE TABLE IF NOT EXISTS error_reviews (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      error_id    TEXT NOT NULL,
+      session_id  TEXT NOT NULL,
+      user_id     TEXT NOT NULL,
+      review_action TEXT NOT NULL,
+      correction_data TEXT DEFAULT '',
+      position_data   TEXT DEFAULT '',
+      user_note   TEXT DEFAULT '',
+      created_at  INTEGER NOT NULL
+    );
+  `);
 
   // 索引
   db.run(`CREATE INDEX IF NOT EXISTS idx_paper_sessions_user ON paper_sessions(user_id, created_at DESC);`);
@@ -662,7 +683,7 @@ export function createPaperSession({ id, userId, subject, title, imageCount = 1,
 
 export function updatePaperSession(id, fields) {
   if (!db) return null;
-  const fieldMap = { status: 'status', errorCount: 'error_count', aiRaw: 'ai_raw', imageCount: 'image_count', title: 'title', totalQuestions: 'total_questions', correctCount: 'correct_count' };
+  const fieldMap = { status: 'status', errorCount: 'error_count', aiRaw: 'ai_raw', imageCount: 'image_count', title: 'title', totalQuestions: 'total_questions', correctCount: 'correct_count', imagePaths: 'image_paths' };
   const sets = [];
   const vals = [];
   for (const [k, v] of Object.entries(fields)) {
@@ -715,6 +736,7 @@ function deserializePaper(row) {
     title: row.title, imageCount: row.image_count, status: row.status,
     aiRaw: row.ai_raw, errorCount: row.error_count,
     totalQuestions: row.total_questions || 0, correctCount: row.correct_count || 0,
+    imagePaths: row.image_paths || '',
     createdAt: row.created_at, updatedAt: row.updated_at
   };
 }
@@ -833,6 +855,65 @@ function getErrorTags(errorId) {
   return tags;
 }
 
+// ========== V4 错题复核 CRUD ==========
+
+export function saveReview({ errorId, sessionId, userId, reviewAction, correctionData, positionData, userNote }) {
+  if (!db) throw new Error('数据库未初始化');
+  const now = Date.now();
+  db.run(
+    `INSERT INTO error_reviews (error_id, session_id, user_id, review_action, correction_data, position_data, user_note, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [errorId, sessionId, userId, reviewAction, JSON.stringify(correctionData || {}), positionData || '', userNote || '', now]
+  );
+  saveDBDeferred();
+}
+
+export function updateErrorReviewStatus(errorId, reviewStatus, correctionData = null) {
+  if (!db) return null;
+  const sets = ['review_status = ?'];
+  const vals = [reviewStatus];
+  if (correctionData) {
+    // correctionData: { correctAnswer, errorType, questionText, ... }
+    if (correctionData.correctAnswer) { sets.push('correct_answer = ?'); vals.push(correctionData.correctAnswer); }
+    if (correctionData.errorType) { sets.push('error_type = ?'); vals.push(correctionData.errorType); }
+    if (correctionData.questionText) { sets.push('question_text = ?'); vals.push(correctionData.questionText); }
+    if (correctionData.position) { sets.push('position_data = ?'); vals.push(JSON.stringify(correctionData.position)); }
+  }
+  vals.push(errorId);
+  db.run(`UPDATE error_problems SET ${sets.join(', ')}, updated_at = ? WHERE id = ?`, [...vals, Date.now(), errorId]);
+  saveDBDeferred();
+  return getErrorProblem(errorId);
+}
+
+export function deleteErrorProblem(errorId) {
+  if (!db) return false;
+  db.run('DELETE FROM error_knowledge_tags WHERE error_id = ?', [errorId]);
+  db.run('DELETE FROM error_reviews WHERE error_id = ?', [errorId]);
+  db.run('DELETE FROM error_problems WHERE id = ?', [errorId]);
+  saveDBDeferred();
+  return true;
+}
+
+export function getSessionReviews(sessionId) {
+  if (!db) return [];
+  const stmt = db.prepare('SELECT * FROM error_reviews WHERE session_id = ? ORDER BY created_at ASC');
+  stmt.bind([sessionId]);
+  const reviews = [];
+  while (stmt.step()) {
+    const row = stmt.getAsObject();
+    reviews.push({
+      id: row.id, errorId: row.error_id, sessionId: row.session_id, userId: row.user_id,
+      reviewAction: row.review_action,
+      correctionData: JSON.parse(row.correction_data || '{}'),
+      positionData: row.position_data,
+      userNote: row.user_note,
+      createdAt: row.created_at
+    });
+  }
+  stmt.free();
+  return reviews;
+}
+
 // ========== 工具 ==========
 
 function deserializeUser(row) {
@@ -885,6 +966,8 @@ function deserializeError(row) {
     gradingEvidence: row.grading_evidence || '',
     notes: row.notes, source: row.source, aiRaw: row.ai_raw,
     status: row.status, sessionId: row.session_id, paperIndex: row.paper_index,
+    reviewStatus: row.review_status || 'pending',
+    positionData: row.position_data || '',
     createdAt: row.created_at, updatedAt: row.updated_at
   };
 }

@@ -28,9 +28,9 @@
     <!-- 按试卷 -->
     <div v-if="currentView === 'paper'" class="space-y-4">
       <div v-if="papers.length === 0" class="text-center py-16"><div class="text-5xl mb-4">📄</div><p class="text-gray-500 mb-4">还没有上传过试卷</p><router-link to="/error-upload" class="text-blue-600 hover:text-blue-700 font-medium">去上传第一份试卷 →</router-link></div>
-      <div v-for="paper in papers" :key="paper.id" @click="goPaperDetail(paper)" class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md hover:border-blue-200 transition-all cursor-pointer">
+      <div v-for="paper in papers" :key="paper.id" class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md hover:border-blue-200 transition-all">
         <div class="flex items-start justify-between">
-          <div class="flex-1">
+          <div class="flex-1 cursor-pointer" @click="goPaperDetail(paper)">
             <div class="flex items-center gap-2 mb-2">
               <span :class="subBadge(paper.subject)" class="px-2 py-0.5 rounded text-xs font-medium">{{ paper.subject }}</span>
               <span class="text-sm text-gray-500">{{ fmtTime(paper.createdAt) }}</span>
@@ -41,7 +41,16 @@
               <span>📷 {{ paper.image_count || 1 }} 张图片</span>
             </div>
           </div>
-          <svg class="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+          <div class="flex items-center gap-2 flex-shrink-0">
+            <router-link
+              :to="`/paper/${paper.id}/review`"
+              @click.stop
+              class="px-3 py-1.5 text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200 rounded-lg hover:bg-amber-100 transition-colors"
+            >
+              🔍 复核
+            </router-link>
+            <svg class="w-5 h-5 text-gray-300 cursor-pointer" @click="goPaperDetail(paper)" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+          </div>
         </div>
       </div>
       <div v-if="paperTotalPages > 1" class="flex items-center justify-center gap-2 mt-8">

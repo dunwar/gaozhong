@@ -26,7 +26,7 @@ import { ERROR_DIAGNOSIS_PROMPT } from './prompts/error-diagnosis.js';
 import { renderPaperAnalysisPrompt } from './prompts/paper-analysis-v4.js';
 import { STUDY_GUIDANCE_PROMPT_V1 } from './prompts/study-guidance-v1.js';
 import { PAPER_SCANNER_VERSION, buildScannerMessages, postFilter, classifyErrors } from './prompts/paper-scanner-v5.js';
-import { initDB, saveDB, saveRecord, getRecord, getHistory, getStats, createUser, getUserByEmail, getUserById, updateUser, changePassword, listUsers, saveErrorProblem, saveErrorKnowledgeTags, getErrorProblem, listErrorProblems, getErrorStats, getKnowledgeStats, getErrorsByKnowledgePoint, searchKnowledgePoints, createPaperSession, updatePaperSession, getPaperSession, listPaperSessions, listErrorsByPaper, listErrorsByTime, listErrorsBySubject, listErrorsForGuidance } from './db.js';
+import { initDB, saveDB, saveRecord, getRecord, getHistory, getStats, createUser, getUserByEmail, getUserById, updateUser, changePassword, listUsers, saveErrorProblem, saveErrorKnowledgeTags, getErrorProblem, listErrorProblems, getErrorStats, getKnowledgeStats, getErrorsByKnowledgePoint, searchKnowledgePoints, createPaperSession, updatePaperSession, getPaperSession, listPaperSessions, listErrorsByPaper, listErrorsByTime, listErrorsBySubject, listErrorsForGuidance, saveReview, updateErrorReviewStatus, deleteErrorProblem, getSessionReviews } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3001;
@@ -1027,7 +1027,32 @@ async function executePaperTask(task) {
     const allWarnings = [];    // 异常检测警告
     const redSignalByPage = {}; // 每页红笔信号强度
 
-    // ===== 阶段 0：预处理所有页面（并行）=====
+    // ===== 阶段 0：保存原始图片 + 预处理（并行）=====
+    const PAPERS_DIR = '/app/data/papers';
+    const sessionDir = path.join(PAPERS_DIR, id);
+    if (!fs.existsSync(sessionDir)) fs.mkdirSync(sessionDir, { recursive: true });
+
+    // 保存原始图片
+    const savedPaths = [];
+    for (let i = 0; i < input.images.length; i++) {
+      const img = input.images[i];
+      if (!img.startsWith('data:image')) continue;
+      const match = img.match(/^data:image\/(\w+);base64,(.+)$/);
+      if (!match) continue;
+      const ext = match[1] === 'png' ? 'png' : 'jpg';
+      const buf = Buffer.from(match[2], 'base64');
+      const pagePath = path.join(sessionDir, `page_${i + 1}.${ext}`);
+      fs.writeFileSync(pagePath, buf);
+      savedPaths.push(pagePath);
+
+      // 生成缩略图 (300px)
+      try {
+        const thumbPath = path.join(sessionDir, `thumb_${i + 1}.jpg`);
+        execFileSync('convert', [pagePath, '-resize', '300x>', '-quality', '60', thumbPath], { timeout: 5000 });
+      } catch (_) {}
+    }
+    updatePaperSession(id, { imagePaths: JSON.stringify(savedPaths) });
+
     paperTasks.get(id).progress = {
       stage: 'preprocess',
       message: `预处理试卷图片…`,
@@ -1807,6 +1832,246 @@ app.get('/paper/guidance/:taskId', (req, res) => {
   const task = guidanceTasks.get(req.params.taskId);
   if (!task) return res.status(404).json({ error: '任务不存在或已过期' });
   res.json({ taskId: task.id, status: task.status, progress: task.progress, result: task.status === 'done' ? task.result : undefined, error: task.status === 'failed' ? task.error : undefined, createdAt: task.createdAt, updatedAt: task.updatedAt });
+});
+
+// ========== 图片服务 ==========
+
+app.get('/paper/:sessionId/images/:pageIndex', (req, res) => {
+  const { sessionId, pageIndex } = req.params;
+  const pagePath = path.join('/app/data/papers', sessionId, `page_${pageIndex}.jpg`);
+  const pngPath = path.join('/app/data/papers', sessionId, `page_${pageIndex}.png`);
+
+  let imgPath = null;
+  if (fs.existsSync(pagePath)) imgPath = pagePath;
+  else if (fs.existsSync(pngPath)) imgPath = pngPath;
+
+  if (!imgPath) return res.status(404).json({ error: '图片不存在' });
+
+  const ext = path.extname(imgPath).slice(1);
+  res.setHeader('Content-Type', `image/${ext === 'png' ? 'png' : 'jpeg'}`);
+  res.setHeader('Cache-Control', 'public, max-age=86400');
+  fs.createReadStream(imgPath).pipe(res);
+});
+
+app.get('/paper/:sessionId/thumb/:pageIndex', (req, res) => {
+  const { sessionId, pageIndex } = req.params;
+  const thumbPath = path.join('/app/data/papers', sessionId, `thumb_${pageIndex}.jpg`);
+  if (!fs.existsSync(thumbPath)) {
+    // fallback to original
+    return res.redirect(`/api/paper/${sessionId}/images/${pageIndex}`);
+  }
+  res.setHeader('Content-Type', 'image/jpeg');
+  res.setHeader('Cache-Control', 'public, max-age=86400');
+  fs.createReadStream(thumbPath).pipe(res);
+});
+
+// ========== 错题复核 API ==========
+
+// 获取复核页面数据：session 信息 + 所有错题 + 原始图片列表 + 已有复核记录
+app.get('/paper/:sessionId/review', authMiddleware, (req, res) => {
+  const session = getPaperSession(req.params.sessionId);
+  if (!session) return res.status(404).json({ error: '试卷不存在' });
+  if (session.userId !== req.user.id) return res.status(403).json({ error: '无权访问' });
+
+  const errors = listErrorProblems({ userId: req.user.id, sessionId: req.params.sessionId, limit: 200 });
+  const reviews = getSessionReviews(req.params.sessionId);
+  const imagePaths = session.imagePaths ? (() => { try { return JSON.parse(session.imagePaths); } catch { return []; } })() : [];
+
+  // 构建每页图片的 URL
+  const images = [];
+  if (imagePaths.length > 0) {
+    for (let i = 0; i < imagePaths.length; i++) {
+      images.push({
+        pageIndex: i + 1,
+        url: `/api/paper/${req.params.sessionId}/thumb/${i + 1}`,
+        originalUrl: `/api/paper/${req.params.sessionId}/images/${i + 1}`
+      });
+    }
+  } else {
+    // 如果 session 是旧数据没有 imagePaths，尝试文件系统查找
+    const sessionDir = path.join('/app/data/papers', req.params.sessionId);
+    if (fs.existsSync(sessionDir)) {
+      const files = fs.readdirSync(sessionDir).filter(f => f.startsWith('page_'));
+      for (const f of files.sort()) {
+        const m = f.match(/page_(\d+)/);
+        if (m) {
+          images.push({
+            pageIndex: parseInt(m[1]),
+            url: `/api/paper/${req.params.sessionId}/thumb/${m[1]}`,
+            originalUrl: `/api/paper/${req.params.sessionId}/images/${m[1]}`
+          });
+        }
+      }
+    }
+  }
+
+  res.json({
+    success: true,
+    session: {
+      id: session.id, subject: session.subject, title: session.title,
+      imageCount: session.imageCount, totalQuestions: session.totalQuestions,
+      errorCount: session.errorCount, createdAt: session.createdAt
+    },
+    images,
+    errors: errors.records || [],
+    reviews,
+    total: errors.total
+  });
+});
+
+// 提交复核结果（批量）
+app.post('/paper/:sessionId/review', authMiddleware, (req, res) => {
+  const session = getPaperSession(req.params.sessionId);
+  if (!session) return res.status(404).json({ error: '试卷不存在' });
+  if (session.userId !== req.user.id) return res.status(403).json({ error: '无权访问' });
+
+  const { reviews = [], additions = [] } = req.body;
+  const results = { confirmed: 0, rejected: 0, corrected: 0, added: 0 };
+
+  for (const r of reviews) {
+    if (!r.errorId) continue;
+    saveReview({
+      errorId: r.errorId,
+      sessionId: req.params.sessionId,
+      userId: req.user.id,
+      reviewAction: r.action,
+      correctionData: r.correction || {},
+      positionData: r.position || '',
+      userNote: r.note || ''
+    });
+
+    if (r.action === 'confirmed') {
+      updateErrorReviewStatus(r.errorId, 'confirmed');
+      results.confirmed++;
+    } else if (r.action === 'rejected') {
+      deleteErrorProblem(r.errorId);
+      results.rejected++;
+    } else if (r.action === 'corrected') {
+      updateErrorReviewStatus(r.errorId, 'corrected', r.correction);
+      results.corrected++;
+    }
+  }
+
+  // 处理用户添加的遗漏错题
+  for (const add of additions) {
+    const errorId = crypto.randomUUID().slice(0, 8);
+    saveErrorProblem({
+      id: errorId,
+      userId: req.user.id,
+      subject: session.subject,
+      topic: add.questionNumber ? `第${add.questionNumber}题` : '用户添加',
+      questionText: add.questionText || '',
+      questionType: add.questionType || '未知',
+      answerOptions: JSON.stringify(add.options || {}),
+      wrongAnswer: add.studentAnswer || '',
+      correctAnswer: add.correctAnswer || '',
+      errorType: add.errorType || '未知',
+      correctSolution: add.solution || '',
+      difficulty: add.difficulty || 3,
+      knowledgeExplanation: '{}',
+      gradingEvidence: add.markType || '用户标注',
+      aiRaw: '{}',
+      notes: add.note || '用户手动添加',
+      sessionId: req.params.sessionId,
+      paperIndex: add.pageIndex || 1,
+      status: 'done',
+      reviewStatus: 'user_added',
+      positionData: JSON.stringify(add.position || {}),
+      createdAt: Date.now()
+    });
+    saveReview({
+      errorId,
+      sessionId: req.params.sessionId,
+      userId: req.user.id,
+      reviewAction: 'added',
+      correctionData: add,
+      positionData: JSON.stringify(add.position || {}),
+      userNote: add.note || ''
+    });
+    results.added++;
+  }
+
+  // 更新 session 的错题数
+  const updatedErrors = listErrorProblems({ userId: req.user.id, sessionId: req.params.sessionId, limit: 200 });
+  updatePaperSession(req.params.sessionId, { errorCount: updatedErrors.total });
+
+  log('info', '复核提交完成', { sessionId: req.params.sessionId, userId: req.user.id, results });
+  res.json({ success: true, results });
+});
+
+// 用户手动添加一道遗漏错题
+app.post('/paper/:sessionId/review/add', authMiddleware, (req, res) => {
+  const session = getPaperSession(req.params.sessionId);
+  if (!session) return res.status(404).json({ error: '试卷不存在' });
+  if (session.userId !== req.user.id) return res.status(403).json({ error: '无权访问' });
+
+  const { pageIndex, position, questionNumber, markType, note, questionText } = req.body;
+
+  const errorId = crypto.randomUUID().slice(0, 8);
+  saveErrorProblem({
+    id: errorId,
+    userId: req.user.id,
+    subject: session.subject,
+    topic: questionNumber ? `第${questionNumber}题` : '用户添加',
+    questionText: questionText || '',
+    questionType: '未知',
+    answerOptions: '{}',
+    wrongAnswer: '',
+    correctAnswer: '',
+    errorType: '未知',
+    correctSolution: '',
+    difficulty: 3,
+    knowledgeExplanation: '{}',
+    gradingEvidence: markType || '用户标注',
+    aiRaw: '{}',
+    notes: note || '用户手动添加',
+    sessionId: req.params.sessionId,
+    paperIndex: pageIndex || 1,
+    status: 'done',
+    reviewStatus: 'user_added',
+    positionData: JSON.stringify(position || {}),
+    createdAt: Date.now()
+  });
+
+  saveReview({
+    errorId,
+    sessionId: req.params.sessionId,
+    userId: req.user.id,
+    reviewAction: 'added',
+    correctionData: req.body,
+    positionData: JSON.stringify(position || {}),
+    userNote: note || ''
+  });
+
+  const updatedErrors = listErrorProblems({ userId: req.user.id, sessionId: req.params.sessionId, limit: 200 });
+  updatePaperSession(req.params.sessionId, { errorCount: updatedErrors.total });
+
+  res.json({ success: true, errorId });
+});
+
+// 删除误判错题
+app.delete('/paper/:sessionId/review/:errorId', authMiddleware, (req, res) => {
+  const session = getPaperSession(req.params.sessionId);
+  if (!session) return res.status(404).json({ error: '试卷不存在' });
+  if (session.userId !== req.user.id) return res.status(403).json({ error: '无权访问' });
+
+  const existing = getErrorProblem(req.params.errorId);
+  if (!existing) return res.status(404).json({ error: '错题不存在' });
+
+  saveReview({
+    errorId: req.params.errorId,
+    sessionId: req.params.sessionId,
+    userId: req.user.id,
+    reviewAction: 'rejected',
+    userNote: '用户标记为误判'
+  });
+
+  deleteErrorProblem(req.params.errorId);
+
+  const updatedErrors = listErrorProblems({ userId: req.user.id, sessionId: req.params.sessionId, limit: 200 });
+  updatePaperSession(req.params.sessionId, { errorCount: updatedErrors.total });
+
+  res.json({ success: true });
 });
 
 // 404

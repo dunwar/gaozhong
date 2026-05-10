@@ -18,6 +18,7 @@ const routes = [
   { path: '/error-upload', name: 'ErrorUpload', component: () => import('../views/ErrorUpload.vue'), meta: { requiresAuth: true } },
   { path: '/errors', name: 'ErrorList', component: () => import('../views/ErrorList.vue'), meta: { requiresAuth: true } },
   { path: '/error/:id', name: 'ErrorDetail', component: () => import('../views/ErrorDetail.vue'), meta: { requiresAuth: true } },
+  { path: '/paper/:sessionId/review', name: 'PaperReview', component: () => import('../views/PaperReview.vue'), meta: { requiresAuth: true } },
   { path: '/knowledge', name: 'KnowledgeDashboard', component: () => import('../views/KnowledgeDashboard.vue'), meta: { requiresAuth: true } },
 ]
 
