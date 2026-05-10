@@ -782,20 +782,32 @@ function checkRedMarkings(imageBase64) {
   }
 }
 
-// v7: 裁剪区域 VL 直判 — 每道题一个小图 + 一句话 prompt
-const SCAN_REGION_PROMPT = `图中是一道题的学生作答区域。学生用蓝/黑色笔作答，老师用红笔批改。
-判断学生是否做错。红笔✗打叉/划掉/写正确答案 → 做错。红笔✓打勾 → 做对。
-只输出JSON: {"isWrong":true/false,"studentAnswer":"学生写了什么","correctAnswer":"正确答案(如果红笔写了)","reason":"简短原因"}`;
+// v7: 裁剪区域 VL 直判 — 分科 + 题型感知 prompt
+const REGION_PROMPTS = {
+  '英语': '图中是一道英语题。学生蓝/黑笔作答，老师红笔批改。判断对错。红笔✗/划掉/改写→做错。红笔✓→做对。注意区分选择题(有ABCD)、填空题/默写(无选项)、翻译/写作题。只输出JSON: {"isWrong":true/false,"studentAnswer":"学生答案","correctAnswer":"正确答案","questionType":"choice|fill_blank|translation|writing","reason":"简短"}',
+  '数学': '图中是一道数学题。判断对错。红笔✗/划掉/改写→做错。注意区分填空题(直接写答案)、选择题(ABCD)、解答题(多步过程)。只输出JSON: {"isWrong":true/false,"studentAnswer":"","correctAnswer":"","questionType":"fill_blank|choice|solution","reason":""}',
+  '语文': '图中是一道语文题。判断对错。可能是默写/选择/文言文/阅读题。红笔✗→做错。注意默写题错字漏字都算错。只输出JSON: {"isWrong":true/false,"studentAnswer":"","correctAnswer":"","questionType":"dictation|choice|reading|classical","reason":""}',
+  '物化生': '图中是一道理科题。判断对错。可能是选择/填空/计算/实验/简答题。红笔✗→做错。注意计算题看过程和结果。只输出JSON: {"isWrong":true/false,"studentAnswer":"","correctAnswer":"","questionType":"choice|fill_blank|calculation|experiment","reason":""}',
+};
 
-async function scanRegion(regionBase64) {
+function getRegionPrompt(subject) {
+  if (subject === '英语') return REGION_PROMPTS['英语'];
+  if (subject === '数学') return REGION_PROMPTS['数学'];
+  if (subject === '语文') return REGION_PROMPTS['语文'];
+  return REGION_PROMPTS['物化生'];
+}
+
+const SCAN_REGION_SYSTEM = '只输出JSON，绝无其他文字。';
+
+async function scanRegion(regionBase64, subject) {
   if (!regionBase64) return null;
   const compressed = compressImage(regionBase64, 600, 70);
   try {
     const result = await kimiRequest({
       model: MODEL_OCR,
       messages: [
-        { role: 'system', content: '只输出JSON，无其他文字。' },
-        { role: 'user', content: [{ type: 'text', text: SCAN_REGION_PROMPT }, { type: 'image_url', image_url: { url: compressed, detail: 'auto' } }] }
+        { role: 'system', content: SCAN_REGION_SYSTEM },
+        { role: 'user', content: [{ type: 'text', text: getRegionPrompt(subject || '英语') }, { type: 'image_url', image_url: { url: compressed, detail: 'auto' } }] }
       ],
       temperature: 0.3,
       max_tokens: 300
@@ -1136,19 +1148,32 @@ async function executePaperTask(task) {
       for (let b = 0; b < redRegions.length; b += REGION_BATCH) {
         const batch = redRegions.slice(b, b + REGION_BATCH);
         const batchResults = await Promise.all(
-          batch.map(r => scanRegion(r.base64))
+          batch.map(r => scanRegion(r.base64, input.subject))
         );
         for (let j = 0; j < batchResults.length; j++) {
           const r = batchResults[j];
+          const region = batch[j];
           if (r && r.isWrong) {
+            // 保存区域图片
+            let regionPath = '';
+            try {
+              const rm = region.base64.match(/^data:image\/\w+;base64,(.+)$/);
+              if (rm) {
+                const regionFile = `region_${pageIdx}_${b * REGION_BATCH + j + 1}.jpg`;
+                regionPath = path.join(sessionDir, regionFile);
+                fs.writeFileSync(regionPath, Buffer.from(rm[1], 'base64'));
+              }
+            } catch (_) {}
+
             allWrongQuestions.push({
               pageIndex: pageIdx,
               questionText: '',
               studentAnswer: r.studentAnswer || '',
               correctAnswer: r.correctAnswer || '',
               markDescription: r.reason || '',
-              questionType: 'unknown',
-              options: {}
+              questionType: r.questionType || 'unknown',
+              options: {},
+              regionImage: regionPath
             });
           }
         }
@@ -1184,6 +1209,9 @@ async function executePaperTask(task) {
         const q = needsAnalysis[j];
         const analysis = analysisResults[j] || {};
         const errorId = crypto.randomUUID().slice(0, 8);
+        const regionUrl = q.regionImage
+          ? `/api/paper/${id}/region/${path.basename(q.regionImage)}`
+          : '';
         saveErrorProblem({
           id: errorId, userId: input.userId, subject: input.subject,
           topic: `错题 ${j + 1}`,
@@ -1197,8 +1225,8 @@ async function executePaperTask(task) {
           difficulty: analysis.difficulty || 3,
           knowledgeExplanation: '{}',
           gradingEvidence: q.markDescription || '',
-          aiRaw: JSON.stringify({ pipeline: 'v7-region', region: q, analysis }),
-          notes: '',
+          aiRaw: JSON.stringify({ pipeline: 'v7-region', region: q, regionImageUrl: regionUrl, analysis }),
+          notes: regionUrl,
           sessionId: id, paperIndex: q.pageIndex || 1, status: 'done',
           createdAt: Date.now()
         });
@@ -1852,6 +1880,16 @@ app.get('/paper/:sessionId/annotated/:pageIndex', (req, res) => {
   res.setHeader('Content-Type', 'image/jpeg');
   res.setHeader('Cache-Control', 'public, max-age=86400');
   fs.createReadStream(annPath).pipe(res);
+});
+
+// 区域裁剪图
+app.get('/paper/:sessionId/region/:filename', (req, res) => {
+  const { sessionId, filename } = req.params;
+  const regionPath = path.join('/app/data/papers', sessionId, filename);
+  if (!fs.existsSync(regionPath)) return res.status(404).json({ error: '区域图不存在' });
+  res.setHeader('Content-Type', 'image/jpeg');
+  res.setHeader('Cache-Control', 'public, max-age=86400');
+  fs.createReadStream(regionPath).pipe(res);
 });
 
 // ========== 错题复核 API ==========

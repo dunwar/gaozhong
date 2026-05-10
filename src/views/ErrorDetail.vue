@@ -55,6 +55,14 @@
           </div>
         </div>
 
+        <!-- 区域截图 -->
+        <div v-if="regionImageUrl" class="px-6 py-4 border-b border-gray-50 bg-gray-50/50">
+          <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">📸 批改区域</h3>
+          <div class="flex justify-center">
+            <img :src="regionImageUrl" class="max-w-full max-h-48 rounded-lg border border-gray-200 shadow-sm" alt="批改区域截图" />
+          </div>
+        </div>
+
         <!-- 作答对比 -->
         <div v-if="record.wrongAnswer || record.correctAnswer" class="px-6 py-5 border-b border-gray-50 bg-amber-50/50">
           <h3 class="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-3">⚖️ 作答对比</h3>
@@ -139,6 +147,10 @@ const loading = ref(true)
 const options = computed(() => {
   if (!record.value?.answerOptions) return []
   try { return JSON.parse(record.value.answerOptions) } catch { return [] }
+})
+
+const regionImageUrl = computed(() => {
+  return record.value?.notes?.startsWith('/api/') ? record.value.notes : null
 })
 
 const knowledgeExpls = computed(() => {
