@@ -32,6 +32,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3001;
 const MAX_CONCURRENT = 3;
 const PAPER_MAX_CONCURRENT = 2;     // 整卷分析独立并发（任务重）
+const VL_SCAN_CONCURRENCY = 4;      // VL 扫描并行上限（防 API 限流）
 const MAX_QUEUE_DEPTH = 200;
 const TASK_TTL_MS = 60 * 60 * 1000; // 1 小时
 const CLEANUP_INTERVAL_MS = 5 * 60 * 1000; // 5 分钟清理一次
@@ -789,7 +790,7 @@ async function scanPageV5(imageBase64, redMarksBase64, subject, pageIndex) {
     model: MODEL_OCR,
     messages,
     temperature: 1,
-    max_tokens: 6000
+    max_tokens: 8000
   });
 
   const content = result.choices?.[0]?.message?.content;
@@ -1075,33 +1076,43 @@ async function executePaperTask(task) {
       })
     );
 
-    // ===== 阶段 1：VL 双图扫描（并行）=====
-    const scanPromises = preprocessResults.map((pr, i) => {
+    // ===== 阶段 1：VL 双图扫描（受控并发，上限 VL_SCAN_CONCURRENCY）=====
+    const scanTasks = preprocessResults.map((pr, i) => {
       if (!pr || !pr.result) return null;
-
-      paperTasks.get(id).progress = {
-        stage: 'scan-v5',
-        message: `AI 正在扫描第 ${i + 1}/${totalPages} 页（双图对比识别错题）…`,
-        current: i + 1, total: totalPages
-      };
-
       const correctedImg = pr.result.corrected || input.images[i];
       const redMarksImg = pr.result.red_marks || null;
+      return { correctedImg, redMarksImg, pageIndex: i + 1 };
+    }).filter(Boolean);
 
-      return scanPageV5(correctedImg, redMarksImg, input.subject, i + 1).then(result => {
+    const scanResults = [];
+    // 分批并发：每次最多 VL_SCAN_CONCURRENCY 个并行
+    for (let b = 0; b < scanTasks.length; b += VL_SCAN_CONCURRENCY) {
+      const batch = scanTasks.slice(b, b + VL_SCAN_CONCURRENCY);
+      const batchResults = await Promise.all(
+        batch.map(t => {
+          paperTasks.get(id).progress = {
+            stage: 'scan-v5',
+            message: `AI 正在扫描第 ${t.pageIndex}/${totalPages} 页（双图对比）…`,
+            current: t.pageIndex, total: totalPages
+          };
+          return scanPageV5(t.correctedImg, t.redMarksImg, input.subject, t.pageIndex);
+        })
+      );
+      for (let j = 0; j < batchResults.length; j++) {
+        const result = batchResults[j];
+        const pageIdx = batch[j].pageIndex;
         log('info', 'v5 扫描完成', {
-          taskId: id, page: i + 1,
+          taskId: id, page: pageIdx,
           errorCount: result.errors.length,
           questions: result.errors.map(q => `Q${q.questionNumber}`),
           hasPassage: !!result.passageText,
           hasWarning: !!result.warning,
-          hasRedMarks: !!redMarksImg
+          hasRedMarks: !!batch[j].redMarksImg
         });
-        return { pageIndex: i + 1, ...result };
-      });
-    }).filter(Boolean);
+        scanResults.push({ pageIndex: pageIdx, ...result });
+      }
+    }
 
-    const scanResults = await Promise.all(scanPromises);
     for (const r of scanResults) {
       if (r.warning) allWarnings.push(r.warning);
       allScanErrors.push({ pageIndex: r.pageIndex, errors: r.errors, passageText: r.passageText });
@@ -1782,12 +1793,16 @@ app.get('/paper/task/:taskId', (req, res) => {
   if (!task) return res.status(404).json({ error: '任务不存在或已过期' });
 
   // ETA 预估：基于平均处理时间 90s/份
+  // ETA 预估：预处理 3s/页 + VL 扫描 (页数/并发批数)×40s + DeepSeek 分析 90s
   const AVG_PAGE_SECONDS = 90;
-  const queueIndex = paperQueue.pending; // 前方排队数
+  const pageCount = task.input?.images?.length || task.input?.imageCount || 1;
+  const batches = Math.ceil(pageCount / (VL_SCAN_CONCURRENCY || 4));
+  const estimatedTotal = pageCount * 3 + batches * 40 + 90;
+  const queueIndex = paperQueue.pending;
   const etaSeconds = task.status === 'queued'
-    ? (queueIndex + 1) * AVG_PAGE_SECONDS
+    ? (queueIndex + 1) * estimatedTotal
     : task.status === 'processing'
-      ? Math.max(30, AVG_PAGE_SECONDS - ((Date.now() - (task.startedAt || task.createdAt)) / 1000))
+      ? Math.max(30, estimatedTotal - ((Date.now() - (task.startedAt || task.createdAt)) / 1000))
       : 0;
 
   res.json({
