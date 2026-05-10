@@ -2084,7 +2084,10 @@ app.use((req, res) => {
       'POST /error/diagnose', 'GET /error/task/:taskId', 'GET /error/list?view=paper|time|subject|list', 'GET /error/:id', 'GET /error/stats',
       'GET /knowledge/search', 'GET /knowledge/stats',
       'POST /paper/analyze', 'GET /paper/task/:taskId', 'GET /paper/sessions',
-      'POST /paper/guidance', 'GET /paper/guidance/:taskId']
+      'POST /paper/guidance', 'GET /paper/guidance/:taskId',
+      'GET /paper/:sessionId/review', 'POST /paper/:sessionId/review', 'POST /paper/:sessionId/review/add',
+      'DELETE /paper/:sessionId/review/:errorId',
+      'GET /paper/:sessionId/images/:pageIndex', 'GET /paper/:sessionId/thumb/:pageIndex']
   });
 });
 
