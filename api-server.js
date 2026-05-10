@@ -782,44 +782,32 @@ function checkRedMarkings(imageBase64) {
   }
 }
 
-// v7: 裁剪区域 VL 直判 — 分科 + 题型感知 prompt
-const REGION_PROMPTS = {
-  '英语': '图中是一道英语题。学生蓝/黑笔作答，老师红笔批改。判断对错。红笔✗/划掉/改写→做错。红笔✓→做对。注意区分选择题(有ABCD)、填空题/默写(无选项)、翻译/写作题。只输出JSON: {"isWrong":true/false,"studentAnswer":"学生答案","correctAnswer":"正确答案","questionType":"choice|fill_blank|translation|writing","reason":"简短"}',
-  '数学': '图中是一道数学题。判断对错。红笔✗/划掉/改写→做错。注意区分填空题(直接写答案)、选择题(ABCD)、解答题(多步过程)。只输出JSON: {"isWrong":true/false,"studentAnswer":"","correctAnswer":"","questionType":"fill_blank|choice|solution","reason":""}',
-  '语文': '图中是一道语文题。判断对错。可能是默写/选择/文言文/阅读题。红笔✗→做错。注意默写题错字漏字都算错。只输出JSON: {"isWrong":true/false,"studentAnswer":"","correctAnswer":"","questionType":"dictation|choice|reading|classical","reason":""}',
-  '物化生': '图中是一道理科题。判断对错。可能是选择/填空/计算/实验/简答题。红笔✗→做错。注意计算题看过程和结果。只输出JSON: {"isWrong":true/false,"studentAnswer":"","correctAnswer":"","questionType":"choice|fill_blank|calculation|experiment","reason":""}',
-};
-
-function getRegionPrompt(subject) {
-  if (subject === '英语') return REGION_PROMPTS['英语'];
-  if (subject === '数学') return REGION_PROMPTS['数学'];
-  if (subject === '语文') return REGION_PROMPTS['语文'];
-  return REGION_PROMPTS['物化生'];
-}
-
-const SCAN_REGION_SYSTEM = '只输出JSON，绝无其他文字。';
-
-async function scanRegion(regionBase64, subject) {
-  if (!regionBase64) return null;
-  const compressed = compressImage(regionBase64, 600, 70);
+// v7.1: 红笔突出图 + 简洁 prompt
+async function scanPageHighlight(highlightedBase64) {
+  if (!highlightedBase64) return [];
+  const compressed = compressImage(highlightedBase64, 1400, 75);
   try {
     const result = await kimiRequest({
       model: MODEL_OCR,
       messages: [
-        { role: 'system', content: SCAN_REGION_SYSTEM },
-        { role: 'user', content: [{ type: 'text', text: getRegionPrompt(subject || '英语') }, { type: 'image_url', image_url: { url: compressed, detail: 'auto' } }] }
+        { role: 'system', content: '只输出JSON数组，无其他文字。' },
+        { role: 'user', content: [
+          { type: 'text', text: '图中非红笔区域已淡化。红色笔迹（可见的标记）是老师批改。输出做错的题: [{"studentAnswer":"学生答案","correctAnswer":"正确答案","reason":"错误原因"}]。没有错题输出[]。' },
+          { type: 'image_url', image_url: { url: compressed, detail: 'auto' } }
+        ]}
       ],
       temperature: 0.3,
-      max_tokens: 300
+      max_tokens: 2000
     });
     const content = (result.choices?.[0]?.message?.content || '').trim();
     try {
-      return JSON.parse(content.replace(/```json|```/g, '').trim());
+      const cleaned = content.replace(/```json|```/g, '').trim();
+      return JSON.parse(cleaned);
     } catch {
-      const m = content.match(/\{[^}]+\}/);
-      return m ? JSON.parse(m[0]) : null;
+      const m = content.match(/\[[\s\S]*\]/);
+      return m ? JSON.parse(m[0]) : [];
     }
-  } catch { return null; }
+  } catch { return []; }
 }
 
 // ========== 科目自动识别 ==========
@@ -1033,11 +1021,7 @@ function validateScanResults(questions) {
 }
 
 /**
- * v7 流水线：executePaperTask
- *
- * 阶段 0: 预处理 → 裁剪题目区域（PaddleOCR 定位 + 红笔检测）
- * 阶段 1: VL 逐区域直判（每道题小图 + 一句话 prompt）
- * 阶段 2: DeepSeek 深度分析（仅 confirmed wrong）
+ * v7.1 流水线: 红笔突出图 + VL单页扫描 → DeepSeek分析
  */
 async function executePaperTask(task) {
   const { id, input } = task;
@@ -1124,58 +1108,32 @@ async function executePaperTask(task) {
       }
     }
 
-    // ===== 阶段 1：VL 逐区域直判 =====
+    // ===== 阶段 1：红笔突出图 VL 扫描 =====
     const allWrongQuestions = [];
 
     for (let i = 0; i < preprocessResults.length; i++) {
       const pr = preprocessResults[i];
       if (!pr || !pr.result) continue;
       const pageIdx = pr.pageIndex;
-      const regions = pr.result.regions || [];
+      const highlightedImg = pr.result.red_highlighted || pr.result.corrected;
 
       paperTasks.get(id).progress = {
-        stage: 'scan-v7',
-        message: `AI 扫描第 ${pageIdx}/${totalPages} 页（${regions.length} 个区域）…`,
+        stage: 'scan',
+        message: `AI 扫描第 ${pageIdx}/${totalPages} 页…`,
         current: pageIdx, total: totalPages
       };
 
-      // 只扫描有红笔的区域
-      const redRegions = regions.filter(r => r.has_red);
-      log('info', 'v7 区域扫描', { page: pageIdx, total: regions.length, hasRed: redRegions.length });
+      const errors = await scanPageHighlight(highlightedImg);
+      log('info', 'v7.1 扫描完成', { page: pageIdx, detected: errors.length });
 
-      // 并发扫描有红笔的区域（每批最多 5 个）
-      const REGION_BATCH = 5;
-      for (let b = 0; b < redRegions.length; b += REGION_BATCH) {
-        const batch = redRegions.slice(b, b + REGION_BATCH);
-        const batchResults = await Promise.all(
-          batch.map(r => scanRegion(r.base64, input.subject))
-        );
-        for (let j = 0; j < batchResults.length; j++) {
-          const r = batchResults[j];
-          const region = batch[j];
-          if (r && r.isWrong) {
-            // 保存区域图片
-            let regionPath = '';
-            try {
-              const rm = region.base64.match(/^data:image\/\w+;base64,(.+)$/);
-              if (rm) {
-                const regionFile = `region_${pageIdx}_${b * REGION_BATCH + j + 1}.jpg`;
-                regionPath = path.join(sessionDir, regionFile);
-                fs.writeFileSync(regionPath, Buffer.from(rm[1], 'base64'));
-              }
-            } catch (_) {}
-
-            allWrongQuestions.push({
-              pageIndex: pageIdx,
-              questionText: '',
-              studentAnswer: r.studentAnswer || '',
-              correctAnswer: r.correctAnswer || '',
-              markDescription: r.reason || '',
-              questionType: r.questionType || 'unknown',
-              options: {},
-              regionImage: regionPath
-            });
-          }
+      for (const e of (errors || [])) {
+        if (e.studentAnswer || e.correctAnswer) {
+          allWrongQuestions.push({
+            pageIndex: pageIdx,
+            studentAnswer: e.studentAnswer || '',
+            correctAnswer: e.correctAnswer || '',
+            markDescription: e.reason || e.markDescription || '',
+          });
         }
       }
     }
@@ -1184,17 +1142,12 @@ async function executePaperTask(task) {
       log('info', '未检测到错题', { taskId: id });
       updatePaperSession(id, { status: 'done', errorCount: 0 });
       paperTasks.get(id).status = 'done';
-      paperTasks.get(id).result = { subject: input.subject, sessionId: id, totalErrors: 0, pipeline: 'v7-region' };
+      paperTasks.get(id).result = { subject: input.subject, sessionId: id, totalErrors: 0, pipeline: 'v7.1' };
       paperTasks.get(id).progress = { stage: 'done', message: '未检测到错题 ✅' };
       return;
     }
 
     // ===== 阶段 2：DeepSeek 深度分析 =====
-    const needsAnalysis = allWrongQuestions.filter(q => {
-      const text = q.studentAnswer || q.correctAnswer || '';
-      return text.length > 0;
-    });
-
     let savedCount = 0;
     if (needsAnalysis.length > 0) {
       paperTasks.get(id).progress = {
@@ -1225,7 +1178,7 @@ async function executePaperTask(task) {
           difficulty: analysis.difficulty || 3,
           knowledgeExplanation: '{}',
           gradingEvidence: q.markDescription || '',
-          aiRaw: JSON.stringify({ pipeline: 'v7-region', region: q, regionImageUrl: regionUrl, analysis }),
+          aiRaw: JSON.stringify({ pipeline: 'v7.1', region: q, regionImageUrl: regionUrl, analysis }),
           notes: regionUrl,
           sessionId: id, paperIndex: q.pageIndex || 1, status: 'done',
           createdAt: Date.now()
@@ -1242,11 +1195,11 @@ async function executePaperTask(task) {
     paperTasks.get(id).result = {
       subject: input.subject, sessionId: id,
       totalErrors: savedCount,
-      pipeline: 'v7-region'
+      pipeline: 'v7.1'
     };
     paperTasks.get(id).progress = {
       stage: 'done',
-      message: `${allWrongQuestions.length} 个红笔区域 → ${savedCount} 道错题已分析 | v7.0`
+      message: `${allWrongQuestions.length} 个红笔区域 → ${savedCount} 道错题已分析 | v7.1`
     };
 
     log('info', 'v7 流水线完成', { taskId: id, subject: input.subject, regions: allWrongQuestions.length, analyzed: savedCount });
@@ -1348,7 +1301,7 @@ app.get('/health', (req, res) => {
     version: '2.0-async',
     providers: { ocr: { name: 'Kimi', model: MODEL_OCR }, grading: { name: 'DeepSeek', model: MODEL_GRADING } },
     prompt: { version: PROMPT_VERSION, file: 'prompts/grading-v5.js' },
-    scanner: { version: 'v7.0', engine: '区域裁剪VL直判', file: 'api-server.js' },
+    scanner: { version: 'v7.1', engine: '区域裁剪VL直判', file: 'api-server.js' },
     queue: { grading: { active: gradingQueue.active, pending: gradingQueue.pending }, error: { active: errorQueue.active, pending: errorQueue.pending }, paper: { active: paperQueue.active, pending: paperQueue.pending, maxConcurrent: PAPER_MAX_CONCURRENT } },
     tasks: { memory: tasks.size, persistent: getStats() },
     uptime: Math.floor(process.uptime())
