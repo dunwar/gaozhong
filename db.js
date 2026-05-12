@@ -503,9 +503,9 @@ export function saveErrorProblem(record) {
       error_type, correct_solution, difficulty,
       knowledge_explanation, grading_evidence,
       notes, source, ai_raw, status,
-      session_id, paper_index,
+      session_id, paper_index, review_status,
       created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   stmt.run([
     record.id,
@@ -528,6 +528,7 @@ export function saveErrorProblem(record) {
     record.status || 'done',
     record.sessionId || null,
     record.paperIndex || 1,
+    record.reviewStatus || 'pending',
     record.createdAt || Date.now(),
     Date.now()
   ]);

@@ -1125,7 +1125,8 @@ async function executePaperTask(task) {
       try {
         const result = await scanner.scanPage(pagePath, {
           apiKey: KIMI_KEY,
-          outputDir: sessionDir
+          outputDir: sessionDir,
+          pageIndex: pageIdx
         });
 
         log('info', `v1.0 扫描完成 page${pageIdx}`, {

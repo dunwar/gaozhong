@@ -67,8 +67,15 @@ function imgToBase64(filePath) {
 
 function cropImage(srcPath, bbox, outPath) {
   try {
+    // Validate and clamp bbox
+    const x = Math.max(0, Math.round(bbox.x));
+    const y = Math.max(0, Math.round(bbox.y));
+    const w = Math.round(bbox.w);
+    const h = Math.round(bbox.h);
+    if (w < 20 || h < 20) return false;
+    
     execFileSync('convert', [
-      srcPath, '-crop', `${bbox.w}x${bbox.h}+${bbox.x}+${bbox.y}`,
+      srcPath, '-crop', `${w}x${h}+${x}+${y}`,
       '-resize', '640x640>', '-quality', '85', outPath
     ]);
     return true;
@@ -127,7 +134,7 @@ const PROMPT_DETECT_QUESTIONS = `你是高中试卷版面分析专家。分析�
 
 规则:
 1. 识别整页所有题号(如1,2,3...或21,22,23...)，每个题号=一道独立题目
-2. 两栏/多栏布局逐栏逐行分别识别
+2. ⚠️ 一栏布局：题目按题号从上到下排列，不是两栏。所有题目在页面左半区
 3. bbox 左起题号，右至选项/答案区末尾(约页面2/3宽度)
 4. bbox 上含题号，下含本题末行
 5. ⚠️ 不要包含试卷右边缘整齐排列的印刷字母列(答案键)
@@ -177,12 +184,25 @@ export async function detectQuestions(pagePath, apiKey) {
 // 阶段2: 裁切所有题 + 批处理判错
 // ═══════════════════════════════════════
 
-export function cropAllQuestions(pagePath, questions, outputDir) {
+export function cropAllQuestions(pagePath, questions, outputDir, pageIndex = 1) {
   const crops = [];
+  const errors = [];
   for (const q of questions) {
-    const outPath = join(outputDir, `q${q.questionNumber}.jpg`);
-    const ok = cropImage(pagePath, q.bbox, outPath);
-    if (ok) crops.push({ questionNumber: q.questionNumber, questionType: q.questionType, cropPath: outPath });
+    const b = q.bbox;
+    if (b.x > 500) {
+      errors.push({ questionNumber: q.questionNumber, reason: `bbox x=${b.x} 疑似误定位到答案键区域，跳过` });
+      continue;
+    }
+    const outPath = join(outputDir, `p${pageIndex}_q${q.questionNumber}.jpg`);
+    const ok = cropImage(pagePath, b, outPath);
+    if (ok) {
+      crops.push({ questionNumber: q.questionNumber, questionType: q.questionType, cropPath: outPath });
+    } else {
+      errors.push({ questionNumber: q.questionNumber, reason: 'crop failed' });
+    }
+  }
+  if (errors.length > 0) {
+    console.error('[scanner] crop errors:', errors);
   }
   return crops;
 }
@@ -239,6 +259,16 @@ export async function judgePerQuestionBatch(crops, apiKey) {
 export function assessConfidence(judgments) {
   for (const j of judgments) {
     if (!j.isError) continue;
+    
+    // 一致性检查：学生答案=正确答案 → 不应判错
+    if (j.studentAnswer && j.correctAnswer && 
+        j.studentAnswer.toUpperCase() === j.correctAnswer.toUpperCase()) {
+      j.isError = false;
+      j.isModified = true;
+      j.teacherIntent = (j.teacherIntent || '') + ' [自动纠正: 学生答案=正确答案，取消误判]';
+      continue;
+    }
+    
     if (j.confidence === 'low') {
       j.needsReview = true;
       j.reviewReason = 'VL 模型低置信';
@@ -256,12 +286,12 @@ export function assessConfidence(judgments) {
 // 完整流水线
 // ═══════════════════════════════════════
 
-export async function scanPage(pagePath, { apiKey, outputDir }) {
+export async function scanPage(pagePath, { apiKey, outputDir, pageIndex = 1 }) {
   // 1. 检测题目
   const questions = await detectQuestions(pagePath, apiKey);
   
   // 2. 裁切
-  const crops = cropAllQuestions(pagePath, questions, outputDir);
+  const crops = cropAllQuestions(pagePath, questions, outputDir, pageIndex);
   
   // 3. 判错
   const judgments = await judgePerQuestionBatch(crops, apiKey);
