@@ -1,192 +1,127 @@
-# gaozhong.online - 需求文档 (V2)
+# gaozhong.online — 错题整理模块需求文档
 
-> 最后更新: 2026-05-03 | 版本: V2.1 (红笔驱动流水线) | 状态: 迭代优化中
+> 版本: 1.0 (2026-05-12)
+> 定位: 学生电子错题本 — 上传已批改试卷 → AI 识别错题 → 按科目/时间/试卷整理 → 薄弱知识点分析
 
-## 1. 项目概述
+---
 
-面向高中生的整卷错题分析平台。学生上传整张试卷照片（含批改答案），后台 AI 进行全卷分析，自动生成分科目错题本、薄弱知识点报告和个性化学习指导，形成"诊断→整理→指导→改进"的完整学习闭环。
+## 1. 产品定位
 
-## 2. 核心功能
+不做批改。学校/学生自己做批改动作。只做「阅读已有批改标记 → 判定对错 → 整理分析」。
 
-### 2.1 用户系统 ✅
-- [x] 邮箱+密码注册（默认地区：上海）
-- [x] 登录 / JWT 鉴权
-- [x] 修改密码（含首次登录强制改密）
-- [x] 路由守卫（未登录重定向）
-- [x] 管理员功能（查看用户列表）
+核心价值：帮学生减负提效，把已批改的试卷变成结构化的错题本 + 知识点地图。
 
-### 2.2 AI 作文批改 ✅
-- [x] 五维评分（内容/结构/语言/逻辑/创意，各 20 分，满分 100）
-- [x] OCR 识别手写作文（DashScope qwen-vl-plus）
-- [x] DeepSeek V4 Pro AI 评分 + 评语 + 修改建议
-- [x] 整体评价 + 字数统计
-- [x] 异步任务队列（并发上限 3）
-- [x] 批改历史（登录用户/游客双模式）
+---
 
-### 2.3 错题上传（v5 双图增强流水线）🔄
-**架构**：预处理（红笔分离）→ VL 双图扫描（原图+红笔图）→ DeepSeek 深度分析
+## 2. 已实现功能
 
-- [x] 阶段0：`preprocess-server.py` — OpenCV 预处理（校正/对比度/红笔分离增强）
-- [x] 阶段1：`prompts/paper-scanner-v5.js` (v5.0) — VL 双图扫描（Kimi k2.6），原图(上下文)+红笔分离图(标记检测)，6 种红笔标记类型全覆盖
-- [x] 阶段2：`prompts/paper-analysis-v4.js` — DeepSeek 深度分析
-- [x] 上传体验：队列模式（连续添加+后台排队）+ ETA 预估 + 完成通知
-- [x] 红笔信号强度验证（red_signal 指标）
-- [ ] 🐛 宿主机 preprocess-server 需重启（HSV 范围扩大变更）
+### 2.1 前端页面
 
-### 2.4 AI 整卷分析 Prompt ✅
-- [x] `prompts/paper-analysis-v1.js`（初始版本，OCR → DeepSeek 单阶段）
-- [x] `prompts/paper-analysis-v2.js`（v2：批改标记识别规则增强）
-- [x] `prompts/paper-analysis-v3.js`（v3：双阶段流水线 — VL 扫描 + DeepSeek 分析）
-- [x] `prompts/paper-scan-v1.js`（阶段1：Qwen VL 视觉扫描，逐题判断对错）
-- [x] 输出新增：answerOptions、correctAnswer、knowledgeExplanation、gradingEvidence
-- [x] 版本管理模式参考 `prompts/grading-v5.js`
+| 路由 | 视图 | 功能 | 状态 |
+|------|------|------|------|
+| `/` | Home.vue | 双模块介绍（作文+错题） | ✅ |
+| `/paper/upload` | PaperUpload.vue | 错题上传：科目选择、多文件(≤10)、队列显示 | ✅ |
+| `/error/list` | ErrorWorkbook.vue | 错题本：按试卷/时间/科目/列表分组查看 | ✅ |
+| `/knowledge` | KnowledgeMap.vue | 知识点：薄弱点TOP、科目分布、搜索 | ✅ |
+| `/review/:sessionId` | PaperReview.vue | 试卷回顾：查看整卷分析结果 | ✅ |
+| (未挂载) | ErrorDetail.vue | 错题详情 | ⬜ 已有代码，待集成 |
+| (未挂载) | ErrorList.vue | 错题列表（旧版） | ⬜ 已有代码，被 ErrorWorkbook 替代 |
+| (未挂载) | ErrorUpload.vue | 错题上传（旧版） | ⬜ 已有代码，被 PaperUpload 替代 |
+| (未挂载) | KnowledgeDashboard.vue | 知识点看板（旧版） | ⬜ 已有代码，被 KnowledgeMap 替代 |
 
-### 2.5 错题本（V2 重构）✅
-支持**三种分组视图**，用户可切换：
+### 2.2 后端 API（已实现）
 
-| 视图 | 分组依据 | 使用场景 |
-|------|---------|---------|
-| 📄 按试卷 | 每次上传的试卷 | 查看某次考试错题详情 |
-| 📅 按时间 | 本月 / 本学期 / 本学年 | 阶段性复习 |
-| 📚 按科目 | 学科分类 | 单科专项突破 |
+```
+POST /paper/analyze          — 提交试卷分析（异步队列）
+GET  /paper/task/:taskId      — 轮询任务状态
+GET  /paper/sessions          — 试卷列表
+GET  /paper/:sessionId/review — 查看分析结果
+GET  /paper/:sessionId/images/:pageIndex — 试卷原图
+GET  /paper/:sessionId/thumb/:pageIndex  — 缩略图
 
-每种视图下展示：错题数量、错误类型分布、涉及知识点数量。
+GET  /error/list?view=paper|time|subject|list — 错题列表
+GET  /error/:id               — 错题详情
+GET  /error/stats             — 错题统计
 
-- [x] 重构 `ErrorList.vue`，实现三视图切换 + 可点击下钻
-- [x] 保留 `ErrorDetail.vue` 错题详情页
-
-### 2.6 AI 学习指导 ✅
-- [x] 新建 `prompts/study-guidance-v1.js`
-- [x] 输入：科目 + 时间范围 + 该范围内所有错题
-- [x] 输出：学习状态评估 + 薄弱知识模块 + 优先级排序 + 具体学习建议
-- [x] 新增 API：`POST /paper/guidance`（异步任务）+ `GET /paper/guidance/:taskId`
-- [x] 前端入口：知识点仪表盘"✨ AI 学习指导"按钮，支持切换学科
-- [x] 默认时间范围：本学期开始至今
-
-### 2.7 知识点仪表盘 ✅
-- [x] 基础仪表盘（错题总览 + 学科分布 + 错误类型分布 + Top 薄弱点）
-- [x] ErrorDetail 新增知识点详细说明卡片
-- [x] AI 学习指导入口（学科选择 + 异步生成 + 完整结果展示）
-- [x] V2 增强：最近试卷板块（6条最近试卷+可点击下钻到试卷错题列表）
-
-### 2.8 数据存储增强 ✅
-- [x] error_problems 新增字段：question_type、answer_options、correct_answer、knowledge_explanation、grading_evidence
-- [x] paper_sessions 新增字段：total_questions、correct_count
-- [x] 双阶段流水线：scan 原始数据 + analysis 分析数据均存入 ai_raw
-
-### 2.9 图像预处理与并发 ✅
-- [x] preprocess-server.py：OpenCV 透视矫正 + 对比度增强 + 红笔/蓝黑笔分离 + PaddleOCR 版面分析
-- [x] api-server.js 集成：矫正图替代原图 + 红蓝图辅助 + 版面坐标
-- [x] systemd 自启动（宿主机端口 5001）
-- [x] 三队列隔离：作文批改(gradingQueue) / 错题诊断+指导(errorQueue) / 整卷分析(paperQueue)
-- [x] 多用户并发不互阻塞
-
-## 3. 学科支持（V2 扩展）
-
-| 学科 | 状态 |
-|------|:---:|
-| 数学 | ✅ |
-| 物理 | ✅ |
-| 化学 | ✅ |
-| 英语 | ✅ |
-| 语文 | ✅ |
-| 生物 | ✅ |
-
-## 4. 数据库变更（V2）
-
-```sql
--- 新增：试卷会话表
-CREATE TABLE paper_sessions (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id INTEGER NOT NULL,
-  subject TEXT NOT NULL,
-  title TEXT,              -- 用户可选填试卷名
-  image_count INTEGER,    -- 上传图片数
-  status TEXT DEFAULT 'pending',  -- pending/processing/done/error
-  created_at TEXT DEFAULT (datetime('now'))
-);
-
--- 修改：错题表新增关联字段
-ALTER TABLE error_problems ADD COLUMN session_id INTEGER REFERENCES paper_sessions(id);
-ALTER TABLE error_problems ADD COLUMN paper_index INTEGER;  -- 同一 session 内的第几张卷子
+GET  /knowledge/search        — 知识点搜索
+GET  /knowledge/stats         — 知识点统计
 ```
 
-## 5. API 变更（V2）
+### 2.3 分析流水线 (Scanner v1.0)
 
-| 端点 | 方法 | 说明 | 状态 |
-|------|------|------|:---:|
-| `POST /paper/analyze` | POST | 接收图片 base64，OCR → AI 分析 → 写入错题 | 🆕 |
-| `POST /paper/guidance` | POST | AI 学习指导（科目+时间范围） | 🆕 |
-| `GET /paper/sessions` | GET | 用户试卷会话列表 | 🆕 |
-| `GET /errors?view=paper\|time\|subject` | GET | 错题列表（支持三视图分组） | 🔄 |
-| 现有作文批改 API | - | 不变 | ✅ |
+```
+阶段0: 预处理（色彩校正 + 红笔分离 opencv）
+阶段1: VL 双图单次调用 → 红笔标记检测 + 题目区域识别
+阶段2: ImageMagick 裁剪 → 逐题 VL 双图判错
+阶段3: DeepSeek 批量分析错题
+```
 
-## 6. 路由规划（V2）
+- 科目逻辑文件: `subject-logic/error-identification-logic.md` + `english-shanghai-gaokao.md`
+- Prompt 文件: `prompts/paper-workbook-scanner.js`
+- 红笔判定规则: 决策树 + 标记分类表
+- 支持题型: choice / fill_blank / reading / dictation / translation / writing
 
-| 路径 | 页面 | 变更 |
-|------|------|:---:|
-| `/error-upload` | 错题上传（原"错题诊断"） | 🔄 重做 |
-| `/errors` | 错题本（三视图） | 🔄 重构 |
-| `/error/:id` | 错题详情 | ✅ 保留 |
-| `/knowledge` | 知识点仪表盘 | 🔄 增强 |
-| `/essay` | 作文批改 | ✅ 保留 |
+### 2.4 导航结构
 
-## 7. 技术架构
+```
+高中在线
+├── ✏️ 作文批改
+│   ├── 作文批改 → /upload
+│   ├── 我的任务 → /tasks
+│   └── 历史记录 → /history
+└── 📔 错题整理
+    ├── 错题上传 → /paper/upload
+    ├── 错题本   → /error/list
+    └── 知识点   → /knowledge
+```
 
-| 层级 | 技术选型 | 说明 |
-|------|---------|------|
-| 前端 | Vue 3 + Vite | SPA，部署为静态文件 |
-| 后端 API | Node.js (原生 http) | 端口 3001 |
-| 数据库 | SQLite (better-sqlite3) | 挂载卷持久化 |
-| 鉴权 | JWT (jsonwebtoken + bcrypt) | 7 天过期 |
-| AI 分析 | DeepSeek V4 Pro | 整卷分析 + 错题诊断 + 学习指导 |
-| OCR | DashScope qwen-vl-plus | 试卷图片识别 |
-| 图像预处理 | OpenCV + PaddleOCR (宿主机 Flask) | 透视矫正/对比度/笔迹分离/版面分析 |
-| 网关 | Nginx (宿主机) | 反向代理 + 静态文件服务 |
-| 并发控制 | 三队列隔离 (grading/error/paper) | 重任务不阻塞轻任务 |
+---
 
-## 8. 实施顺序（V2）
+## 3. 待完成 / 已知问题
 
-| 步骤 | 内容 |
-|:---:|------|
-| 1 | Prompt: `paper-analysis-v1.js`（六科差异化指令） ✅ |
-| 2 | Prompt: `study-guidance-v1.js` ✅ |
-| 3 | 数据库：`paper_sessions` 表 + `error_problems` 改表 ✅ |
-| 4 | API: `/paper/analyze`、`/paper/guidance`、列表接口调整 ✅ |
-| 5 | 前端：错题上传页（多图 + 队列轮询） ✅ |
-| 6 | 前端：错题本（三种分组视图） ✅ |
-| 7 | 前端：AI 学习指导模块 ✅ |
-| 8 | 构建部署 + 测试 ✅ |
+### 3.1 高优先级
 
-## 9. 🐛 已知问题（2026-05-06 v4 更新）
+| # | 问题 | 说明 |
+|---|------|------|
+| 1 | **默写题型 bbox 遗漏** | 阶段1 VL 对默写题型检测不全（11道 vs 应有30道）。已加 `dictation` 类型+密集布局提示，R4 测试检测到 38 道，需用户确认实际准确度 |
+| 2 | **第2页错题数过度检出** | R4: yingyu33 第1页6道正确，第2页检出30道。需确认是默写真实错误数还是 VL 误判 |
+| 3 | **crop 文件命名冲突** | 两页 VL 都从 1 编号 → 第2页覆盖第1页文件。不影响判错，影响前端展示 |
+| 4 | **DeepSeek JSON 解析失败** | 当 questionText 为空时，DeepSeek 返回中文抱怨而非 JSON。已有 fallback 占位符 |
 
-### 9.1 PaddleOCR 版面分析持续失败（v4 不再依赖）
-PaddleOCR 持续 `textBlocks: 0`。v4 已彻底移除对 PaddleOCR 的依赖，VL 单图直接扫描原图。`ocr-extractor.js` 和 `smart-merger.js` 可归档。
+### 3.2 中优先级
 
-### 9.2 前端体验
-DeepSeek 分析阶段耗时 60-120s，前端轮询显示"AI 正在分析 X 道错题…"无更细进度。**待优化**：显示批次进度。
+| # | 问题 | 说明 |
+|---|------|------|
+| 5 | **科目逻辑文件不支持非高考题型** | 只定义了上海高考 + 少量日常练习类型，需持续补充 |
+| 6 | **仅英语科目有逻辑文件** | 语文、数学待添加 `subject-logic/chinese-*.md` `math-*.md` |
+| 7 | **PaperReview.vue 前端展示** | 已有试卷回顾页但未完全验证与新流水线的兼容性 |
+| 8 | **旧版视图清理** | ErrorDetail/ErrorList/ErrorUpload/KnowledgeDashboard 存在但未挂载路由 |
 
-### 9.3 阅读理解文章提取验证
-v4 新增阅读理解文章自动提取（passageText），需实际测试验证 VL 提取准确性。如果文章跨页，需考虑合并策略。
+### 3.3 低优先级
 
-## 10. 变更记录
+| # | 问题 | 说明 |
+|---|------|------|
+| 9 | **PDF/Word 上传** | 前端接受 PDF/Word 但后端需要转换层（当前只处理图片） |
+| 10 | **并发处理优化** | 当前 VL_SCAN_CONCURRENCY 固定值，可考虑按题目数动态调整 |
+| 11 | **API Server 静默崩溃** | 已多次发生，需 systemd 守护（已有 cron 心跳重启但非根治） |
 
-| 日期 | 变更 | 状态 |
-|------|------|------|
-| 2026-04-27 | 项目启动，选型 Vue 3 + Node.js | ✅ |
-| 2026-05-01 | Part 1 部署 + 用户管理系统 | ✅ |
-| 2026-05-01 | Part 2 SQLite 持久化 | ✅ |
-| 2026-05-01 | Prompt v5 优化 | ✅ |
-| 2026-05-02 | Phase A-C 错题诊断核心功能 (V1) | ✅ |
-| 2026-05-02 | v2扫描+v4分析：few-shot范例+校验+三段式讲解+闪卡 | ✅ |
-| 2026-05-02 | 双阶段流水线重构：Qwen VL 扫描 + DeepSeek 分析 | ✅ |
-| 2026-05-02 | Prompt v2 批改标记识别规则增强 | ✅ |
-| 2026-05-02 | V2 需求确认：整卷错题上传 + 三视图错题本 + AI 学习指导 | ✅ |
-| 2026-05-03 | OpenCV/PaddleOCR 预处理微服务集成 + systemd 自启 | ✅ |
-| 2026-05-03 | 三队列并发隔离 + AI 学习指导全功能验证 | ✅ |
-| 2026-05-03 | 生物学科 prompt 适配 + 知识仪表盘 V2 最近试卷 | ✅ |
-| 2026-05-03 | 红笔驱动新流水线：PaddleOCR+VL标记+智能合并，6x 理论提速 | ✅ |
-| 2026-05-03 | 双通道互补：PaddleOCR失败→VL自动补位读题 | ✅ |
-| 2026-05-03 | 无题干过滤 + 跨页题号去重 + BGR→RGB修复 | ✅ |
-| 2026-05-03 | 🐛 PaddleOCR 持续零输出，待深度排查 | 🔄 |
-| 2026-05-06 | v4 流水线重构：单图 VL 扫描 + DeepSeek 分析解耦 + 题型三分法 | 🔄 |
+---
+
+## 4. 数据现状
+
+| 指标 | 数值 |
+|------|------|
+| 错题总数 | 448 |
+| 试卷数 | 74 |
+| 完成 | 61 |
+| 失败 | 13 |
+
+---
+
+## 5. 下一步建议
+
+1. **确认识别准确度**: 用户确认 yingyu33 第2页（默写）的实际错题数，以判断 VL 判错是否准确
+2. **补充语文/数学逻辑文件**: 按用户此前优先级「英语→语文→数学」
+3. **修复 crop 文件命名**: 改为 `q{pageIndex}_{qnum}` 格式
+4. **整合旧版视图**: ErrorDetail 集成到 ErrorWorkbook，清理冗余
+5. **API Server 守护**: 添加 systemd service 防崩溃
