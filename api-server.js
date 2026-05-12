@@ -1848,6 +1848,14 @@ app.get('/paper/:sessionId/region/:filename', (req, res) => {
 // ========== 错题复核 API ==========
 
 // 获取复核页面数据：session 信息 + 所有错题 + 原始图片列表 + 已有复核记录
+// 试卷元数据（供错题本页面使用）
+app.get('/paper/:sessionId', authMiddleware, (req, res) => {
+  const session = getPaperSession(req.params.sessionId);
+  if (!session) return res.status(404).json({ error: '试卷不存在' });
+  if (session.userId !== req.user.id) return res.status(403).json({ error: '无权访问' });
+  res.json({ success: true, session });
+});
+
 app.get('/paper/:sessionId/review', authMiddleware, (req, res) => {
   const session = getPaperSession(req.params.sessionId);
   if (!session) return res.status(404).json({ error: '试卷不存在' });
