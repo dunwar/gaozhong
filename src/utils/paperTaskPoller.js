@@ -55,9 +55,9 @@ async function refreshPaperTasks() {
     }
   }
 
-  // 更新响应式列表
+  // 更新响应式列表（仅纸卷任务，排除作文批改）
   paperTasks.value = loadTasks()
-    .filter(t => ['queued', 'processing', 'done'].includes(t.status))
+    .filter(t => t.inputType === 'paper' && ['queued', 'processing', 'done'].includes(t.status))
     .slice(0, MAX_ACTIVE)
 }
 

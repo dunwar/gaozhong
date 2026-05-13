@@ -4,13 +4,19 @@
     <p class="text-gray-500 text-sm mb-6">上传已批改的试卷，AI 自动识别错题并整理到错题本</p>
 
     <!-- ===== 进行中的任务队列 ===== -->
-    <div v-if="activeTasks.length > 0" class="mb-8">
+    <div v-if="paperTasks.length > 0" class="mb-8">
       <div class="flex items-center justify-between mb-3">
-        <h3 class="text-sm font-semibold text-gray-700 flex items-center gap-2">
-          进行中的任务
-          <span class="px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded-full">{{ activeTasks.length }}</span>
-        </h3>
-        <router-link to="/tasks" class="text-xs text-blue-600 hover:text-blue-700">查看全部 →</router-link>
+        <div class="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5">
+          <button
+            v-for="t in taskTabs"
+            :key="t.key"
+            @click="taskFilter = t.key"
+            :class="['px-3 py-1.5 rounded-md text-xs font-medium transition-all', taskFilter === t.key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700']"
+          >{{ t.label }}
+            <span class="ml-0.5 opacity-60">({{ t.count }})</span>
+          </button>
+        </div>
+        <router-link to="/errors" class="text-xs text-blue-600 hover:text-blue-700">错题本 →</router-link>
       </div>
 
       <div class="space-y-2">
@@ -191,8 +197,19 @@ const submitting = ref(false)
 const errorMessage = ref('')
 const justSubmittedTask = ref(null)
 
-// 全局任务队列（响应式，跨页面同步）
-const activeTasks = paperTasks
+// 全局任务队列（响应式，跨页面同步 — 仅纸卷任务）
+const taskFilter = ref('active') // 'active' | 'all' | 'done'
+const taskTabs = computed(() => [
+  { key: 'active', label: '进行中', count: paperTasks.value.filter(t => ['queued', 'processing'].includes(t.status)).length },
+  { key: 'all', label: '全部', count: paperTasks.value.length },
+  { key: 'done', label: '已完成', count: paperTasks.value.filter(t => t.status === 'done').length },
+])
+const activeTasks = computed(() => {
+  const all = paperTasks.value
+  if (taskFilter.value === 'active') return all.filter(t => ['queued', 'processing'].includes(t.status))
+  if (taskFilter.value === 'done') return all.filter(t => t.status === 'done')
+  return all
+})
 
 // Allowed file types
 const allowedExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.pdf', '.doc', '.docx']

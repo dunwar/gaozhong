@@ -35,6 +35,14 @@
       加载中…
     </div>
 
+    <!-- API 错误 -->
+    <div v-else-if="fetchError" class="text-center py-12 bg-white rounded-xl border border-red-200">
+      <p class="text-2xl mb-2">⚠️</p>
+      <p class="text-red-600 font-medium mb-1">{{ fetchError }}</p>
+      <p class="text-gray-400 text-sm mb-3">请尝试刷新页面或重新登录</p>
+      <button @click="fetchData" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition-colors">重试</button>
+    </div>
+
     <!-- 空状态 -->
     <div v-else-if="isEmpty" class="text-center py-12 bg-white rounded-xl border">
       <p class="text-4xl mb-2">📭</p>
@@ -223,6 +231,7 @@ const paperResults = ref({ papers: [], total: 0 })
 const timeResults = ref([])
 const subjectResults = ref([])
 const stats = ref(null)
+const fetchError = ref('')
 const selectedError = ref(null)
 const loading = ref(true)
 const expandedId = ref(null)
@@ -270,13 +279,17 @@ const subjectGroups = computed(() => subjectResults.value)
 
 async function fetchData() {
   loading.value = true
+  fetchError.value = ''
   try {
     const sr = await fetch('/api/error/stats', { headers: { 'Authorization': `Bearer ${authStore.token}` } })
-    stats.value = await sr.json()
+    const statsData = await sr.json()
+    if (statsData.error) { fetchError.value = statsData.error; return }
+    stats.value = statsData
 
     const params = new URLSearchParams({ view: view.value })
     const lr = await fetch(`/api/error/list?${params}`, { headers: { 'Authorization': `Bearer ${authStore.token}` } })
     const listData = await lr.json()
+    if (listData.error) { fetchError.value = listData.error; return }
 
     if (view.value === 'paper') {
       paperResults.value = listData
@@ -295,6 +308,7 @@ async function fetchData() {
       subjectResults.value = []
     }
   } catch (e) {
+    fetchError.value = '网络错误，请检查网络连接'
     console.error('Failed to fetch errors:', e)
     items.value = []
   } finally {
