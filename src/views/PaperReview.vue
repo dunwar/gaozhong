@@ -89,7 +89,11 @@
               class="w-full"
               alt="试卷图片"
               @load="onImageLoad"
+              @error="onImageError"
             />
+            <div v-if="imageLoadError" class="absolute inset-0 flex items-center justify-center bg-gray-100 text-gray-400 text-sm">
+              {{ viewMode === 'red' ? '红笔图未生成' : viewMode === 'annotated' ? '标注图未生成' : '图片加载失败' }}
+            </div>
 
             <!-- AI 标记的错题位置叠加层 -->
             <div
@@ -285,6 +289,14 @@ const currentViewUrl = computed(() => {
   if (viewMode.value === 'annotated') return img.annotatedUrl || img.redMarksUrl || img.originalUrl
   return img.originalUrl
 })
+
+const imageLoadError = ref(false)
+function onImageError() {
+  if (viewMode.value !== 'original') {
+    imageLoadError.value = true
+  }
+}
+watch([currentPage, viewMode], () => { imageLoadError.value = false })
 
 const currentImageMarks = computed(() => {
   return errors.value

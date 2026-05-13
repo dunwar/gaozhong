@@ -964,9 +964,23 @@ function safeParse(str, fallback) {
 }
 
 function deserializeError(row) {
+  // 提取题号：优先从 ai_raw JSON 中获取，兜底从 topic 字段解析
+  let questionNumber = null
+  try {
+    if (row.ai_raw) {
+      const raw = JSON.parse(row.ai_raw)
+      questionNumber = raw.questionNumber
+    }
+  } catch {}
+  if (questionNumber == null && row.topic) {
+    const m = row.topic.match(/Q(\d+)/i) || row.topic.match(/(\d+)/)
+    questionNumber = m ? parseInt(m[1], 10) : null
+  }
+
   return {
     id: row.id, userId: row.user_id, subject: row.subject,
     topic: row.topic, questionText: row.question_text,
+    questionNumber,
     questionType: row.question_type || '',
     answerOptions: row.answer_options || '',
     wrongAnswer: row.wrong_answer, correctAnswer: row.correct_answer || '',

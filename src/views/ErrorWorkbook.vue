@@ -94,7 +94,7 @@
             <div v-else class="divide-y -mx-5">
               <div v-for="err in drillItems" :key="err.id" class="px-5 py-3 hover:bg-white cursor-pointer" @click.stop="selectedError = err">
                 <div class="flex items-start gap-3">
-                  <span class="text-xs font-bold text-gray-400 min-w-[40px] pt-1">Q{{ err.questionNumber || err.topic?.replace('错题 ','') }}</span>
+                  <span class="text-xs font-bold text-gray-400 min-w-[40px] pt-1">Q{{ err.questionNumber ?? (err.topic?.match(/(\d+)/)?.[1] ?? '?') }}</span>
                   <div class="flex-1 min-w-0">
                     <p class="text-sm text-gray-800">{{ err.questionText || err.topic || '' }}</p>
                     <div class="flex gap-2 mt-1 flex-wrap text-xs">
@@ -136,7 +136,7 @@
             <div v-else class="divide-y -mx-5">
               <div v-for="err in drillItems" :key="err.id" class="px-5 py-3 hover:bg-white cursor-pointer" @click.stop="selectedError = err">
                 <div class="flex items-start gap-3">
-                  <span class="text-xs font-bold text-gray-400 min-w-[40px] pt-1">Q{{ err.questionNumber || err.topic?.replace('错题 ','') }}</span>
+                  <span class="text-xs font-bold text-gray-400 min-w-[40px] pt-1">Q{{ err.questionNumber ?? (err.topic?.match(/(\d+)/)?.[1] ?? '?') }}</span>
                   <div class="flex-1 min-w-0">
                     <p class="text-sm text-gray-800">{{ err.questionText || err.topic || '' }}</p>
                     <div class="flex gap-2 mt-1 flex-wrap text-xs">
@@ -159,7 +159,7 @@
         <div class="divide-y">
           <div v-for="err in items" :key="err.id" class="px-5 py-3 hover:bg-gray-50 cursor-pointer" @click="$router.push(`/paper/${err.sessionId || err.session_id}/errors`)">
             <div class="flex items-start gap-3">
-              <span class="text-xs font-bold text-gray-400 min-w-[40px] pt-1">Q{{ err.questionNumber || err.id?.slice(0,6) }}</span>
+              <span class="text-xs font-bold text-gray-400 min-w-[40px] pt-1">Q{{ err.questionNumber ?? (err.topic?.match(/(\d+)/)?.[1] ?? '?') }}</span>
               <div class="flex-1 min-w-0">
                 <p class="text-sm text-gray-800">{{ err.questionText || err.topic || '题目内容' }}</p>
                 <div class="flex gap-2 mt-1 flex-wrap text-xs">
