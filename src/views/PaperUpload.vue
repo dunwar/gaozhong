@@ -226,6 +226,7 @@ function onFilesSelected(e) { addFiles(e.target.files); e.target.value = '' }
 function onDrop(e) { dragOver.value = false; addFiles(e.dataTransfer.files) }
 
 function addFiles(files) {
+  let pending = 0
   for (const f of files) {
     if (images.value.length >= maxFiles) {
       errorMessage.value = `最多只能上传 ${maxFiles} 个文件`
@@ -241,6 +242,7 @@ function addFiles(files) {
     const isImg = isImageFile(f.name)
     if (isImg) {
       const reader = new FileReader()
+      pending++
       reader.onload = (e) => {
         images.value.push({
           file: f,
@@ -248,11 +250,13 @@ function addFiles(files) {
           base64: e.target.result.split(',')[1],
           isImage: true
         })
+        if (--pending === 0) sortImages()
       }
       reader.readAsDataURL(f)
     } else {
       // PDF/Word — store file for later base64 conversion
       const reader = new FileReader()
+      pending++
       reader.onload = (e) => {
         images.value.push({
           file: f,
@@ -260,10 +264,42 @@ function addFiles(files) {
           isImage: false,
           preview: null
         })
+        if (--pending === 0) sortImages()
       }
       reader.readAsDataURL(f)
     }
   }
+  if (pending === 0) sortImages()
+}
+
+function sortImages() {
+  // 自动排序：按文件名中的数字提取页码
+  images.value.sort((a, b) => {
+    const numA = extractPageNumber(a.file?.name || '')
+    const numB = extractPageNumber(b.file?.name || '')
+    return numA - numB
+  })
+}
+
+function extractPageNumber(filename) {
+  // 优先匹配常见命名模式：第1页、page1、p1、-001、_02 等
+  const patterns = [
+    /第\s*(\d+)\s*页/i,
+    /page[_\s-]*(\d+)/i,
+    /[pP][_\s-]*(\d+)/,
+    /[-_](\d+)(?:\.\w+)?$/,
+    /^(\d+)[._\s-]/,
+  ]
+  for (const p of patterns) {
+    const m = filename.match(p)
+    if (m) return parseInt(m[1], 10)
+  }
+  // 兜底：提取文件名中所有数字，取最后一组（通常为页码）
+  const allNums = filename.match(/\d+/g)
+  if (allNums) {
+    return parseInt(allNums[allNums.length - 1], 10)
+  }
+  return 0
 }
 
 function removeImage(i) { images.value.splice(i, 1) }
