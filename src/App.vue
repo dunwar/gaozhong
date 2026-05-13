@@ -1,7 +1,3 @@
-<script setup>
-// App.vue - 根组件，使用 Vue Router
-</script>
-
 <template>
   <div class="min-h-screen bg-gray-50 flex flex-col">
     <Header />
@@ -15,11 +11,11 @@
 <script>
 import Header from './components/Header.vue'
 import Footer from './components/Footer.vue'
+import { startPaperPolling, stopPaperPolling } from './utils/paperTaskPoller.js'
 
 export default {
-  components: {
-    Header,
-    Footer
-  }
+  components: { Header, Footer },
+  mounted() { startPaperPolling() },
+  beforeUnmount() { stopPaperPolling() }
 }
 </script>
