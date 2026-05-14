@@ -53,17 +53,23 @@
     <!-- 按试卷视图 -->
     <template v-else-if="view === 'paper'">
       <div v-for="group in groupedItems" :key="group.key" class="bg-white rounded-xl border mb-3 overflow-hidden">
-        <div
-          class="px-5 py-3 bg-gray-50 border-b flex items-center justify-between cursor-pointer hover:bg-gray-100 transition-colors"
-          @click="$router.push(`/paper/${group.key}/errors`)"
-        >
-          <div class="flex items-center gap-2">
-            <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-            <span class="font-medium text-gray-900">{{ group.title }}</span>
-            <span class="text-xs text-gray-500">{{ group.subject }}</span>
-            <span class="text-xs text-gray-400">{{ group.date }}</span>
+        <div class="px-5 py-3 bg-gray-50 border-b flex items-center justify-between">
+          <div class="flex items-center gap-2 min-w-0 flex-1">
+            <span class="font-medium text-gray-900 truncate">{{ group.title }}</span>
+            <span class="text-xs text-gray-500 whitespace-nowrap">{{ group.subject }}</span>
+            <span class="text-xs text-gray-400 whitespace-nowrap">{{ group.date }}</span>
           </div>
-          <span class="text-sm text-red-500 font-medium">{{ group.errorCount }} 道错题</span>
+          <div class="flex items-center gap-2 ml-3 shrink-0">
+            <span class="text-sm text-red-500 font-medium mr-2">{{ group.errorCount }} 道错题</span>
+            <button
+              @click="$router.push(`/paper/${group.key}/errors`)"
+              class="px-3 py-1.5 text-xs font-medium bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 hover:border-gray-400 transition-colors"
+            >查看</button>
+            <button
+              @click="$router.push(`/review/${group.key}`)"
+              class="px-3 py-1.5 text-xs font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >复核</button>
+          </div>
         </div>
       </div>
     </template>
