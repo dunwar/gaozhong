@@ -1715,6 +1715,12 @@ app.get('/error/list', authMiddleware, (req, res) => {
   res.json({ success: true, view: 'list', ...result });
 });
 
+// 错题统计（必须在 /error/:id 之前，否则 stats 会被 :id 捕获）
+app.get('/error/stats', authMiddleware, (req, res) => {
+  const stats = getErrorStats(req.user.id);
+  res.json({ success: true, ...stats });
+});
+
 // 错题详情
 app.get('/error/:id', (req, res) => {
   let userId = null;
@@ -1725,12 +1731,6 @@ app.get('/error/:id', (req, res) => {
   const record = getErrorProblem(req.params.id, userId);
   if (!record) return res.status(404).json({ error: '错题记录不存在' });
   res.json({ success: true, record });
-});
-
-// 错题统计
-app.get('/error/stats', authMiddleware, (req, res) => {
-  const stats = getErrorStats(req.user.id);
-  res.json({ success: true, ...stats });
 });
 
 // 知识点搜索
