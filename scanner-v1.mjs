@@ -17,7 +17,7 @@ import https from 'https';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-export const SCANNER_VERSION = 'v1.0';
+export const SCANNER_VERSION = 'v2.1';
 
 // ═══════════════════════════════════════
 // API 请求
@@ -145,19 +145,53 @@ const PROMPT_DETECT_QUESTIONS = `你是高中试卷版面分析专家。分析�
 
 const PROMPT_JUDGE_BATCH = `你是高中试卷批改阅读专家。分析以下多道题的裁切图(每题一张)，逐一判断对错。
 
-规则 (按优先级):
-3条铁律:
-1. 印刷体≠批改！整齐排列的字母(A/B/C/D)是答案键 → 忽略
-2. 教师红笔一定是手写体，笔迹不规则，在题目内部或紧贴
-3. 批改风格二选一: 全用✓✗ 或 全用红笔写正确答案。同时存在时✓✗优先
+## 唯一判定标准：手写红笔在答案区 = 批改
 
-判定:
-1. 红笔✗ → ❌  2. 划掉+写新答案 → ❌  3. 红笔手写答案≠学生选 → ❌
-4. 扣分(-2/-0.5) → ❌  5. 红笔✓ → ✅  6. 圈出/下划线/注释 → ✅
-7. 无红笔 → ✅  8. 不确定 → ✅
+印刷红色、非手写红笔标记 = 噪音忽略。宁可漏判不要误判；不确定时默认为"做对"。
 
-输出纯JSON数组:
-[{"qi":21,"isError":true,"studentAnswer":"B","correctAnswer":"D","teacherIntent":"红笔划掉B写D","errorType":"语法/词汇/逻辑/概念/未知","confidence":"high/medium/low"},{"qi":22,"isError":false,"reason":"无红笔标记"}]`;
+## 手写红笔 vs 印刷红色（必须区分！）
+
+| 手写红笔 | 印刷红色 |
+|---------|---------|
+| 紧贴学生答案区域 | 试卷固定位置（标题/边框/装饰） |
+| 不规则、粗细变化、有笔锋 | 均匀、规整、字体一致 |
+| 只在有学生作答的题目旁出现 | 全卷均匀分布 |
+| 颜色可能有深浅变化 | 与试卷其他印刷红色色值一致 |
+
+印刷红色（标题、页码、边框装饰、答案键）不是批改标记，必须忽略。
+
+## 判定决策树（按优先级）
+
+1. 学生答案旁有手写红笔 ✗ 吗？ → ❌ 错题 (confidence: high)
+2. 学生答案旁有手写红笔 ✓ 吗？ → ✅ 对题 (confidence: high)
+3. 学生手写答案旁有手写红笔字母/单词/数字吗？ → ❌ 错题 (教师标注了正确答案, confidence: high)
+4. 有红笔划掉/覆盖学生原答案吗？ → ❌ 错题 (confidence: high)
+5. 有红笔扣分标记(-2/-0.5等)吗？ → ❌ 错题 (confidence: medium)
+6. 有红笔圈画/下划线/波浪线吗？ → 忽略(不是判错标记)，继续下一条
+7. 无上述手写红笔标记 → ✅ 对题 (confidence: low，标记"无批改标记")
+
+⚠️ 红笔圈题号、下划线、波浪线、边框 = 教师标注/高亮，不是判错！忽略这些继续判定。
+⚠️ 同一道题上 ✗ 和手写字母可以共存。
+
+## 输出格式
+
+纯JSON数组，每题一个对象:
+[{
+  "qi": 21,
+  "isError": true,
+  "studentAnswer": "B",
+  "correctAnswer": "D",
+  "teacherIntent": "红笔在B上打✗并在旁写D",
+  "errorType": "语法/词汇/逻辑/概念/未知",
+  "confidence": "high/medium/low",
+  "evidence": {
+    "hasHandwrittenRedCross": true,
+    "hasHandwrittenRedCheck": false,
+    "hasHandwrittenRedLetters": true,
+    "redLettersContent": "D",
+    "hasStrikethrough": false
+  }
+}]`;
 
 // ═══════════════════════════════════════
 // 阶段1: 只检测题目区域
@@ -237,7 +271,8 @@ export async function judgePerQuestionBatch(crops, apiKey) {
             correctAnswer: r.correctAnswer || '',
             teacherIntent: r.teacherIntent || r.reason || '',
             errorType: r.errorType || '未知',
-            confidence: r.confidence || 'medium'
+            confidence: r.confidence || 'medium',
+            evidence: r.evidence || {}
           });
         }
       }
@@ -258,7 +293,17 @@ export async function judgePerQuestionBatch(crops, apiKey) {
 
 export function assessConfidence(judgments) {
   for (const j of judgments) {
-    if (!j.isError) continue;
+    if (!j.isError) {
+      // 非错题但无手写红笔标记 → 可能漏批，需复核
+      if (j.confidence === 'low' && (!j.evidence || 
+          (!j.evidence.hasHandwrittenRedCross && 
+           !j.evidence.hasHandwrittenRedCheck && 
+           !j.evidence.hasHandwrittenRedLetters))) {
+        j.needsReview = true;
+        j.reviewReason = '无批改标记，可能漏批';
+      }
+      continue;
+    }
     
     // 一致性检查：学生答案=正确答案 → 不应判错
     if (j.studentAnswer && j.correctAnswer && 
@@ -271,7 +316,9 @@ export function assessConfidence(judgments) {
     
     if (j.confidence === 'low') {
       j.needsReview = true;
-      j.reviewReason = 'VL 模型低置信';
+      j.reviewReason = 'VL 模型低置信'
+        + (j.evidence && !j.evidence.hasHandwrittenRedCross && j.evidence.hasHandwrittenRedLetters 
+           ? '（基于红笔字母判定）' : '');
     } else if (j.confidence === 'medium') {
       j.needsReview = true;
       j.reviewReason = '建议人工复核';

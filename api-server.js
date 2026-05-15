@@ -28,7 +28,7 @@ import { STUDY_GUIDANCE_PROMPT_V1 } from './prompts/study-guidance-v1.js';
 import { PAPER_SCANNER_VERSION, buildScannerMessages, postFilter, classifyErrors } from './prompts/paper-scanner-v5.js';
 
 // Scanner v1.0 版本号
-const SCANNER_VERSION = 'v1.0';
+const SCANNER_VERSION = 'v2.1';
 import { initDB, saveDB, saveRecord, getRecord, getHistory, getStats, createUser, getUserByEmail, getUserById, updateUser, changePassword, listUsers, saveErrorProblem, saveErrorKnowledgeTags, getErrorProblem, listErrorProblems, getErrorStats, getKnowledgeStats, getErrorsByKnowledgePoint, searchKnowledgePoints, createPaperSession, updatePaperSession, getPaperSession, listPaperSessions, listErrorsByPaper, listErrorsByTime, listErrorsBySubject, listErrorsForGuidance, saveReview, updateErrorReviewStatus, deleteErrorProblem, getSessionReviews, resetStalledPaperSessions } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -1356,7 +1356,7 @@ app.get('/health', (req, res) => {
     version: '2.0-async',
     providers: { ocr: { name: 'Kimi', model: MODEL_OCR }, grading: { name: 'DeepSeek', model: MODEL_GRADING } },
     prompt: { version: PROMPT_VERSION, file: 'prompts/grading-v5.js' },
-    scanner: { version: SCANNER_VERSION, engine: '切题+裁切批处理VL判错+v1.0 DeepSeek纯文本', file: 'scanner-v1.mjs' },
+    scanner: { version: SCANNER_VERSION, engine: '切题+裁切批处理VL判错+v2.1手写红笔统一标准', file: 'scanner-v1.mjs' },
     queue: { grading: { active: gradingQueue.active, pending: gradingQueue.pending }, error: { active: errorQueue.active, pending: errorQueue.pending }, paper: { active: paperQueue.active, pending: paperQueue.pending, maxConcurrent: PAPER_MAX_CONCURRENT } },
     tasks: { memory: tasks.size, persistent: getStats() },
     uptime: Math.floor(process.uptime())
