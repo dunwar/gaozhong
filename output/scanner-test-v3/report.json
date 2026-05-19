@@ -1,0 +1,182 @@
+{
+  "sessionId": "fbc20049",
+  "pageIndex": 1,
+  "totalTime": "75.2",
+  "apiCalls": 2,
+  "vlTime": 74317,
+  "stage1": {
+    "redMarks": 54,
+    "questions": 25
+  },
+  "stage2": {
+    "cropsWithMarks": 5,
+    "cropsNoMarks": 20
+  },
+  "stage3": {
+    "total": 25,
+    "errors": 5,
+    "autoSkipped": 20
+  },
+  "judgments": [
+    {
+      "qn": 21,
+      "isError": true,
+      "studentAnswer": "B",
+      "correctAnswer": "C",
+      "reason": "红笔划掉B，写C",
+      "confidence": "high"
+    },
+    {
+      "qn": 22,
+      "isError": false,
+      "reason": "无红笔标记",
+      "confidence": "high"
+    },
+    {
+      "qn": 23,
+      "isError": false,
+      "reason": "无红笔标记",
+      "confidence": "high"
+    },
+    {
+      "qn": 24,
+      "isError": true,
+      "studentAnswer": "C",
+      "correctAnswer": "D",
+      "reason": "红笔划掉C，写D",
+      "confidence": "high"
+    },
+    {
+      "qn": 25,
+      "isError": true,
+      "studentAnswer": "D",
+      "correctAnswer": "A",
+      "reason": "红笔划掉D，写A",
+      "confidence": "high"
+    },
+    {
+      "qn": 26,
+      "isError": true,
+      "studentAnswer": "C",
+      "correctAnswer": "D",
+      "reason": "红笔划掉C，写D",
+      "confidence": "high"
+    },
+    {
+      "qn": 27,
+      "isError": true,
+      "studentAnswer": "B",
+      "correctAnswer": "C",
+      "reason": "红笔划掉B，写C",
+      "confidence": "high"
+    },
+    {
+      "qn": 28,
+      "isError": false,
+      "reason": "无红笔标记",
+      "confidence": "high"
+    },
+    {
+      "qn": 29,
+      "isError": false,
+      "reason": "无红笔标记",
+      "confidence": "high"
+    },
+    {
+      "qn": 30,
+      "isError": false,
+      "reason": "无红笔标记",
+      "confidence": "high"
+    },
+    {
+      "qn": 31,
+      "isError": false,
+      "reason": "无红笔标记",
+      "confidence": "high"
+    },
+    {
+      "qn": 32,
+      "isError": false,
+      "reason": "无红笔标记",
+      "confidence": "high"
+    },
+    {
+      "qn": 33,
+      "isError": false,
+      "reason": "无红笔标记",
+      "confidence": "high"
+    },
+    {
+      "qn": 34,
+      "isError": false,
+      "reason": "无红笔标记",
+      "confidence": "high"
+    },
+    {
+      "qn": 35,
+      "isError": false,
+      "reason": "无红笔标记",
+      "confidence": "high"
+    },
+    {
+      "qn": 36,
+      "isError": false,
+      "reason": "无红笔标记",
+      "confidence": "high"
+    },
+    {
+      "qn": 37,
+      "isError": false,
+      "reason": "无红笔标记",
+      "confidence": "high"
+    },
+    {
+      "qn": 38,
+      "isError": false,
+      "reason": "无红笔标记",
+      "confidence": "high"
+    },
+    {
+      "qn": 39,
+      "isError": false,
+      "reason": "无红笔标记",
+      "confidence": "high"
+    },
+    {
+      "qn": 40,
+      "isError": false,
+      "reason": "无红笔标记",
+      "confidence": "high"
+    },
+    {
+      "qn": 41,
+      "isError": false,
+      "reason": "无红笔标记",
+      "confidence": "high"
+    },
+    {
+      "qn": 42,
+      "isError": false,
+      "reason": "无红笔标记",
+      "confidence": "high"
+    },
+    {
+      "qn": 43,
+      "isError": false,
+      "reason": "无红笔标记",
+      "confidence": "high"
+    },
+    {
+      "qn": 44,
+      "isError": false,
+      "reason": "无红笔标记",
+      "confidence": "high"
+    },
+    {
+      "qn": 45,
+      "isError": false,
+      "reason": "无红笔标记",
+      "confidence": "high"
+    }
+  ]
+}

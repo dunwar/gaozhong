@@ -1,0 +1,257 @@
+{
+  "raw": "```json\n{\n  \"questions\": [\n    {\"questionNumber\": 21, \"bbox\": {\"x\": 720, \"y\": 80, \"w\": 210, \"h\": 130}, \"questionType\": \"choice\"},\n    {\"questionNumber\": 22, \"bbox\": {\"x\": 720, \"y\": 210, \"w\": 210, \"h\": 130}, \"questionType\": \"choice\"},\n    {\"questionNumber\": 23, \"bbox\": {\"x\": 720, \"y\": 340, \"w\": 210, \"h\": 130}, \"questionType\": \"choice\"},\n    {\"questionNumber\": 24, \"bbox\": {\"x\": 720, \"y\": 470, \"w\": 210, \"h\": 130}, \"questionType\": \"choice\"},\n    {\"questionNumber\": 25, \"bbox\": {\"x\": 720, \"y\": 600, \"w\": 210, \"h\": 130}, \"questionType\": \"choice\"},\n    {\"questionNumber\": 26, \"bbox\": {\"x\": 720, \"y\": 730, \"w\": 210, \"h\": 130}, \"questionType\": \"choice\"},\n    {\"questionNumber\": 27, \"bbox\": {\"x\": 720, \"y\": 860, \"w\": 210, \"h\": 130}, \"questionType\": \"choice\"},\n    {\"questionNumber\": 28, \"bbox\": {\"x\": 480, \"y\": 80, \"w\": 210, \"h\": 130}, \"questionType\": \"choice\"},\n    {\"questionNumber\": 29, \"bbox\": {\"x\": 480, \"y\": 210, \"w\": 210, \"h\": 130}, \"questionType\": \"choice\"},\n    {\"questionNumber\": 30, \"bbox\": {\"x\": 480, \"y\": 340, \"w\": 210, \"h\": 130}, \"questionType\": \"choice\"},\n    {\"questionNumber\": 31, \"bbox\": {\"x\": 480, \"y\": 470, \"w\": 210, \"h\": 130}, \"questionType\": \"choice\"},\n    {\"questionNumber\": 32, \"bbox\": {\"x\": 480, \"y\": 600, \"w\": 210, \"h\": 130}, \"questionType\": \"choice\"},\n    {\"questionNumber\": 33, \"bbox\": {\"x\": 480, \"y\": 730, \"w\": 210, \"h\": 130}, \"questionType\": \"choice\"},\n    {\"questionNumber\": 34, \"bbox\": {\"x\": 720, \"y\": 990, \"w\": 210, \"h\": 130}, \"questionType\": \"choice\"},\n    {\"questionNumber\": 35, \"bbox\": {\"x\": 720, \"y\": 1120, \"w\": 210, \"h\": 130}, \"questionType\": \"choice\"},\n    {\"questionNumber\": 36, \"bbox\": {\"x\": 720, \"y\": 1250, \"w\": 210, \"h\": 130}, \"questionType\": \"choice\"},\n    {\"questionNumber\": 37, \"bbox\": {\"x\": 720, \"y\": 1380, \"w\": 210, \"h\": 130}, \"questionType\": \"choice\"},\n    {\"questionNumber\": 38, \"bbox\": {\"x\": 720, \"y\": 1510, \"w\": 210, \"h\": 130}, \"questionType\": \"choice\"},\n    {\"questionNumber\": 39, \"bbox\": {\"x\": 720, \"y\": 1640, \"w\": 210, \"h\": 130}, \"questionType\": \"choice\"},\n    {\"questionNumber\": 40, \"bbox\": {\"x\": 720, \"y\": 1770, \"w\": 210, \"h\": 130}, \"questionType\": \"choice\"},\n    {\"questionNumber\": 41, \"bbox\": {\"x\": 480, \"y\": 990, \"w\": 210, \"h\": 130}, \"questionType\": \"choice\"},\n    {\"questionNumber\": 42, \"bbox\": {\"x\": 480, \"y\": 1120, \"w\": 210, \"h\": 130}, \"questionType\": \"choice\"},\n    {\"questionNumber\": 43, \"bbox\": {\"x\": 480, \"y\": 1250, \"w\": 210, \"h\": 130}, \"questionType\": \"choice\"},\n    {\"questionNumber\": 44, \"bbox\": {\"x\": 480, \"y\": 1380, \"w\": 210, \"h\": 130}, \"questionType\": \"choice\"},\n    {\"questionNumber\": 45, \"bbox\": {\"x\": 480, \"y\": 1510, \"w\": 210, \"h\": 130}, \"questionType\": \"choice\"}\n  ]\n}\n```",
+  "parsed": {
+    "questions": [
+      {
+        "questionNumber": 21,
+        "bbox": {
+          "x": 720,
+          "y": 80,
+          "w": 210,
+          "h": 130
+        },
+        "questionType": "choice"
+      },
+      {
+        "questionNumber": 22,
+        "bbox": {
+          "x": 720,
+          "y": 210,
+          "w": 210,
+          "h": 130
+        },
+        "questionType": "choice"
+      },
+      {
+        "questionNumber": 23,
+        "bbox": {
+          "x": 720,
+          "y": 340,
+          "w": 210,
+          "h": 130
+        },
+        "questionType": "choice"
+      },
+      {
+        "questionNumber": 24,
+        "bbox": {
+          "x": 720,
+          "y": 470,
+          "w": 210,
+          "h": 130
+        },
+        "questionType": "choice"
+      },
+      {
+        "questionNumber": 25,
+        "bbox": {
+          "x": 720,
+          "y": 600,
+          "w": 210,
+          "h": 130
+        },
+        "questionType": "choice"
+      },
+      {
+        "questionNumber": 26,
+        "bbox": {
+          "x": 720,
+          "y": 730,
+          "w": 210,
+          "h": 130
+        },
+        "questionType": "choice"
+      },
+      {
+        "questionNumber": 27,
+        "bbox": {
+          "x": 720,
+          "y": 860,
+          "w": 210,
+          "h": 130
+        },
+        "questionType": "choice"
+      },
+      {
+        "questionNumber": 28,
+        "bbox": {
+          "x": 480,
+          "y": 80,
+          "w": 210,
+          "h": 130
+        },
+        "questionType": "choice"
+      },
+      {
+        "questionNumber": 29,
+        "bbox": {
+          "x": 480,
+          "y": 210,
+          "w": 210,
+          "h": 130
+        },
+        "questionType": "choice"
+      },
+      {
+        "questionNumber": 30,
+        "bbox": {
+          "x": 480,
+          "y": 340,
+          "w": 210,
+          "h": 130
+        },
+        "questionType": "choice"
+      },
+      {
+        "questionNumber": 31,
+        "bbox": {
+          "x": 480,
+          "y": 470,
+          "w": 210,
+          "h": 130
+        },
+        "questionType": "choice"
+      },
+      {
+        "questionNumber": 32,
+        "bbox": {
+          "x": 480,
+          "y": 600,
+          "w": 210,
+          "h": 130
+        },
+        "questionType": "choice"
+      },
+      {
+        "questionNumber": 33,
+        "bbox": {
+          "x": 480,
+          "y": 730,
+          "w": 210,
+          "h": 130
+        },
+        "questionType": "choice"
+      },
+      {
+        "questionNumber": 34,
+        "bbox": {
+          "x": 720,
+          "y": 990,
+          "w": 210,
+          "h": 130
+        },
+        "questionType": "choice"
+      },
+      {
+        "questionNumber": 35,
+        "bbox": {
+          "x": 720,
+          "y": 1120,
+          "w": 210,
+          "h": 130
+        },
+        "questionType": "choice"
+      },
+      {
+        "questionNumber": 36,
+        "bbox": {
+          "x": 720,
+          "y": 1250,
+          "w": 210,
+          "h": 130
+        },
+        "questionType": "choice"
+      },
+      {
+        "questionNumber": 37,
+        "bbox": {
+          "x": 720,
+          "y": 1380,
+          "w": 210,
+          "h": 130
+        },
+        "questionType": "choice"
+      },
+      {
+        "questionNumber": 38,
+        "bbox": {
+          "x": 720,
+          "y": 1510,
+          "w": 210,
+          "h": 130
+        },
+        "questionType": "choice"
+      },
+      {
+        "questionNumber": 39,
+        "bbox": {
+          "x": 720,
+          "y": 1640,
+          "w": 210,
+          "h": 130
+        },
+        "questionType": "choice"
+      },
+      {
+        "questionNumber": 40,
+        "bbox": {
+          "x": 720,
+          "y": 1770,
+          "w": 210,
+          "h": 130
+        },
+        "questionType": "choice"
+      },
+      {
+        "questionNumber": 41,
+        "bbox": {
+          "x": 480,
+          "y": 990,
+          "w": 210,
+          "h": 130
+        },
+        "questionType": "choice"
+      },
+      {
+        "questionNumber": 42,
+        "bbox": {
+          "x": 480,
+          "y": 1120,
+          "w": 210,
+          "h": 130
+        },
+        "questionType": "choice"
+      },
+      {
+        "questionNumber": 43,
+        "bbox": {
+          "x": 480,
+          "y": 1250,
+          "w": 210,
+          "h": 130
+        },
+        "questionType": "choice"
+      },
+      {
+        "questionNumber": 44,
+        "bbox": {
+          "x": 480,
+          "y": 1380,
+          "w": 210,
+          "h": 130
+        },
+        "questionType": "choice"
+      },
+      {
+        "questionNumber": 45,
+        "bbox": {
+          "x": 480,
+          "y": 1510,
+          "w": 210,
+          "h": 130
+        },
+        "questionType": "choice"
+      }
+    ]
+  }
+}

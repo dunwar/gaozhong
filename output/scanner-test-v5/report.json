@@ -1,0 +1,213 @@
+{
+  "sessionId": "fbc20049",
+  "pageIndex": 1,
+  "totalTime": "56.2",
+  "apiCalls": 5,
+  "totalQuestions": 25,
+  "errorCount": 2,
+  "reviewCount": 0,
+  "judgments": [
+    {
+      "qn": 21,
+      "isError": false,
+      "studentAnswer": "",
+      "correctAnswer": "",
+      "reason": "无红笔标记，印刷体字母列忽略",
+      "confidence": "high"
+    },
+    {
+      "qn": 22,
+      "isError": false,
+      "studentAnswer": "",
+      "correctAnswer": "",
+      "reason": "无红笔标记，印刷体字母列忽略",
+      "confidence": "high"
+    },
+    {
+      "qn": 23,
+      "isError": false,
+      "studentAnswer": "",
+      "correctAnswer": "",
+      "reason": "无红笔标记，印刷体字母列忽略",
+      "confidence": "high"
+    },
+    {
+      "qn": 24,
+      "isError": false,
+      "studentAnswer": "",
+      "correctAnswer": "",
+      "reason": "无红笔标记，印刷体字母列忽略",
+      "confidence": "high"
+    },
+    {
+      "qn": 25,
+      "isError": false,
+      "studentAnswer": "",
+      "correctAnswer": "",
+      "reason": "无红笔标记，印刷体字母列忽略",
+      "confidence": "high"
+    },
+    {
+      "qn": 26,
+      "isError": false,
+      "studentAnswer": "",
+      "correctAnswer": "",
+      "reason": "无红笔标记，印刷体字母列忽略",
+      "confidence": "high"
+    },
+    {
+      "qn": 27,
+      "isError": false,
+      "studentAnswer": "",
+      "correctAnswer": "",
+      "reason": "无红笔标记，印刷体字母列忽略",
+      "confidence": "high"
+    },
+    {
+      "qn": 28,
+      "isError": false,
+      "studentAnswer": "",
+      "correctAnswer": "",
+      "reason": "无红笔标记，印刷体字母列忽略",
+      "confidence": "high"
+    },
+    {
+      "qn": 29,
+      "isError": false,
+      "studentAnswer": "",
+      "correctAnswer": "",
+      "reason": "无红笔标记，仅有印刷体答案键",
+      "confidence": "high"
+    },
+    {
+      "qn": 30,
+      "isError": true,
+      "studentAnswer": "A",
+      "correctAnswer": "B",
+      "reason": "红笔划掉A写B，并标注'词组搭配'",
+      "confidence": "high",
+      "needsReview": false
+    },
+    {
+      "qn": 31,
+      "isError": false,
+      "studentAnswer": "",
+      "correctAnswer": "",
+      "reason": "无红笔标记，仅有印刷体答案键",
+      "confidence": "high"
+    },
+    {
+      "qn": 32,
+      "isError": true,
+      "studentAnswer": "C",
+      "correctAnswer": "D",
+      "reason": "红笔划掉C写D，并标注'with'提示",
+      "confidence": "high",
+      "needsReview": false
+    },
+    {
+      "qn": 33,
+      "isError": false,
+      "studentAnswer": "",
+      "correctAnswer": "",
+      "reason": "无红笔标记，仅有印刷体答案键",
+      "confidence": "high"
+    },
+    {
+      "qn": 34,
+      "isError": false,
+      "studentAnswer": "",
+      "correctAnswer": "",
+      "reason": "无红笔标记，仅有印刷体答案键",
+      "confidence": "high"
+    },
+    {
+      "qn": 35,
+      "isError": false,
+      "studentAnswer": "",
+      "correctAnswer": "",
+      "reason": "图片为纯黑色，无法判断，按不确定处理",
+      "confidence": "low"
+    },
+    {
+      "qn": 36,
+      "isError": false,
+      "studentAnswer": "",
+      "correctAnswer": "",
+      "reason": "图片为纯黑色，无法判断，按不确定处理",
+      "confidence": "low"
+    },
+    {
+      "qn": 37,
+      "isError": false,
+      "studentAnswer": "",
+      "correctAnswer": "",
+      "reason": "无红笔标记",
+      "confidence": "high"
+    },
+    {
+      "qn": 38,
+      "isError": false,
+      "studentAnswer": "",
+      "correctAnswer": "",
+      "reason": "无红笔标记",
+      "confidence": "high"
+    },
+    {
+      "qn": 39,
+      "isError": false,
+      "studentAnswer": "",
+      "correctAnswer": "",
+      "reason": "无红笔标记",
+      "confidence": "high"
+    },
+    {
+      "qn": 40,
+      "isError": false,
+      "studentAnswer": "",
+      "correctAnswer": "",
+      "reason": "无红笔标记",
+      "confidence": "high"
+    },
+    {
+      "qn": 41,
+      "isError": false,
+      "studentAnswer": "",
+      "correctAnswer": "",
+      "reason": "无红笔标记",
+      "confidence": "high"
+    },
+    {
+      "qn": 42,
+      "isError": false,
+      "studentAnswer": "",
+      "correctAnswer": "",
+      "reason": "无红笔标记",
+      "confidence": "high"
+    },
+    {
+      "qn": 43,
+      "isError": false,
+      "studentAnswer": "",
+      "correctAnswer": "",
+      "reason": "无红笔标记",
+      "confidence": "high"
+    },
+    {
+      "qn": 44,
+      "isError": false,
+      "studentAnswer": "",
+      "correctAnswer": "",
+      "reason": "无红笔标记",
+      "confidence": "high"
+    },
+    {
+      "qn": 45,
+      "isError": false,
+      "studentAnswer": "",
+      "correctAnswer": "",
+      "reason": "无红笔标记",
+      "confidence": "high"
+    }
+  ]
+}

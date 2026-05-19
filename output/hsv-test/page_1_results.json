@@ -1,0 +1,662 @@
+[
+  {
+    "id": 0,
+    "bbox": [
+      80,
+      1697,
+      16,
+      5
+    ],
+    "area": 48,
+    "aspect_ratio": 3.2,
+    "solidity": 0.9,
+    "circularity": 0.445,
+    "type": "underline",
+    "confidence_score": 0.8
+  },
+  {
+    "id": 3,
+    "bbox": [
+      144,
+      1694,
+      10,
+      5
+    ],
+    "area": 35,
+    "aspect_ratio": 2.0,
+    "solidity": 1.0,
+    "circularity": 0.691,
+    "type": "unknown",
+    "confidence_score": 0
+  },
+  {
+    "id": 4,
+    "bbox": [
+      131,
+      1694,
+      11,
+      4
+    ],
+    "area": 30,
+    "aspect_ratio": 2.75,
+    "solidity": 1.0,
+    "circularity": 0.558,
+    "type": "unknown",
+    "confidence_score": 0
+  },
+  {
+    "id": 5,
+    "bbox": [
+      209,
+      1691,
+      9,
+      4
+    ],
+    "area": 24,
+    "aspect_ratio": 2.25,
+    "solidity": 1.0,
+    "circularity": 0.623,
+    "type": "unknown",
+    "confidence_score": 0
+  },
+  {
+    "id": 6,
+    "bbox": [
+      160,
+      1691,
+      46,
+      8
+    ],
+    "area": 177,
+    "aspect_ratio": 5.75,
+    "solidity": 0.78,
+    "circularity": 0.22,
+    "type": "underline",
+    "confidence_score": 0.8
+  },
+  {
+    "id": 7,
+    "bbox": [
+      1169,
+      1687,
+      7,
+      6
+    ],
+    "area": 28,
+    "aspect_ratio": 1.17,
+    "solidity": 1.0,
+    "circularity": 0.911,
+    "type": "unknown",
+    "confidence_score": 0
+  },
+  {
+    "id": 8,
+    "bbox": [
+      353,
+      1685,
+      18,
+      5
+    ],
+    "area": 54,
+    "aspect_ratio": 3.6,
+    "solidity": 0.89,
+    "circularity": 0.399,
+    "type": "underline",
+    "confidence_score": 0.8
+  },
+  {
+    "id": 9,
+    "bbox": [
+      412,
+      1681,
+      70,
+      9
+    ],
+    "area": 306,
+    "aspect_ratio": 7.78,
+    "solidity": 0.7,
+    "circularity": 0.158,
+    "type": "underline",
+    "confidence_score": 0.8
+  },
+  {
+    "id": 10,
+    "bbox": [
+      572,
+      1674,
+      7,
+      4
+    ],
+    "area": 18,
+    "aspect_ratio": 1.75,
+    "solidity": 1.0,
+    "circularity": 0.698,
+    "type": "unknown",
+    "confidence_score": 0
+  },
+  {
+    "id": 11,
+    "bbox": [
+      626,
+      1673,
+      17,
+      6
+    ],
+    "area": 79,
+    "aspect_ratio": 2.83,
+    "solidity": 1.0,
+    "circularity": 0.582,
+    "type": "underline",
+    "confidence_score": 0.7
+  },
+  {
+    "id": 12,
+    "bbox": [
+      593,
+      1673,
+      17,
+      6
+    ],
+    "area": 73,
+    "aspect_ratio": 2.83,
+    "solidity": 0.96,
+    "circularity": 0.55,
+    "type": "underline",
+    "confidence_score": 0.7
+  },
+  {
+    "id": 13,
+    "bbox": [
+      819,
+      1668,
+      15,
+      5
+    ],
+    "area": 56,
+    "aspect_ratio": 3.0,
+    "solidity": 1.0,
+    "circularity": 0.543,
+    "type": "unknown",
+    "confidence_score": 0
+  },
+  {
+    "id": 14,
+    "bbox": [
+      897,
+      1664,
+      17,
+      4
+    ],
+    "area": 48,
+    "aspect_ratio": 4.25,
+    "solidity": 1.0,
+    "circularity": 0.418,
+    "type": "underline",
+    "confidence_score": 0.8
+  },
+  {
+    "id": 15,
+    "bbox": [
+      961,
+      1661,
+      8,
+      5
+    ],
+    "area": 28,
+    "aspect_ratio": 1.6,
+    "solidity": 1.0,
+    "circularity": 0.727,
+    "type": "unknown",
+    "confidence_score": 0
+  },
+  {
+    "id": 16,
+    "bbox": [
+      1185,
+      1660,
+      17,
+      4
+    ],
+    "area": 48,
+    "aspect_ratio": 4.25,
+    "solidity": 1.0,
+    "circularity": 0.418,
+    "type": "underline",
+    "confidence_score": 0.8
+  },
+  {
+    "id": 17,
+    "bbox": [
+      1210,
+      1569,
+      4,
+      6
+    ],
+    "area": 15,
+    "aspect_ratio": 0.67,
+    "solidity": 1.0,
+    "circularity": 0.736,
+    "type": "unknown",
+    "confidence_score": 0
+  },
+  {
+    "id": 18,
+    "bbox": [
+      53,
+      1554,
+      7,
+      49
+    ],
+    "area": 258,
+    "aspect_ratio": 0.14,
+    "solidity": 0.95,
+    "circularity": 0.288,
+    "type": "unknown",
+    "confidence_score": 0
+  },
+  {
+    "id": 19,
+    "bbox": [
+      1210,
+      1441,
+      4,
+      17
+    ],
+    "area": 48,
+    "aspect_ratio": 0.24,
+    "solidity": 1.0,
+    "circularity": 0.418,
+    "type": "unknown",
+    "confidence_score": 0
+  },
+  {
+    "id": 20,
+    "bbox": [
+      24,
+      1238,
+      4,
+      21
+    ],
+    "area": 60,
+    "aspect_ratio": 0.19,
+    "solidity": 1.0,
+    "circularity": 0.356,
+    "type": "unknown",
+    "confidence_score": 0
+  },
+  {
+    "id": 21,
+    "bbox": [
+      24,
+      1169,
+      5,
+      34
+    ],
+    "area": 117,
+    "aspect_ratio": 0.15,
+    "solidity": 0.94,
+    "circularity": 0.277,
+    "type": "unknown",
+    "confidence_score": 0
+  },
+  {
+    "id": 22,
+    "bbox": [
+      24,
+      1088,
+      4,
+      67
+    ],
+    "area": 198,
+    "aspect_ratio": 0.06,
+    "solidity": 1.0,
+    "circularity": 0.131,
+    "type": "unknown",
+    "confidence_score": 0
+  },
+  {
+    "id": 24,
+    "bbox": [
+      306,
+      912,
+      11,
+      4
+    ],
+    "area": 30,
+    "aspect_ratio": 2.75,
+    "solidity": 1.0,
+    "circularity": 0.558,
+    "type": "unknown",
+    "confidence_score": 0
+  },
+  {
+    "id": 25,
+    "bbox": [
+      321,
+      897,
+      11,
+      13
+    ],
+    "area": 69,
+    "aspect_ratio": 0.85,
+    "solidity": 0.76,
+    "circularity": 0.488,
+    "type": "dot_or_small",
+    "confidence_score": 0.3
+  },
+  {
+    "id": 26,
+    "bbox": [
+      39,
+      661,
+      4,
+      6
+    ],
+    "area": 15,
+    "aspect_ratio": 0.67,
+    "solidity": 1.0,
+    "circularity": 0.736,
+    "type": "unknown",
+    "confidence_score": 0
+  },
+  {
+    "id": 27,
+    "bbox": [
+      40,
+      653,
+      4,
+      6
+    ],
+    "area": 15,
+    "aspect_ratio": 0.67,
+    "solidity": 1.0,
+    "circularity": 0.736,
+    "type": "unknown",
+    "confidence_score": 0
+  },
+  {
+    "id": 29,
+    "bbox": [
+      42,
+      548,
+      5,
+      9
+    ],
+    "area": 32,
+    "aspect_ratio": 0.56,
+    "solidity": 1.0,
+    "circularity": 0.698,
+    "type": "unknown",
+    "confidence_score": 0
+  },
+  {
+    "id": 30,
+    "bbox": [
+      1221,
+      541,
+      7,
+      21
+    ],
+    "area": 85,
+    "aspect_ratio": 0.33,
+    "solidity": 0.91,
+    "circularity": 0.446,
+    "type": "unknown",
+    "confidence_score": 0
+  },
+  {
+    "id": 31,
+    "bbox": [
+      37,
+      465,
+      5,
+      8
+    ],
+    "area": 27,
+    "aspect_ratio": 0.62,
+    "solidity": 1.0,
+    "circularity": 0.754,
+    "type": "unknown",
+    "confidence_score": 0
+  },
+  {
+    "id": 32,
+    "bbox": [
+      38,
+      345,
+      8,
+      105
+    ],
+    "area": 425,
+    "aspect_ratio": 0.08,
+    "solidity": 0.72,
+    "circularity": 0.107,
+    "type": "unknown",
+    "confidence_score": 0
+  },
+  {
+    "id": 33,
+    "bbox": [
+      39,
+      281,
+      4,
+      10
+    ],
+    "area": 27,
+    "aspect_ratio": 0.4,
+    "solidity": 1.0,
+    "circularity": 0.589,
+    "type": "unknown",
+    "confidence_score": 0
+  },
+  {
+    "id": 34,
+    "bbox": [
+      1230,
+      208,
+      5,
+      19
+    ],
+    "area": 59,
+    "aspect_ratio": 0.26,
+    "solidity": 0.91,
+    "circularity": 0.397,
+    "type": "unknown",
+    "confidence_score": 0
+  },
+  {
+    "id": 35,
+    "bbox": [
+      501,
+      200,
+      7,
+      6
+    ],
+    "area": 25,
+    "aspect_ratio": 1.17,
+    "solidity": 0.96,
+    "circularity": 0.782,
+    "type": "unknown",
+    "confidence_score": 0
+  },
+  {
+    "id": 37,
+    "bbox": [
+      1232,
+      187,
+      4,
+      7
+    ],
+    "area": 18,
+    "aspect_ratio": 0.57,
+    "solidity": 1.0,
+    "circularity": 0.698,
+    "type": "unknown",
+    "confidence_score": 0
+  },
+  {
+    "id": 38,
+    "bbox": [
+      454,
+      158,
+      10,
+      9
+    ],
+    "area": 31,
+    "aspect_ratio": 1.11,
+    "solidity": 0.64,
+    "circularity": 0.381,
+    "type": "unknown",
+    "confidence_score": 0
+  },
+  {
+    "id": 40,
+    "bbox": [
+      437,
+      149,
+      6,
+      4
+    ],
+    "area": 15,
+    "aspect_ratio": 1.5,
+    "solidity": 1.0,
+    "circularity": 0.736,
+    "type": "unknown",
+    "confidence_score": 0
+  },
+  {
+    "id": 41,
+    "bbox": [
+      671,
+      136,
+      4,
+      6
+    ],
+    "area": 15,
+    "aspect_ratio": 0.67,
+    "solidity": 1.0,
+    "circularity": 0.736,
+    "type": "unknown",
+    "confidence_score": 0
+  },
+  {
+    "id": 42,
+    "bbox": [
+      429,
+      134,
+      6,
+      8
+    ],
+    "area": 30,
+    "aspect_ratio": 0.75,
+    "solidity": 0.97,
+    "circularity": 0.775,
+    "type": "unknown",
+    "confidence_score": 0
+  },
+  {
+    "id": 43,
+    "bbox": [
+      689,
+      27,
+      17,
+      5
+    ],
+    "area": 64,
+    "aspect_ratio": 3.4,
+    "solidity": 1.0,
+    "circularity": 0.503,
+    "type": "underline",
+    "confidence_score": 0.8
+  },
+  {
+    "id": 44,
+    "bbox": [
+      557,
+      18,
+      9,
+      6
+    ],
+    "area": 40,
+    "aspect_ratio": 1.5,
+    "solidity": 1.0,
+    "circularity": 0.744,
+    "type": "unknown",
+    "confidence_score": 0
+  },
+  {
+    "id": 45,
+    "bbox": [
+      525,
+      18,
+      6,
+      4
+    ],
+    "area": 15,
+    "aspect_ratio": 1.5,
+    "solidity": 1.0,
+    "circularity": 0.736,
+    "type": "unknown",
+    "confidence_score": 0
+  },
+  {
+    "id": 46,
+    "bbox": [
+      500,
+      18,
+      14,
+      4
+    ],
+    "area": 39,
+    "aspect_ratio": 3.5,
+    "solidity": 1.0,
+    "circularity": 0.479,
+    "type": "underline",
+    "confidence_score": 0.8
+  },
+  {
+    "id": 47,
+    "bbox": [
+      403,
+      14,
+      7,
+      4
+    ],
+    "area": 18,
+    "aspect_ratio": 1.75,
+    "solidity": 1.0,
+    "circularity": 0.698,
+    "type": "unknown",
+    "confidence_score": 0
+  },
+  {
+    "id": 48,
+    "bbox": [
+      337,
+      11,
+      34,
+      5
+    ],
+    "area": 115,
+    "aspect_ratio": 6.8,
+    "solidity": 0.94,
+    "circularity": 0.269,
+    "type": "underline",
+    "confidence_score": 0.8
+  },
+  {
+    "id": 49,
+    "bbox": [
+      281,
+      0,
+      10,
+      6
+    ],
+    "area": 38,
+    "aspect_ratio": 1.67,
+    "solidity": 0.96,
+    "circularity": 0.703,
+    "type": "unknown",
+    "confidence_score": 0
+  }
+]

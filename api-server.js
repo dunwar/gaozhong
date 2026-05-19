@@ -27,8 +27,8 @@ import { renderPaperAnalysisPrompt } from './prompts/paper-analysis-v4.js';
 import { STUDY_GUIDANCE_PROMPT_V1 } from './prompts/study-guidance-v1.js';
 import { PAPER_SCANNER_VERSION, buildScannerMessages, postFilter, classifyErrors } from './prompts/paper-scanner-v5.js';
 
-// Scanner v1.0 版本号
-const SCANNER_VERSION = 'v2.1';
+// Scanner v3.0
+const SCANNER_VERSION = 'v3.0';
 import { initDB, saveDB, saveRecord, getRecord, getHistory, getStats, createUser, getUserByEmail, getUserById, updateUser, changePassword, listUsers, saveErrorProblem, saveErrorKnowledgeTags, getErrorProblem, listErrorProblems, getErrorStats, getKnowledgeStats, getErrorsByKnowledgePoint, searchKnowledgePoints, createPaperSession, updatePaperSession, getPaperSession, listPaperSessions, listErrorsByPaper, listErrorsByTime, listErrorsBySubject, listErrorsForGuidance, saveReview, updateErrorReviewStatus, deleteErrorProblem, getSessionReviews, resetStalledPaperSessions } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -860,7 +860,10 @@ async function detectSubject(firstPageBase64, fallback) {
  * 阶段 3：DeepSeek 单题纯文本分析
  */
 async function analyzeSingleError(subject, errorInfo) {
-  const prompt = `你是高中${subject}老师。学生这道题做错了，请分析。
+  let prompt = `你是高中${subject}老师。学生这道题做错了，请分析。
+
+题目: ${errorInfo.questionText || '未知'}
+${errorInfo.options && Object.keys(errorInfo.options).length > 0 ? `选项: ${JSON.stringify(errorInfo.options)}` : ''}
 
 学生答案: ${errorInfo.studentAnswer || '未知'}
 正确答案: ${errorInfo.correctAnswer || '未知'}
@@ -870,7 +873,8 @@ async function analyzeSingleError(subject, errorInfo) {
 {
   "errorType": "语法/词汇/逻辑/概念/计算/审题/未知",
   "errorReason": "为什么错了（中文，1-2句）",
-  "knowledgePoint": "考察的知识点（中文）"
+  "knowledgePoint": "考察的知识点（中文）",
+  "knowledgeExplanation": {"知识点名": "详细解释"}
 }`;
 
   try {
@@ -1063,10 +1067,11 @@ function validateScanResults(questions) {
 }
 
 /**
- * v1.0 流水线: 阶段1 切题 → 阶段2 裁切批处理判错 → 阶段3 DeepSeek纯文本分析
+ * v3.0 流水线: Phase1 VL OCR → Phase2 OpenCV红笔检测 → Phase3 位置匹配 → Phase5 DeepSeek纯文本分析
  */
 async function executePaperTask(task) {
   const { id, input } = task;
+  const markingMethod = input.markingMethod || 'red_pen';
   try {
     paperTasks.get(id).status = 'processing';
 
@@ -1108,8 +1113,8 @@ async function executePaperTask(task) {
     updatePaperSession(id, { imagePaths: JSON.stringify(savedPaths) });
     log('info', '图片保存完成', { taskId: id, pages: savedPaths.length });
 
-    // ===== 阶段 1+2：扫描每页 =====
-    const scanner = await import('./scanner-v1.mjs');
+    // ===== Phase 1-3：v3.0 扫描 =====
+    const scanner = await import('./scanner-v3.mjs');
     let allErrors = [];
 
     for (let i = 0; i < savedPaths.length; i++) {
@@ -1118,7 +1123,7 @@ async function executePaperTask(task) {
       
       paperTasks.get(id).progress = {
         stage: 'scan',
-        message: `AI 扫描第 ${pageIdx}/${totalPages} 页…`,
+        message: `AI OCR + 红笔检测 第 ${pageIdx}/${totalPages} 页…`,
         current: pageIdx, total: totalPages
       };
 
@@ -1126,38 +1131,43 @@ async function executePaperTask(task) {
         const result = await scanner.scanPage(pagePath, {
           apiKey: KIMI_KEY,
           outputDir: sessionDir,
-          pageIndex: pageIdx
+          pageIndex: pageIdx,
+          markingMethod
         });
 
-        log('info', `v1.0 扫描完成 page${pageIdx}`, {
-          questions: result.questions,
-          errors: result.errors,
-          needsReview: result.needsReview
+        const errorQs = result.analysis.questions.filter(q => q.isError);
+        log('info', `v3.0 扫描完成 page${pageIdx}`, {
+          questions: result.ocr.totalQuestions,
+          marks: result.marks.totalMarks,
+          errors: errorQs.length
         });
 
-        for (const err of result.errorItems) {
+        for (const q of errorQs) {
           allErrors.push({
             pageIndex: pageIdx,
-            questionNumber: err.questionNumber,
-            studentAnswer: err.studentAnswer || '',
-            correctAnswer: err.correctAnswer || '',
-            teacherIntent: err.teacherIntent || '',
-            errorType: err.errorType || '未知',
-            confidence: err.confidence || 'medium',
-            needsReview: err.needsReview || false,
-            reviewReason: err.reviewReason || '',
-            questionType: ''  // will be filled from crop data
+            questionNumber: q.questionNumber,
+            questionType: q.questionType || '',
+            questionText: q.questionText || '',
+            options: q.options || {},
+            studentAnswer: '',
+            correctAnswer: '',
+            errorType: '未知',
+            confidence: q.confidence || 'medium',
+            needsReview: q.confidence === 'low',
+            reviewReason: q.confidence === 'low' ? '无红笔标记，需人工确认' : '',
+            matchedMarks: q.matchedMarks || [],
+            markCount: q.markCount || 0
           });
         }
 
         paperTasks.get(id).progress = {
           stage: 'scan',
-          message: `第 ${pageIdx}/${totalPages} 页: ${result.questions}题, ${result.errors}道错题`,
+          message: `第 ${pageIdx}/${totalPages} 页: ${result.ocr.totalQuestions}题, ${errorQs.length}道疑似错题`,
           current: pageIdx, total: totalPages
         };
 
       } catch (pageErr) {
-        log('warn', `v1.0 扫描页失败 page${pageIdx}`, { error: pageErr.message });
+        log('warn', `v3.0 扫描页失败 page${pageIdx}`, { error: pageErr.message });
       }
     }
 
@@ -1165,12 +1175,12 @@ async function executePaperTask(task) {
       log('info', '未检测到错题', { taskId: id });
       updatePaperSession(id, { status: 'done', errorCount: 0, totalQuestions: 0 });
       paperTasks.get(id).status = 'done';
-      paperTasks.get(id).result = { subject, sessionId: id, totalErrors: 0, pipeline: SCANNER_VERSION };
+      paperTasks.get(id).result = { subject, sessionId: id, totalErrors: 0, pipeline: SCANNER_VERSION + ' | ' + scanner.SCANNER_VERSION };
       paperTasks.get(id).progress = { stage: 'done', message: '未检测到错题 ✅' };
       return;
     }
 
-    // ===== 阶段 3：DeepSeek 纯文本分析 =====
+    // ===== Phase 5：DeepSeek 纯文本分析 =====
     paperTasks.get(id).progress = {
       stage: 'analyze',
       message: `DeepSeek 分析 ${allErrors.length} 道错题…`,
@@ -1187,29 +1197,35 @@ async function executePaperTask(task) {
         current: j + 1, total: allErrors.length
       };
 
+      // Build detailed question info for DeepSeek
+      const questionInfo = {
+        questionNumber: q.questionNumber,
+        questionText: q.questionText || '',
+        questionType: q.questionType || '',
+        options: q.options || {},
+        studentAnswer: q.studentAnswer || '',
+        correctAnswer: q.correctAnswer || '',
+        errorType: q.errorType || '未知'
+      };
+
       try {
-        const analysis = await analyzeSingleError(subject, {
-          questionNumber: q.questionNumber,
-          studentAnswer: q.studentAnswer,
-          correctAnswer: q.correctAnswer,
-          errorType: q.errorType
-        });
+        const analysis = await analyzeSingleError(subject, questionInfo);
 
         const errorId = crypto.randomUUID().slice(0, 8);
         saveErrorProblem({
           id: errorId, userId: input.userId, subject,
           topic: `错题 Q${q.questionNumber}`,
-          questionText: '',
+          questionText: q.questionText || '',
           questionType: q.questionType || 'unknown',
-          answerOptions: '{}',
+          answerOptions: JSON.stringify(q.options || {}),
           wrongAnswer: q.studentAnswer || '',
           correctAnswer: q.correctAnswer || '',
           errorType: analysis.errorType || q.errorType || '未知',
           correctSolution: (analysis.errorReason || '') + '\n' + (analysis.knowledgePoint || ''),
           difficulty: 3,
-          knowledgeExplanation: '{}',
-          gradingEvidence: q.teacherIntent || '',
-          aiRaw: JSON.stringify({ pipeline: SCANNER_VERSION, ...q, analysis }),
+          knowledgeExplanation: JSON.stringify(analysis.knowledgeExplanation || {}),
+          gradingEvidence: `红笔标记数: ${q.markCount || 0}, 置信度: ${q.confidence}`,
+          aiRaw: JSON.stringify({ pipeline: scanner.SCANNER_VERSION || SCANNER_VERSION, ...q, analysis }),
           notes: '',
           sessionId: id, paperIndex: q.pageIndex || 1, status: 'done',
           reviewStatus: q.needsReview ? 'pending' : 'confirmed',
@@ -1219,19 +1235,19 @@ async function executePaperTask(task) {
         log('info', `错题已保存`, { qid: errorId, questionNumber: q.questionNumber, confidence: q.confidence });
       } catch (e) {
         log('warn', `DeepSeek 分析失败 Q${q.questionNumber}`, { error: e.message });
-        // 即使分析失败也保存基本信息
         const errorId = crypto.randomUUID().slice(0, 8);
         saveErrorProblem({
           id: errorId, userId: input.userId, subject,
           topic: `错题 Q${q.questionNumber}`,
-          questionText: '', questionType: 'unknown', answerOptions: '{}',
+          questionText: q.questionText || '', questionType: q.questionType || 'unknown',
+          answerOptions: JSON.stringify(q.options || {}),
           wrongAnswer: q.studentAnswer || '',
           correctAnswer: q.correctAnswer || '',
           errorType: q.errorType || '未知',
           correctSolution: q.teacherIntent || '',
           difficulty: 3, knowledgeExplanation: '{}',
-          gradingEvidence: q.teacherIntent || '',
-          aiRaw: JSON.stringify({ pipeline: SCANNER_VERSION, ...q }),
+          gradingEvidence: `红笔标记数: ${q.markCount || 0}, 置信度: ${q.confidence}`,
+          aiRaw: JSON.stringify({ pipeline: scanner.SCANNER_VERSION || SCANNER_VERSION, ...q }),
           notes: '', sessionId: id, paperIndex: q.pageIndex || 1, status: 'done',
           reviewStatus: q.needsReview ? 'pending' : 'confirmed',
           createdAt: Date.now()
@@ -1249,15 +1265,15 @@ async function executePaperTask(task) {
     paperTasks.get(id).result = {
       subject, sessionId: id,
       totalErrors: savedCount,
-      pipeline: SCANNER_VERSION,
+      pipeline: scanner.SCANNER_VERSION || SCANNER_VERSION,
       needsReview: reviewCount
     };
     paperTasks.get(id).progress = {
       stage: 'done',
-      message: `${savedCount} 道错题已整理${reviewCount > 0 ? `（${reviewCount}道需复核）` : ''} | ${SCANNER_VERSION}`
+      message: `${savedCount} 道错题已整理${reviewCount > 0 ? `（${reviewCount}道需复核）` : ''} | ${scanner.SCANNER_VERSION || SCANNER_VERSION}`
     };
 
-    log('info', 'v1.0 流水线完成', { taskId: id, subject, errors: savedCount, needsReview: reviewCount });
+    log('info', 'v3.0 流水线完成', { taskId: id, subject, errors: savedCount, needsReview: reviewCount, markingMethod });
 
   } catch (err) {
     log('error', '整卷分析失败', { taskId: id, error: err.message });
@@ -1356,7 +1372,7 @@ app.get('/health', (req, res) => {
     version: '2.0-async',
     providers: { ocr: { name: 'Kimi', model: MODEL_OCR }, grading: { name: 'DeepSeek', model: MODEL_GRADING } },
     prompt: { version: PROMPT_VERSION, file: 'prompts/grading-v5.js' },
-    scanner: { version: SCANNER_VERSION, engine: '切题+裁切批处理VL判错+v2.1手写红笔统一标准', file: 'scanner-v1.mjs' },
+    scanner: { version: SCANNER_VERSION, engine: 'v3.0 VL OCR + OpenCV红笔 + 位置匹配', file: 'scanner-v3.mjs' },
     queue: { grading: { active: gradingQueue.active, pending: gradingQueue.pending }, error: { active: errorQueue.active, pending: errorQueue.pending }, paper: { active: paperQueue.active, pending: paperQueue.pending, maxConcurrent: PAPER_MAX_CONCURRENT } },
     tasks: { memory: tasks.size, persistent: getStats() },
     uptime: Math.floor(process.uptime())
@@ -1763,7 +1779,7 @@ app.post('/paper/analyze', authMiddleware, (req, res) => {
   if (!limits.allowed) return res.status(limits.status || 429).json({ error: limits.error, retryAfter: limits.retryAfter });
   if (paperQueue.pending >= MAX_QUEUE_DEPTH) return res.status(503).json({ error: '排队人数过多' });
 
-  const { subject, images, title } = req.body;
+  const { subject, images, title, markingMethod } = req.body;
   if (!subject) return res.status(400).json({ error: '请选择学科' });
   if (!images || !Array.isArray(images) || images.length === 0) return res.status(400).json({ error: '请上传至少一张试卷图片' });
   if (images.length > 10) return res.status(400).json({ error: '单次最多上传 10 张图片' });
@@ -1772,7 +1788,7 @@ app.post('/paper/analyze', authMiddleware, (req, res) => {
 
   const taskId = createTaskId();
   createPaperSession({ id: taskId, userId: req.user.id, subject, title: title || '', imageCount: images.length, status: 'pending' });
-  const task = { id: taskId, status: 'queued', input: { subject, images, userId: req.user.id, title }, result: null, error: null, progress: null, createdAt: Date.now(), updatedAt: Date.now() };
+  const task = { id: taskId, status: 'queued', input: { subject, images, userId: req.user.id, title, markingMethod: markingMethod || 'red_pen' }, result: null, error: null, progress: null, createdAt: Date.now(), updatedAt: Date.now() };
   paperTasks.set(taskId, task);
   log('info', '整卷分析任务创建', { taskId, subject, imageCount: images.length, userId: req.user.id });
   paperQueue.enqueue(() => executePaperTask(task)).catch(err => { log('error', '整卷分析队列异常', { taskId, error: err.message }); });
@@ -2188,7 +2204,7 @@ const startup = async () => {
     console.log(`📝 作文: POST /analyze | 📄 整卷: POST /paper/analyze | 🧠 指导: POST /paper/guidance`);
     console.log(`💾 结果: GET /result/:taskId | 历史: GET /history | 错题: GET /error/list?view=paper|time|subject`);
     console.log(`⚡ 作文/错题并发: ${MAX_CONCURRENT} | 整卷分析并发: ${PAPER_MAX_CONCURRENT} | 队列上限: ${MAX_QUEUE_DEPTH}`);
-    console.log(`🤖 OCR: ${MODEL_OCR} | 分析: ${MODEL_GRADING} | Prompt: ${PROMPT_VERSION} | Scanner: ${SCANNER_VERSION}`);
+    console.log(`🤖 OCR: ${MODEL_OCR} | 分析: ${MODEL_GRADING} | Prompt: ${PROMPT_VERSION} | Scanner: ${SCANNER_VERSION} (v3.0)`);
   });
 };
 

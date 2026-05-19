@@ -83,6 +83,25 @@
         </div>
       </div>
 
+      <!-- 批改方式选择 -->
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700 mb-2">✏️ 批改方式</label>
+        <div class="flex gap-2 flex-wrap">
+          <button
+            v-for="m in markingMethods"
+            :key="m.key"
+            @click="markingMethod = m.key"
+            :class="[
+              'px-4 py-2 rounded-lg text-sm font-medium transition-all',
+              markingMethod === m.key ? 'bg-rose-600 text-white shadow-sm' : 'bg-gray-50 text-gray-600 border border-gray-200 hover:border-rose-300 hover:text-rose-700'
+            ]"
+          >
+            <span class="mr-1">{{ m.icon }}</span>{{ m.label }}
+          </button>
+        </div>
+        <p class="text-xs text-gray-400 mt-1.5">{{ markingMethodDesc }}</p>
+      </div>
+
       <!-- 标题 -->
       <div class="mb-4">
         <label class="block text-sm font-medium text-gray-700 mb-1.5">试卷标题（选填）</label>
@@ -190,6 +209,15 @@ const maxFiles = 10
 const subjects = ['英语', '数学', '语文', '生物', '物理', '化学', '自动']
 const subject = ref('英语')
 const title = ref('')
+
+// Marking method
+const markingMethod = ref('red_pen')
+const markingMethods = [
+  { key: 'red_pen', label: '红笔批改', icon: '🔴', desc: '红笔标记位置=错题。适用于教师用红笔批改的场景。' },
+  { key: 'cross_only', label: '打勾/打叉', icon: '❌', desc: '只认打叉标记为错题，打勾忽略。适用于勾叉批改。' },
+  { key: 'mixed', label: '混合模式', icon: '🔀', desc: '打叉+手写字母=错题，打勾=正确。适用于复杂批改场景。' },
+]
+const markingMethodDesc = computed(() => markingMethods.find(m => m.key === markingMethod.value)?.desc || '')
 const images = ref([])
 const dragOver = ref(false)
 const fileInput = ref(null)
@@ -321,6 +349,7 @@ async function submit() {
     const payload = {
       subject: subject.value,
       title: title.value || `${subject.value}试卷 ${new Date().toLocaleDateString('zh-CN')}`,
+      markingMethod: markingMethod.value,
       images: images.value.map(i => `data:${i.file?.type || 'image/jpeg'};base64,${i.base64}`)
     }
 

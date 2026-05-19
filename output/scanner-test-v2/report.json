@@ -1,0 +1,502 @@
+{
+  "sessionId": "fbc20049",
+  "pageIndex": 1,
+  "totalTime": "209.2",
+  "apiCalls": 9,
+  "vlTime": 207121,
+  "stage1": {
+    "redMarks": 60,
+    "questions": 60
+  },
+  "stage2": {
+    "cropsWithMarks": 60,
+    "cropsNoMarks": 0
+  },
+  "stage3": {
+    "total": 60,
+    "errors": 27,
+    "autoSkipped": 0
+  },
+  "judgments": [
+    {
+      "qn": 1,
+      "isError": false,
+      "studentAnswer": "",
+      "correctAnswer": "",
+      "reason": "无红笔标记",
+      "confidence": "high"
+    },
+    {
+      "qn": 2,
+      "isError": false,
+      "studentAnswer": "",
+      "correctAnswer": "",
+      "reason": "红笔圈出/标记，无打叉",
+      "confidence": "medium"
+    },
+    {
+      "qn": 3,
+      "isError": true,
+      "studentAnswer": "A",
+      "correctAnswer": "D",
+      "reason": "红笔划掉A，上方写D",
+      "confidence": "high"
+    },
+    {
+      "qn": 4,
+      "isError": false,
+      "studentAnswer": "",
+      "correctAnswer": "",
+      "reason": "无红笔标记",
+      "confidence": "high"
+    },
+    {
+      "qn": 5,
+      "isError": false,
+      "studentAnswer": "",
+      "correctAnswer": "",
+      "reason": "无红笔标记",
+      "confidence": "high"
+    },
+    {
+      "qn": 6,
+      "isError": false,
+      "studentAnswer": "",
+      "correctAnswer": "",
+      "reason": "无红笔标记",
+      "confidence": "high"
+    },
+    {
+      "qn": 7,
+      "isError": false,
+      "studentAnswer": "",
+      "correctAnswer": "",
+      "reason": "无红笔标记",
+      "confidence": "high"
+    },
+    {
+      "qn": 8,
+      "isError": false,
+      "studentAnswer": "",
+      "correctAnswer": "",
+      "reason": "无红笔标记",
+      "confidence": "high"
+    },
+    {
+      "qn": 9,
+      "isError": false,
+      "studentAnswer": "",
+      "correctAnswer": "",
+      "reason": "无红笔标记",
+      "confidence": "high"
+    },
+    {
+      "qn": 10,
+      "isError": false,
+      "studentAnswer": "",
+      "correctAnswer": "",
+      "reason": "无红笔标记",
+      "confidence": "high"
+    },
+    {
+      "qn": 11,
+      "isError": false,
+      "studentAnswer": "",
+      "correctAnswer": "",
+      "reason": "无红笔标记",
+      "confidence": "high"
+    },
+    {
+      "qn": 12,
+      "isError": false,
+      "studentAnswer": "",
+      "correctAnswer": "",
+      "reason": "无红笔标记",
+      "confidence": "high"
+    },
+    {
+      "qn": 13,
+      "isError": false,
+      "studentAnswer": "",
+      "correctAnswer": "",
+      "reason": "无红笔标记",
+      "confidence": "high"
+    },
+    {
+      "qn": 14,
+      "isError": false,
+      "studentAnswer": "",
+      "correctAnswer": "",
+      "reason": "无红笔标记",
+      "confidence": "high"
+    },
+    {
+      "qn": 15,
+      "isError": false,
+      "studentAnswer": "",
+      "correctAnswer": "",
+      "reason": "无红笔标记",
+      "confidence": "high"
+    },
+    {
+      "qn": 16,
+      "isError": false,
+      "studentAnswer": "",
+      "correctAnswer": "",
+      "reason": "无红笔标记",
+      "confidence": "high"
+    },
+    {
+      "qn": 17,
+      "isError": false,
+      "studentAnswer": "",
+      "correctAnswer": "",
+      "reason": "无红笔标记",
+      "confidence": "high"
+    },
+    {
+      "qn": 18,
+      "isError": false,
+      "studentAnswer": "",
+      "correctAnswer": "",
+      "reason": "无红笔标记",
+      "confidence": "high"
+    },
+    {
+      "qn": 19,
+      "isError": false,
+      "studentAnswer": "",
+      "correctAnswer": "",
+      "reason": "无红笔标记",
+      "confidence": "high"
+    },
+    {
+      "qn": 20,
+      "isError": false,
+      "studentAnswer": "",
+      "correctAnswer": "",
+      "reason": "无红笔标记",
+      "confidence": "high"
+    },
+    {
+      "qn": 21,
+      "isError": false,
+      "studentAnswer": "",
+      "correctAnswer": "",
+      "reason": "无红笔标记",
+      "confidence": "high"
+    },
+    {
+      "qn": 22,
+      "isError": false,
+      "studentAnswer": "",
+      "correctAnswer": "",
+      "reason": "无红笔标记",
+      "confidence": "high"
+    },
+    {
+      "qn": 23,
+      "isError": true,
+      "studentAnswer": "A",
+      "correctAnswer": "C",
+      "reason": "红笔划掉A，写C",
+      "confidence": "high"
+    },
+    {
+      "qn": 24,
+      "isError": true,
+      "studentAnswer": "B",
+      "correctAnswer": "D",
+      "reason": "红笔划掉B，写D",
+      "confidence": "high"
+    },
+    {
+      "qn": 25,
+      "isError": false,
+      "studentAnswer": "",
+      "correctAnswer": "",
+      "reason": "无红笔标记",
+      "confidence": "high"
+    },
+    {
+      "qn": 26,
+      "isError": false,
+      "studentAnswer": "",
+      "correctAnswer": "",
+      "reason": "无红笔标记",
+      "confidence": "high"
+    },
+    {
+      "qn": 27,
+      "isError": false,
+      "studentAnswer": "",
+      "correctAnswer": "",
+      "reason": "无红笔标记",
+      "confidence": "high"
+    },
+    {
+      "qn": 28,
+      "isError": true,
+      "studentAnswer": "A",
+      "correctAnswer": "C",
+      "reason": "红笔圈出C，划掉A",
+      "confidence": "high"
+    },
+    {
+      "qn": 29,
+      "isError": true,
+      "studentAnswer": "A",
+      "correctAnswer": "C",
+      "reason": "红笔圈出C，划掉A",
+      "confidence": "high"
+    },
+    {
+      "qn": 30,
+      "isError": false,
+      "studentAnswer": "",
+      "correctAnswer": "",
+      "reason": "无红笔标记",
+      "confidence": "high"
+    },
+    {
+      "qn": 31,
+      "isError": true,
+      "studentAnswer": "A",
+      "correctAnswer": "D",
+      "reason": "红笔圈出D，划掉A，写'31.'标记",
+      "confidence": "high"
+    },
+    {
+      "qn": 32,
+      "isError": true,
+      "studentAnswer": "B",
+      "correctAnswer": "A",
+      "reason": "红笔圈出A，划掉B，打叉标记",
+      "confidence": "high"
+    },
+    {
+      "qn": 33,
+      "isError": true,
+      "studentAnswer": "A",
+      "correctAnswer": "B",
+      "reason": "红笔划掉A，写B",
+      "confidence": "high"
+    },
+    {
+      "qn": 34,
+      "isError": true,
+      "studentAnswer": "C",
+      "correctAnswer": "A",
+      "reason": "红笔划掉C，写A",
+      "confidence": "high"
+    },
+    {
+      "qn": 35,
+      "isError": false,
+      "studentAnswer": "",
+      "correctAnswer": "",
+      "reason": "无红笔标记",
+      "confidence": "high"
+    },
+    {
+      "qn": 36,
+      "isError": false,
+      "studentAnswer": "",
+      "correctAnswer": "",
+      "reason": "无红笔标记",
+      "confidence": "high"
+    },
+    {
+      "qn": 37,
+      "isError": true,
+      "studentAnswer": "C",
+      "correctAnswer": "B",
+      "reason": "红笔划掉C，写B",
+      "confidence": "high"
+    },
+    {
+      "qn": 38,
+      "isError": false,
+      "studentAnswer": "",
+      "correctAnswer": "",
+      "reason": "无红笔标记",
+      "confidence": "high"
+    },
+    {
+      "qn": 39,
+      "isError": false,
+      "studentAnswer": "",
+      "correctAnswer": "",
+      "reason": "无红笔标记",
+      "confidence": "high"
+    },
+    {
+      "qn": 40,
+      "isError": true,
+      "studentAnswer": "C",
+      "correctAnswer": "D",
+      "reason": "红笔打叉，划掉C，写D",
+      "confidence": "high"
+    },
+    {
+      "qn": 41,
+      "isError": true,
+      "studentAnswer": "C",
+      "correctAnswer": "A",
+      "reason": "红笔划掉C，写A",
+      "confidence": "high"
+    },
+    {
+      "qn": 42,
+      "isError": true,
+      "studentAnswer": "A",
+      "correctAnswer": "B",
+      "reason": "红笔划掉A，写B",
+      "confidence": "high"
+    },
+    {
+      "qn": 43,
+      "isError": true,
+      "studentAnswer": "A",
+      "correctAnswer": "B",
+      "reason": "红笔划掉A，写B",
+      "confidence": "high"
+    },
+    {
+      "qn": 44,
+      "isError": true,
+      "studentAnswer": "C",
+      "correctAnswer": "A",
+      "reason": "红笔划掉C，写A",
+      "confidence": "high"
+    },
+    {
+      "qn": 45,
+      "isError": false,
+      "studentAnswer": "",
+      "correctAnswer": "",
+      "reason": "无红笔标记",
+      "confidence": "medium"
+    },
+    {
+      "qn": 46,
+      "isError": false,
+      "studentAnswer": "",
+      "correctAnswer": "",
+      "reason": "无红笔标记",
+      "confidence": "medium"
+    },
+    {
+      "qn": 47,
+      "isError": false,
+      "studentAnswer": "",
+      "correctAnswer": "",
+      "reason": "无红笔标记",
+      "confidence": "medium"
+    },
+    {
+      "qn": 48,
+      "isError": false,
+      "studentAnswer": "",
+      "correctAnswer": "",
+      "reason": "无红笔标记",
+      "confidence": "medium"
+    },
+    {
+      "qn": 49,
+      "isError": true,
+      "studentAnswer": "B",
+      "correctAnswer": "D",
+      "reason": "红笔写D，覆盖学生答案B",
+      "confidence": "high"
+    },
+    {
+      "qn": 50,
+      "isError": true,
+      "studentAnswer": "C",
+      "correctAnswer": "D",
+      "reason": "红笔写D，覆盖学生答案C",
+      "confidence": "high"
+    },
+    {
+      "qn": 51,
+      "isError": true,
+      "studentAnswer": "A",
+      "correctAnswer": "D",
+      "reason": "红笔写D，覆盖学生答案A",
+      "confidence": "high"
+    },
+    {
+      "qn": 52,
+      "isError": true,
+      "studentAnswer": "D",
+      "correctAnswer": "A",
+      "reason": "红笔写A，覆盖学生答案D",
+      "confidence": "high"
+    },
+    {
+      "qn": 53,
+      "isError": true,
+      "studentAnswer": "C",
+      "correctAnswer": "D",
+      "reason": "红笔写D，覆盖学生答案C",
+      "confidence": "high"
+    },
+    {
+      "qn": 54,
+      "isError": true,
+      "studentAnswer": "B",
+      "correctAnswer": "C",
+      "reason": "红笔写C，覆盖学生答案B",
+      "confidence": "high"
+    },
+    {
+      "qn": 55,
+      "isError": true,
+      "studentAnswer": "D",
+      "correctAnswer": "A",
+      "reason": "红笔写A，覆盖学生答案D",
+      "confidence": "high"
+    },
+    {
+      "qn": 56,
+      "isError": true,
+      "studentAnswer": "A",
+      "correctAnswer": "C",
+      "reason": "红笔写C，覆盖学生答案A",
+      "confidence": "high"
+    },
+    {
+      "qn": 57,
+      "isError": true,
+      "studentAnswer": "A",
+      "correctAnswer": "D",
+      "reason": "红笔划掉A，写D",
+      "confidence": "high"
+    },
+    {
+      "qn": 58,
+      "isError": true,
+      "studentAnswer": "B",
+      "correctAnswer": "D",
+      "reason": "红笔划掉B，写D",
+      "confidence": "high"
+    },
+    {
+      "qn": 59,
+      "isError": true,
+      "studentAnswer": "C",
+      "correctAnswer": "D",
+      "reason": "红笔划掉C，写D",
+      "confidence": "high"
+    },
+    {
+      "qn": 60,
+      "isError": true,
+      "studentAnswer": "A",
+      "correctAnswer": "D",
+      "reason": "红笔划掉A，写D",
+      "confidence": "high"
+    }
+  ]
+}
