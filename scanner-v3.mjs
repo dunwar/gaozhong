@@ -2,15 +2,11 @@
  * gaozhong.online — Scanner v3.0
  * 
  * Architecture:
- *   Phase 1: VL OCR → extract all printed text + question structure + bbox
+ *   Phase 1: OCR extraction — hybrid PaddleOCR (bbox detection) + VL (text reading)
  *   Phase 2: OpenCV → detect red pen marks (HSV + contour analysis)
  *   Phase 3: Position matching → determine wrong questions
- *   Phase 4: Human confirmation → user validates in UI (Phase 4+5 in roadmap)
+ *   Phase 4: Human confirmation → user validates in UI
  *   Phase 5: DeepSeek analysis → analyze confirmed wrong questions
- * 
- * VL is demoted from "judge" to "witness" — only does OCR, never error judgment.
- * Red mark detection is deterministic (OpenCV geometry).
- * Error judgment is deterministic (position matching).
  */
 
 import { readFileSync, existsSync, mkdirSync } from 'fs';
@@ -49,20 +45,33 @@ function runPython(script, args = []) {
 }
 
 // ═══════════════════════════════════════
-// Phase 1: Extract questions via VL OCR
+// Phase 1: Extract questions (PaddleOCR detection + VL text reading)
 // ═══════════════════════════════════════
 
 export async function extractQuestions(pagePath, apiKey) {
   console.log(`[scanner-v3] Phase 1: OCR extraction for ${pagePath}`);
   
-  const result = runPython('ocr-page.py', [pagePath, '--api-key', apiKey]);
-  
-  if (result.status !== 'ok') {
-    throw new Error(`OCR extraction failed: ${result.error}`);
+  // Try PaddleOCR first (faster, free, local)
+  try {
+    const padResult = runPython('ocr-page-paddle.py', [pagePath]);
+    if (padResult.status === 'ok' && padResult.totalQuestions >= 5) {
+      console.log(`[scanner-v3] PaddleOCR extracted ${padResult.totalQuestions} questions (${padResult.totalBlocks} blocks)`);
+      return padResult;
+    }
+    console.log(`[scanner-v3] PaddleOCR found only ${padResult.totalQuestions} questions, falling back to VL`);
+  } catch (e) {
+    console.log(`[scanner-v3] PaddleOCR failed: ${e.message}, falling back to VL`);
   }
   
-  console.log(`[scanner-v3] Extracted ${result.totalQuestions} questions`);
-  return result;
+  // Fallback to VL OCR (more accurate but uses API)
+  const vlResult = runPython('ocr-page.py', [pagePath, '--api-key', apiKey]);
+  
+  if (vlResult.status !== 'ok') {
+    throw new Error(`OCR extraction failed: ${vlResult.error}`);
+  }
+  
+  console.log(`[scanner-v3] VL OCR extracted ${vlResult.totalQuestions} questions`);
+  return vlResult;
 }
 
 // ═══════════════════════════════════════
