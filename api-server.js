@@ -1927,6 +1927,77 @@ app.get('/paper/:sessionId', authMiddleware, (req, res) => {
   res.json({ success: true, session });
 });
 
+// ===== V3.0 错题确认 API =====
+
+// GET: 获取待确认的错题列表
+app.get('/paper/:sessionId/confirm', authMiddleware, (req, res) => {
+  const session = getPaperSession(req.params.sessionId);
+  if (!session) return res.status(404).json({ error: '试卷不存在' });
+  if (session.userId !== req.user.id) return res.status(403).json({ error: '无权访问' });
+  
+  const errors = listErrorProblems({ userId: req.user.id, sessionId: req.params.sessionId, limit: 200 });
+  res.json({ success: true, questions: errors });
+});
+
+// POST: 提交确认结果
+app.post('/paper/:sessionId/confirm', authMiddleware, (req, res) => {
+  const session = getPaperSession(req.params.sessionId);
+  if (!session) return res.status(404).json({ error: '试卷不存在' });
+  if (session.userId !== req.user.id) return res.status(403).json({ error: '无权访问' });
+  
+  const { confirmed, removed, added } = req.body;
+  
+  // Update confirmed questions
+  if (Array.isArray(confirmed)) {
+    const sessionErrors = listErrorProblems({ userId: req.user.id, sessionId: req.params.sessionId, limit: 500 });
+    for (const qnum of confirmed) {
+      const target = sessionErrors.find(e => e.topic && e.topic.includes(`Q${qnum}`));
+      if (target) {
+        updateErrorReviewStatus(target.id, 'confirmed');
+      }
+    }
+  }
+  
+  // Remove denied questions
+  if (Array.isArray(removed)) {
+    const sessionErrors = listErrorProblems({ userId: req.user.id, sessionId: req.params.sessionId, limit: 500 });
+    for (const qnum of removed) {
+      const target = sessionErrors.find(e => e.topic && e.topic.includes(`Q${qnum}`));
+      if (target) {
+        deleteErrorProblem(target.id);
+      }
+    }
+  }
+  
+  // Add manually added questions (create minimal error records)
+  if (Array.isArray(added)) {
+    for (const qnum of added) {
+      const errorId = crypto.randomUUID().slice(0, 8);
+      saveErrorProblem({
+        id: errorId, userId: req.user.id, subject: session.subject || '英语',
+        topic: `错题 Q${qnum}`,
+        questionText: '(手动添加)',
+        questionType: 'unknown', answerOptions: '{}',
+        wrongAnswer: '', correctAnswer: '',
+        errorType: '未知', correctSolution: '', difficulty: 3,
+        knowledgeExplanation: '{}', gradingEvidence: '用户手动添加',
+        aiRaw: '{}', notes: '',
+        sessionId: req.params.sessionId, paperIndex: 1, status: 'done',
+        reviewStatus: 'confirmed', createdAt: Date.now()
+      });
+    }
+  }
+  
+  log('info', '错题确认完成', { 
+    sessionId: req.params.sessionId, 
+    confirmed: confirmed?.length || 0, 
+    removed: removed?.length || 0, 
+    added: added?.length || 0 
+  });
+  
+  res.json({ success: true });
+});
+
 app.get('/paper/:sessionId/review', authMiddleware, (req, res) => {
   const session = getPaperSession(req.params.sessionId);
   if (!session) return res.status(404).json({ error: '试卷不存在' });

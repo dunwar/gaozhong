@@ -186,10 +186,15 @@
         <p class="text-blue-600 text-xs">{{ justSubmittedTask.progress || '' }}</p>
       </div>
       <div v-if="justSubmittedTask.status === 'done'" class="p-4 bg-green-50 rounded-xl border border-green-100">
-        <p class="font-medium text-green-800 text-sm mb-2">✅ 分析完成 — {{ justSubmittedTask.totalErrors }} 道错题</p>
-        <router-link :to="`/review/${justSubmittedTask.taskId}`" class="inline-flex items-center gap-1 px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 transition-colors">
-          查看错题本 →
-        </router-link>
+        <p class="font-medium text-green-800 text-sm mb-2">✅ 分析完成 — {{ justSubmittedTask.totalErrors }} 道疑似错题</p>
+        <div class="flex gap-2">
+          <router-link :to="`/confirm/${justSubmittedTask.taskId}`" class="inline-flex items-center gap-1 px-4 py-2 bg-amber-500 text-white rounded-lg text-sm hover:bg-amber-600 transition-colors">
+            📋 确认错题 →
+          </router-link>
+          <router-link :to="`/review/${justSubmittedTask.taskId}`" class="inline-flex items-center gap-1 px-4 py-2 bg-gray-200 text-gray-600 rounded-lg text-sm hover:bg-gray-300 transition-colors">
+            直接查看 →
+          </router-link>
+        </div>
       </div>
       <div v-if="justSubmittedTask.status === 'failed'" class="p-4 bg-red-50 rounded-xl border border-red-100">
         <p class="text-red-700 text-sm">❌ 分析失败，请重试</p>

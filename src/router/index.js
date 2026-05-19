@@ -21,6 +21,7 @@ const routes = [
   { path: '/paper/:sessionId/errors', name: 'PaperErrors', component: () => import('../views/PaperErrors.vue'), meta: { requiresAuth: true } },
   { path: '/knowledge', name: 'KnowledgeMap', component: () => import('../views/KnowledgeMap.vue'), meta: { requiresAuth: true } },
   { path: '/review/:sessionId', name: 'PaperReview', component: () => import('../views/PaperReview.vue'), meta: { requiresAuth: true } },
+  { path: '/confirm/:sessionId', name: 'PaperConfirm', component: () => import('../views/PaperConfirm.vue'), meta: { requiresAuth: true } },
   
   // ===== 认证 =====
   { path: '/login', name: 'Login', component: Login },
