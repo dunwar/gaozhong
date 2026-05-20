@@ -54,7 +54,7 @@ function loadEnv() {
         if (eqIdx === -1) return;
         const key = cleanLine.substring(0, eqIdx).trim();
         const val = cleanLine.substring(eqIdx + 1).trim();
-        if (val && !process.env[key]) process.env[key] = val;
+        if (val) process.env[key] = val;  // Always override (prevent stale env from parent)
       });
   }
 }
@@ -2062,9 +2062,15 @@ app.post('/paper/:sessionId/confirm', authMiddleware, (req, res) => {
 
     if (confirmedQuestions.length > 0) {
       // Fire-and-forget: don't await, don't block the response
-      executeConfirmationAnalysis(req.params.sessionId, req.user.id, confirmedQuestions)
-        .then(result => log('info', 'Phase 6 后台分析完成', result))
-        .catch(err => log('error', 'Phase 6 后台分析失败', { sessionId: req.params.sessionId, error: err.message }));
+      // Wrap in try/catch to handle synchronous errors
+      (async () => {
+        try {
+          const result = await executeConfirmationAnalysis(req.params.sessionId, req.user.id, confirmedQuestions);
+          log('info', 'Phase 6 后台分析完成', result);
+        } catch (err) {
+          log('error', 'Phase 6 后台分析失败', { sessionId: req.params.sessionId, error: err.message });
+        }
+      })();
 
       updatePaperSession(req.params.sessionId, { status: 'analyzing' });
 
