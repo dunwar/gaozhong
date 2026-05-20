@@ -1,23 +1,25 @@
 /**
- * gaozhong.online — Scanner v3.0
+ * gaozhong.online — Scanner v3.1
  * 
- * Architecture:
- *   Phase 1: OCR extraction — hybrid PaddleOCR (bbox detection) + VL (text reading)
- *   Phase 2: OpenCV → detect red pen marks (HSV + contour analysis)
- *   Phase 3: Position matching → determine wrong questions
- *   Phase 4: Human confirmation → user validates in UI
- *   Phase 5: DeepSeek analysis → analyze confirmed wrong questions
+ * Hybrid architecture:
+ *   VL OCR → accurate question structure (text, numbers, options)
+ *   Preprocess v7.2 → deterministic red pen detection (OpenCV HSV)
+ *   Cross-reference by Y-bbox overlap → classify errors
+ * 
+ * This combines VL's excellent text recognition with OpenCV's deterministic
+ * red pen detection, avoiding PaddleOCR's poor English recognition.
  */
 
 import { readFileSync, existsSync, mkdirSync } from 'fs';
-import { execFileSync, spawnSync } from 'child_process';
+import { spawnSync } from 'child_process';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import https from 'https';
+import http from 'http';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-export const SCANNER_VERSION = 'v3.0';
+export const SCANNER_VERSION = 'v3.1';
+const PREPROCESS_URL = process.env.PREPROCESS_URL || 'http://localhost:5002';
 
 // ═══════════════════════════════════════
 // Helpers
@@ -36,177 +38,200 @@ function runPython(script, args = []) {
     maxBuffer: 10 * 1024 * 1024
   });
   if (result.error) throw result.error;
+  const stdout = result.stdout.trim();
+  if (!stdout) throw new Error(`Python ${script} returned empty output`);
   try {
-    return JSON.parse(result.stdout.trim());
+    return JSON.parse(stdout);
   } catch (e) {
-    console.error(`[scanner-v3] Python output parse error for ${script}:`, result.stdout?.slice(0, 500));
+    console.error(`[scanner] Parse error for ${script}:`, stdout.slice(0, 500));
     throw new Error(`Python ${script} returned invalid JSON`);
   }
 }
 
+async function httpPostJson(hostname, port, path, body, timeout = 300_000) {
+  const postData = JSON.stringify(body);
+  return new Promise((resolve, reject) => {
+    const req = http.request({
+      hostname, port, path, method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(postData) },
+      timeout
+    }, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try { resolve(JSON.parse(data)); }
+        catch (e) { reject(new Error(`Invalid JSON: ${data.slice(0, 200)}`)); }
+      });
+    });
+    req.on('error', reject);
+    req.on('timeout', () => { req.destroy(); reject(new Error('timeout')); });
+    req.write(postData);
+    req.end();
+  });
+}
+
 // ═══════════════════════════════════════
-// Phase 1: Extract questions (PaddleOCR detection + VL text reading)
+// Phase 1: VL OCR for question structure
 // ═══════════════════════════════════════
 
-export async function extractQuestions(pagePath, apiKey) {
-  console.log(`[scanner-v3] Phase 1: OCR extraction for ${pagePath}`);
+function extractQuestionsVL(pagePath, apiKey) {
+  console.log(`[scanner] VL OCR: extracting questions from ${pagePath}`);
+  const result = runPython('ocr-page.py', [pagePath, '--api-key', apiKey]);
   
-  // Try PaddleOCR first (faster, free, local)
-  try {
-    const padResult = runPython('ocr-page-paddle.py', [pagePath]);
-    if (padResult.status === 'ok' && padResult.totalQuestions >= 5) {
-      console.log(`[scanner-v3] PaddleOCR extracted ${padResult.totalQuestions} questions (${padResult.totalBlocks} blocks)`);
-      return padResult;
+  if (result.status !== 'ok') {
+    throw new Error(`VL OCR failed: ${result.error}`);
+  }
+  
+  console.log(`[scanner] VL OCR found ${result.totalQuestions} questions`);
+  return result;
+}
+
+// ═══════════════════════════════════════
+// Phase 2: Preprocess v7.2 for red pen detection
+// ═══════════════════════════════════════
+
+async function detectRedRegions(imageBase64) {
+  console.log(`[scanner] Preprocess: detecting red pen regions`);
+  
+  const u = new URL(PREPROCESS_URL);
+  const data = await httpPostJson(u.hostname, parseInt(u.port) || 5002, '/preprocess', {
+    image: imageBase64,
+    options: { deskew: true, red: true, layout: false }  // layout=false: skip PaddleOCR, just red detection + grid regions
+  });
+  
+  if (data.status !== 'ok') {
+    throw new Error(`Preprocess failed: ${data.error}`);
+  }
+  
+  const r = data.result;
+  console.log(`[scanner] Red regions: ${r.region_count || 0}, with red: ${r.regions_with_red || 0}, signal: ${r.red_signal}`);
+  
+  return r;
+}
+
+/**
+ * Compute red overlap ratio for a question bbox against preprocess red regions.
+ */
+function computeRedOverlap(questionBbox, redRegions) {
+  const qx1 = questionBbox.x;
+  const qy1 = questionBbox.y;
+  const qx2 = qx1 + questionBbox.w;
+  const qy2 = qy1 + questionBbox.h;
+  
+  let maxRedRatio = 0;
+  
+  for (const reg of (redRegions || [])) {
+    if (!reg.bbox || reg.bbox.length < 4) continue;
+    const [rx, ry, rw, rh] = reg.bbox;
+    const rx2 = rx + rw;
+    const ry2 = ry + rh;
+    
+    // Intersection
+    const ix1 = Math.max(qx1, rx);
+    const iy1 = Math.max(qy1, ry);
+    const ix2 = Math.min(qx2, rx2);
+    const iy2 = Math.min(qy2, ry2);
+    
+    if (ix1 < ix2 && iy1 < iy2) {
+      // Some overlap exists → use the region's red ratio
+      maxRedRatio = Math.max(maxRedRatio, reg.red_ratio || 0);
     }
-    console.log(`[scanner-v3] PaddleOCR found only ${padResult.totalQuestions} questions, falling back to VL`);
-  } catch (e) {
-    console.log(`[scanner-v3] PaddleOCR failed: ${e.message}, falling back to VL`);
   }
   
-  // Fallback to VL OCR (more accurate but uses API)
-  const vlResult = runPython('ocr-page.py', [pagePath, '--api-key', apiKey]);
-  
-  if (vlResult.status !== 'ok') {
-    throw new Error(`OCR extraction failed: ${vlResult.error}`);
-  }
-  
-  console.log(`[scanner-v3] VL OCR extracted ${vlResult.totalQuestions} questions`);
-  return vlResult;
+  return maxRedRatio;
 }
 
 // ═══════════════════════════════════════
-// Phase 2: Detect red marks via OpenCV
-// ═══════════════════════════════════════
-
-export function detectRedMarks(pagePath, outputDir) {
-  console.log(`[scanner-v3] Phase 2: Red mark detection for ${pagePath}`);
-  
-  const debugDir = join(outputDir, 'debug');
-  mkdirSync(debugDir, { recursive: true });
-  
-  const args = [pagePath, '--debug-dir', debugDir];
-  
-  const result = runPython('detect-red.py', args);
-  
-  if (result.status !== 'ok') {
-    throw new Error(`Red mark detection failed: ${result.error}`);
-  }
-  
-  console.log(`[scanner-v3] Detected ${result.totalMarks} red marks`);
-  return result;
-}
-
-// ═══════════════════════════════════════
-// Phase 3: Match marks to questions
-// ═══════════════════════════════════════
-
-export function matchAndClassify(ocrResult, marksResult, { markingMethod = 'red_pen', margin = 10 } = {}) {
-  console.log(`[scanner-v3] Phase 3: Position matching (method=${markingMethod})`);
-  
-  // Write temp files for Python script
-  const tmpDir = '/tmp/gaozhong-scanner';
-  mkdirSync(tmpDir, { recursive: true });
-  
-  const ocrFile = join(tmpDir, `ocr_${Date.now()}.json`);
-  const marksFile = join(tmpDir, `marks_${Date.now()}.json`);
-  const outFile = join(tmpDir, `match_${Date.now()}.json`);
-  
-  require('fs').writeFileSync(ocrFile, JSON.stringify(ocrResult));
-  require('fs').writeFileSync(marksFile, JSON.stringify(marksResult));
-  
-  const result = runPython('match-errors.py', [
-    '--ocr', ocrFile,
-    '--marks', marksFile,
-    '--method', markingMethod,
-    '--margin', String(margin),
-    '--output', outFile
-  ]);
-  
-  if (result.status !== 'ok') {
-    throw new Error(`Position matching failed: ${result.error}`);
-  }
-  
-  console.log(`[scanner-v3] Matched: ${result.summary.errorQuestions} errors, ${result.summary.correctQuestions} correct`);
-  return result;
-}
-
-// ═══════════════════════════════════════
-// Full pipeline
+// Full pipeline — scan one page
 // ═══════════════════════════════════════
 
 export async function scanPage(pagePath, { apiKey, outputDir, pageIndex = 1, markingMethod = 'red_pen' }) {
-  console.log(`[scanner-v3] === Scanning page ${pageIndex}: ${pagePath} ===`);
+  console.log(`[scanner] === Page ${pageIndex}: ${pagePath} ===`);
   
-  // Phase 1: OCR
-  const ocrResult = await extractQuestions(pagePath, apiKey);
+  // Run VL OCR and red detection in parallel
+  const imageB64 = imgToBase64(pagePath);
   
-  // Phase 2: Red marks
-  const marksResult = detectRedMarks(pagePath, outputDir);
+  const [vlResult, redResult] = await Promise.all([
+    Promise.resolve().then(() => extractQuestionsVL(pagePath, apiKey)),
+    detectRedRegions(imageB64)
+  ]);
   
-  // Phase 3: Match and classify
-  const matchResult = matchAndClassify(ocrResult, marksResult, { markingMethod });
+  const vlQuestions = vlResult.questions || [];
+  const redRegions = redResult.regions || [];
+  
+  console.log(`[scanner] Cross-referencing ${vlQuestions.length} VL questions × ${redRegions.length} red regions`);
+  
+  // Cross-reference: for each VL question, compute red overlap ratio
+  // Use relative threshold: a question has red marks if its red_ratio > 2x the page's baseline
+  const pageRedSignal = redResult.red_signal || 0.001;
+  const RED_MULTIPLIER = 2.5;  // Need 2.5x the page average to count as red marks
+  
+  const questions = vlQuestions.map(vq => {
+    const redRatio = computeRedOverlap(vq.bbox, redRegions);
+    const hasRed = redRatio > pageRedSignal * RED_MULTIPLIER;
+    
+    return {
+      questionNumber: vq.questionNumber,
+      questionType: vq.questionType || 'choice',
+      questionText: vq.questionText || '',
+      options: vq.options || {},
+      bbox: vq.bbox,
+      pageIndex,
+      hasRed,
+      redRatio: Math.round(redRatio * 100000) / 100000,
+      isError: hasRed,
+      errorSource: hasRed ? 'red_overlap' : null
+    };
+  });
+  
+  const errors = questions.filter(q => q.isError);
+  
+  console.log(`[scanner] Result: ${questions.length} questions, ${errors.length} errors (red_signal=${redResult.red_signal})`);
   
   return {
     pageIndex,
-    ocr: ocrResult,
-    marks: marksResult,
-    analysis: matchResult
+    version: SCANNER_VERSION,
+    engine: 'vl-ocr + preprocess-v7.2-red',
+    totalQuestions: questions.length,
+    totalErrors: errors.length,
+    redSignal: redResult.red_signal,
+    questions,
+    errors,
+    correctedImage: redResult.corrected,
+    redHighlightedImage: redResult.red_highlighted,
+    imageSize: vlResult.imageSize || null
   };
 }
 
 /**
- * Scan multiple pages and aggregate results.
- * 
- * @param {string[]} pagePaths - Array of page image paths
- * @param {object} options - { apiKey, outputDir, markingMethod }
- * @returns {object} Aggregated scan results
+ * Scan multiple pages sequentially.
  */
 export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 'red_pen' }) {
-  const results = [];
+  const pageResults = [];
   
-  // Process pages sequentially to avoid API rate limiting
-  for (let i = 0; i < pagePaths.length; i++) {
-    const pageResult = await scanPage(pagePaths[i], {
-      apiKey,
-      outputDir,
-      pageIndex: i + 1,
+  for (const pagePath of pagePaths) {
+    const pageResult = await scanPage(pagePath, {
+      apiKey, outputDir,
+      pageIndex: pageResults.length + 1,
       markingMethod
     });
-    results.push(pageResult);
+    pageResults.push(pageResult);
   }
   
-  // Aggregate
-  const allQuestions = [];
-  const allErrors = [];
-  let totalMarks = 0;
-  
-  for (const page of results) {
-    for (const q of page.analysis.questions) {
-      allQuestions.push({
-        ...q,
-        pageIndex: page.pageIndex
-      });
-      if (q.isError) {
-        allErrors.push({
-          ...q,
-          pageIndex: page.pageIndex
-        });
-      }
-    }
-    totalMarks += page.marks.totalMarks;
-  }
+  const allQuestions = pageResults.flatMap(p => p.questions);
+  const allErrors = pageResults.flatMap(p => p.errors);
   
   return {
     version: SCANNER_VERSION,
-    pages: results.length,
+    engine: 'vl-ocr + preprocess-v7.2-red',
+    pages: pageResults.length,
     totalQuestions: allQuestions.length,
     totalErrors: allErrors.length,
-    totalMarks,
     markingMethod,
     questions: allQuestions,
     errors: allErrors,
-    pageResults: results
+    pageResults
   };
 }
 
-export default { SCANNER_VERSION, extractQuestions, detectRedMarks, matchAndClassify, scanPage, scanPages };
+export default { SCANNER_VERSION, scanPage, scanPages };
