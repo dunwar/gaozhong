@@ -890,7 +890,7 @@ export function updateErrorReviewStatus(errorId, reviewStatus, correctionData = 
     if (correctionData.position) { sets.push('position_data = ?'); vals.push(JSON.stringify(correctionData.position)); }
   }
   vals.push(errorId);
-  db.run(`UPDATE error_problems SET ${sets.join(', ')}, updated_at = ? WHERE id = ?`, [...vals, Date.now(), errorId]);
+  db.run(`UPDATE error_problems SET ${sets.join(', ')}, updated_at = ? WHERE id = ?`, [...vals, Date.now()]);
   saveDBDeferred();
   return getErrorProblem(errorId);
 }

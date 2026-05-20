@@ -1996,7 +1996,8 @@ app.get('/paper/:sessionId/confirm', authMiddleware, (req, res) => {
 });
 
 // POST: 提交确认结果
-app.post('/paper/:sessionId/confirm', authMiddleware, (req, res) => {
+app.post('/paper/:sessionId/confirm', authMiddleware, async (req, res) => {
+  try {
   const session = getPaperSession(req.params.sessionId);
   if (!session) return res.status(404).json({ error: '试卷不存在' });
   if (session.userId !== req.user.id) return res.status(403).json({ error: '无权访问' });
@@ -2010,7 +2011,11 @@ app.post('/paper/:sessionId/confirm', authMiddleware, (req, res) => {
     for (const qnum of confirmed) {
       const target = errorRecords.find(e => e.topic && e.topic.includes(`Q${qnum}`));
       if (target) {
-        updateErrorReviewStatus(target.id, 'confirmed');
+        try {
+          updateErrorReviewStatus(target.id, 'confirmed');
+        } catch(e) {
+          log('error', 'confirm: updateErrorReviewStatus failed', { errorId: target.id, error: e.message, stack: e.stack });
+        }
       }
     }
   }
@@ -2022,7 +2027,11 @@ app.post('/paper/:sessionId/confirm', authMiddleware, (req, res) => {
     for (const qnum of removed) {
       const target = errorRecords.find(e => e.topic && e.topic.includes(`Q${qnum}`));
       if (target) {
-        deleteErrorProblem(target.id);
+        try {
+          deleteErrorProblem(target.id);
+        } catch(e) {
+          log('error', 'confirm: deleteErrorProblem failed', { errorId: target.id, error: e.message, stack: e.stack });
+        }
       }
     }
   }
@@ -2083,6 +2092,10 @@ app.post('/paper/:sessionId/confirm', authMiddleware, (req, res) => {
   }
 
   res.json({ success: true });
+  } catch(e) {
+    log('error', 'confirm endpoint error', { error: e.message, stack: e.stack?.substring(0, 500) });
+    res.status(500).json({ error: '服务器内部错误' });
+  }
 });
 
 app.get('/paper/:sessionId/review', authMiddleware, (req, res) => {
