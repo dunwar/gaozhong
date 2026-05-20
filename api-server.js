@@ -1173,107 +1173,68 @@ async function executePaperTask(task) {
 
     if (allErrors.length === 0) {
       log('info', '未检测到错题', { taskId: id });
-      updatePaperSession(id, { status: 'done', errorCount: 0, totalQuestions: 0 });
+      updatePaperSession(id, { status: 'done', errorCount: 0, totalQuestions: scanResult.totalQuestions });
       paperTasks.get(id).status = 'done';
-      paperTasks.get(id).result = { subject, sessionId: id, totalErrors: 0, pipeline: SCANNER_VERSION + ' | ' + scanner.SCANNER_VERSION };
+      paperTasks.get(id).result = {
+        subject, sessionId: id, totalErrors: 0,
+        totalQuestions: scanResult.totalQuestions,
+        pipeline: scanner.SCANNER_VERSION,
+        stage: 'scan_done'
+      };
       paperTasks.get(id).progress = { stage: 'done', message: '未检测到错题 ✅' };
       return;
     }
 
-    // ===== Phase 5：DeepSeek 纯文本分析 =====
-    paperTasks.get(id).progress = {
-      stage: 'analyze',
-      message: `DeepSeek 分析 ${allErrors.length} 道错题…`,
-      current: 0, total: allErrors.length
-    };
-
+    // ===== Phase 5: 保存错题为待确认状态（不触发 DeepSeek 分析）=====
     let savedCount = 0;
-    for (let j = 0; j < allErrors.length; j++) {
-      const q = allErrors[j];
-      
-      paperTasks.get(id).progress = {
-        stage: 'analyze',
-        message: `DeepSeek 分析 ${j + 1}/${allErrors.length}…`,
-        current: j + 1, total: allErrors.length
-      };
-
-      // Build detailed question info for DeepSeek
-      const questionInfo = {
-        questionNumber: q.questionNumber,
+    for (const q of allErrors) {
+      const errorId = crypto.randomUUID().slice(0, 8);
+      saveErrorProblem({
+        id: errorId, userId: input.userId, subject,
+        topic: `错题 Q${q.questionNumber}`,
         questionText: q.questionText || '',
-        questionType: q.questionType || '',
-        options: q.options || {},
-        studentAnswer: q.studentAnswer || '',
+        questionType: q.questionType || 'unknown',
+        answerOptions: JSON.stringify(q.options || {}),
+        wrongAnswer: q.studentAnswer || '',
         correctAnswer: q.correctAnswer || '',
-        errorType: q.errorType || '未知'
-      };
-
-      try {
-        const analysis = await analyzeSingleError(subject, questionInfo);
-
-        const errorId = crypto.randomUUID().slice(0, 8);
-        saveErrorProblem({
-          id: errorId, userId: input.userId, subject,
-          topic: `错题 Q${q.questionNumber}`,
-          questionText: q.questionText || '',
-          questionType: q.questionType || 'unknown',
-          answerOptions: JSON.stringify(q.options || {}),
-          wrongAnswer: q.studentAnswer || '',
-          correctAnswer: q.correctAnswer || '',
-          errorType: analysis.errorType || q.errorType || '未知',
-          correctSolution: (analysis.errorReason || '') + '\n' + (analysis.knowledgePoint || ''),
-          difficulty: 3,
-          knowledgeExplanation: JSON.stringify(analysis.knowledgeExplanation || {}),
-          gradingEvidence: `红笔标记数: ${q.markCount || 0}, 置信度: ${q.confidence}`,
-          aiRaw: JSON.stringify({ pipeline: scanner.SCANNER_VERSION || SCANNER_VERSION, ...q, analysis }),
-          notes: '',
-          sessionId: id, paperIndex: q.pageIndex || 1, status: 'done',
-          reviewStatus: q.needsReview ? 'pending' : 'confirmed',
-          createdAt: Date.now()
-        });
-        savedCount++;
-        log('info', `错题已保存`, { qid: errorId, questionNumber: q.questionNumber, confidence: q.confidence });
-      } catch (e) {
-        log('warn', `DeepSeek 分析失败 Q${q.questionNumber}`, { error: e.message });
-        const errorId = crypto.randomUUID().slice(0, 8);
-        saveErrorProblem({
-          id: errorId, userId: input.userId, subject,
-          topic: `错题 Q${q.questionNumber}`,
-          questionText: q.questionText || '', questionType: q.questionType || 'unknown',
-          answerOptions: JSON.stringify(q.options || {}),
-          wrongAnswer: q.studentAnswer || '',
-          correctAnswer: q.correctAnswer || '',
-          errorType: q.errorType || '未知',
-          correctSolution: q.teacherIntent || '',
-          difficulty: 3, knowledgeExplanation: '{}',
-          gradingEvidence: `红笔标记数: ${q.markCount || 0}, 置信度: ${q.confidence}`,
-          aiRaw: JSON.stringify({ pipeline: scanner.SCANNER_VERSION || SCANNER_VERSION, ...q }),
-          notes: '', sessionId: id, paperIndex: q.pageIndex || 1, status: 'done',
-          reviewStatus: q.needsReview ? 'pending' : 'confirmed',
-          createdAt: Date.now()
-        });
-        savedCount++;
-      }
+        errorType: '待分析',
+        correctSolution: '',
+        difficulty: 3,
+        knowledgeExplanation: '{}',
+        gradingEvidence: `红笔匹配率: ${q.redRatio}, 页: ${q.pageIndex}`,
+        aiRaw: JSON.stringify({ pipeline: scanner.SCANNER_VERSION, ...q }),
+        notes: '',
+        sessionId: id, paperIndex: q.pageIndex || 1, status: 'done',
+        reviewStatus: 'pending',  // 待用户确认
+        createdAt: Date.now()
+      });
+      savedCount++;
     }
 
-    const reviewCount = allErrors.filter(e => e.needsReview).length;
     updatePaperSession(id, {
-      status: 'done', errorCount: savedCount, totalQuestions: allErrors.length
+      status: 'awaiting_confirmation',
+      errorCount: savedCount,
+      totalQuestions: scanResult.totalQuestions
     });
 
     paperTasks.get(id).status = 'done';
     paperTasks.get(id).result = {
       subject, sessionId: id,
       totalErrors: savedCount,
-      pipeline: scanner.SCANNER_VERSION || SCANNER_VERSION,
-      needsReview: reviewCount
+      totalQuestions: scanResult.totalQuestions,
+      pipeline: scanner.SCANNER_VERSION,
+      stage: 'awaiting_confirmation',  // Phase 6 由用户确认后触发
+      scanTime: scanResult.totalTime
     };
     paperTasks.get(id).progress = {
-      stage: 'done',
-      message: `${savedCount} 道错题已整理${reviewCount > 0 ? `（${reviewCount}道需复核）` : ''} | ${scanner.SCANNER_VERSION || SCANNER_VERSION}`
+      stage: 'awaiting_confirmation',
+      message: `扫描完成: ${scanResult.totalQuestions}题, ${savedCount}道疑似错题 — 请确认后分析`
     };
 
-    log('info', 'v3.2 流水线完成', { taskId: id, subject, errors: savedCount, needsReview: reviewCount, markingMethod });
+    log('info', 'v3.2 扫描完成 (等待确认)', {
+      taskId: id, subject, errors: savedCount,
+      totalQuestions: scanResult.totalQuestions, scanTime: scanResult.totalTime
+    });
 
   } catch (err) {
     log('error', '整卷分析失败', { taskId: id, error: err.message });
@@ -1283,6 +1244,95 @@ async function executePaperTask(task) {
     try { updatePaperSession(id, { status: 'failed' }); } catch (_) {}
   }
 }
+// ========== Phase 6: 用户确认后触发 DeepSeek 分析 ==========
+
+async function executeConfirmationAnalysis(sessionId, userId, confirmedQuestions) {
+  const session = getPaperSession(sessionId);
+  if (!session) throw new Error('试卷会话不存在');
+  
+  const subject = session.subject || '英语';
+  const scanner = await import('./scanner-v3.mjs');
+  
+  log('info', 'Phase 6 开始分析', { sessionId, subject, questionCount: confirmedQuestions.length });
+  
+  let analyzedCount = 0;
+  const questionsPerBatch = 6;
+  
+  for (let batch = 0; batch < Math.ceil(confirmedQuestions.length / questionsPerBatch); batch++) {
+    const batchQs = confirmedQuestions.slice(batch * questionsPerBatch, (batch + 1) * questionsPerBatch);
+    
+    // Parallel analysis within each batch
+    const batchPromises = batchQs.map(async (q) => {
+      try {
+        // Find the existing error record
+        const existingErrors = listErrorProblems({ userId, sessionId, limit: 500 });
+        const target = existingErrors.records?.find(e => 
+          e.topic && e.topic.includes(`Q${q.questionNumber}`)
+        );
+        
+        if (!target) {
+          log('warn', `Phase 6: 找不到错题记录 Q${q.questionNumber}`);
+          return;
+        }
+        
+        const questionInfo = {
+          questionNumber: q.questionNumber,
+          questionText: target.questionText || q.questionText || '',
+          questionType: target.questionType || q.questionType || '',
+          options: target.answerOptions ? JSON.parse(target.answerOptions) : (q.options || {}),
+          studentAnswer: target.wrongAnswer || q.studentAnswer || '',
+          correctAnswer: target.correctAnswer || q.correctAnswer || '',
+          errorType: target.errorType || '未知'
+        };
+        
+        const analysis = await analyzeSingleError(subject, questionInfo);
+        
+        // Update the error record with analysis results (using INSERT OR REPLACE)
+        saveErrorProblem({
+          id: target.id,
+          userId,
+          subject,
+          topic: target.topic || `错题 Q${q.questionNumber}`,
+          questionText: target.questionText || questionInfo.questionText,
+          questionType: target.questionType || questionInfo.questionType,
+          answerOptions: typeof target.answerOptions === 'string' ? target.answerOptions : JSON.stringify(target.answerOptions || questionInfo.options || {}),
+          wrongAnswer: target.wrongAnswer || '',
+          correctAnswer: target.correctAnswer || '',
+          errorType: analysis.errorType || questionInfo.errorType,
+          correctSolution: (analysis.errorReason || '') + '\n' + (analysis.knowledgePoint || ''),
+          difficulty: target.difficulty || 3,
+          knowledgeExplanation: JSON.stringify(analysis.knowledgeExplanation || {}),
+          gradingEvidence: (target.gradingEvidence || '') + ' | DeepSeek 已分析',
+          aiRaw: JSON.stringify({
+            pipeline: scanner.SCANNER_VERSION,
+            ...questionInfo,
+            analysis
+          }),
+          notes: target.notes || '',
+          source: target.source || '',
+          sessionId,
+          paperIndex: target.paperIndex || 1,
+          status: 'done',
+          reviewStatus: 'confirmed',
+          createdAt: target.createdAt || Date.now()
+        });
+        
+        analyzedCount++;
+        log('info', `Phase 6: Q${q.questionNumber} 分析完成`);
+      } catch (e) {
+        log('error', `Phase 6: Q${q.questionNumber} 分析失败`, { error: e.message });
+      }
+    });
+    
+    await Promise.all(batchPromises);
+  }
+  
+  updatePaperSession(sessionId, { status: 'analyzed', analyzedCount });
+  log('info', 'Phase 6 分析完成', { sessionId, subject, analyzedCount });
+  
+  return { sessionId, analyzedCount, subject };
+}
+
 // ========== V2 AI 学习指导执行器 ==========
 
 async function executeGuidanceTask(task) {
@@ -1995,6 +2045,29 @@ app.post('/paper/:sessionId/confirm', authMiddleware, (req, res) => {
     added: added?.length || 0 
   });
   
+  // ===== Phase 6: 异步触发 DeepSeek 分析（不阻塞响应）=====
+  if (confirmed && confirmed.length > 0) {
+    const allConfirmed = [...confirmed, ...(added || [])];
+    const confirmedQuestions = allConfirmed.map(qnum => ({
+      questionNumber: typeof qnum === 'number' ? qnum : parseInt(qnum)
+    }));
+    
+    if (confirmedQuestions.length > 0) {
+      // Fire-and-forget: don't await, don't block the response
+      executeConfirmationAnalysis(req.params.sessionId, req.user.id, confirmedQuestions)
+        .then(result => log('info', 'Phase 6 后台分析完成', result))
+        .catch(err => log('error', 'Phase 6 后台分析失败', { sessionId: req.params.sessionId, error: err.message }));
+      
+      updatePaperSession(req.params.sessionId, { status: 'analyzing' });
+      
+      return res.json({ 
+        success: true, 
+        analyzing: true,
+        message: `已确认 ${confirmedQuestions.length} 道错题，DeepSeek 正在后台分析…`
+      });
+    }
+  }
+  
   res.json({ success: true });
 });
 
@@ -2275,7 +2348,7 @@ const startup = async () => {
     console.log(`📝 作文: POST /analyze | 📄 整卷: POST /paper/analyze | 🧠 指导: POST /paper/guidance`);
     console.log(`💾 结果: GET /result/:taskId | 历史: GET /history | 错题: GET /error/list?view=paper|time|subject`);
     console.log(`⚡ 作文/错题并发: ${MAX_CONCURRENT} | 整卷分析并发: ${PAPER_MAX_CONCURRENT} | 队列上限: ${MAX_QUEUE_DEPTH}`);
-    console.log(`🤖 OCR: ${MODEL_OCR} | 分析: ${MODEL_GRADING} | Prompt: ${PROMPT_VERSION} | Scanner: ${SCANNER_VERSION} (v3.0)`);
+    console.log(`🤖 OCR: ${MODEL_OCR} | 分析: ${MODEL_GRADING} | Prompt: ${PROMPT_VERSION} | Scanner: ${SCANNER_VERSION}`);
   });
 };
 
