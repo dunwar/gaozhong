@@ -28,7 +28,7 @@ import { STUDY_GUIDANCE_PROMPT_V1 } from './prompts/study-guidance-v1.js';
 import { PAPER_SCANNER_VERSION, buildScannerMessages, postFilter, classifyErrors } from './prompts/paper-scanner-v5.js';
 
 // Scanner v3.0
-const SCANNER_VERSION = 'v3.1';
+const SCANNER_VERSION = 'v3.2';
 import { initDB, saveDB, saveRecord, getRecord, getHistory, getStats, createUser, getUserByEmail, getUserById, updateUser, changePassword, listUsers, saveErrorProblem, saveErrorKnowledgeTags, getErrorProblem, listErrorProblems, getErrorStats, getKnowledgeStats, getErrorsByKnowledgePoint, searchKnowledgePoints, createPaperSession, updatePaperSession, getPaperSession, listPaperSessions, listErrorsByPaper, listErrorsByTime, listErrorsBySubject, listErrorsForGuidance, saveReview, updateErrorReviewStatus, deleteErrorProblem, getSessionReviews, resetStalledPaperSessions } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -1113,62 +1113,62 @@ async function executePaperTask(task) {
     updatePaperSession(id, { imagePaths: JSON.stringify(savedPaths) });
     log('info', '图片保存完成', { taskId: id, pages: savedPaths.length });
 
-    // ===== Phase 1-3：v3.0 扫描 =====
+    // ===== Phase 1-3：v3.2 并行扫描 =====
     const scanner = await import('./scanner-v3.mjs');
-    let allErrors = [];
+    
+    paperTasks.get(id).progress = {
+      stage: 'scan',
+      message: `并行扫描 ${totalPages} 页 (VL OCR + 红笔检测)…`,
+      current: 0, total: totalPages
+    };
 
-    for (let i = 0; i < savedPaths.length; i++) {
-      const pageIdx = i + 1;
-      const pagePath = savedPaths[i];
-      
+    let allErrors = [];
+    
+    try {
+      // v3.2: parallel multi-page scan (VL concurrency=4, preprocess concurrency=20)
+      const scanResult = await scanner.scanPages(savedPaths, {
+        apiKey: KIMI_KEY,
+        outputDir: sessionDir,
+        markingMethod
+        // tencentSecret: TENCENT_SECRET ? JSON.parse(TENCENT_SECRET) : undefined  // 备用通道（配置后启用）
+      });
+
+      log('info', 'v3.2 并行扫描完成', {
+        pages: scanResult.pages,
+        questions: scanResult.totalQuestions,
+        errors: scanResult.totalErrors,
+        time: scanResult.totalTime
+      });
+
+      // Adapt v3.2 flat format to legacy per-question format for DeepSeek analysis
+      for (const q of scanResult.errors) {
+        allErrors.push({
+          pageIndex: q.pageIndex,
+          questionNumber: q.questionNumber,
+          questionType: q.questionType || '',
+          questionText: q.questionText || '',
+          options: q.options || {},
+          studentAnswer: '',
+          correctAnswer: '',
+          errorType: '未知',
+          confidence: 'high',
+          needsReview: false,
+          reviewReason: '',
+          matchedMarks: [],
+          markCount: 0,
+          redRatio: q.redRatio
+        });
+      }
+
       paperTasks.get(id).progress = {
         stage: 'scan',
-        message: `AI OCR + 红笔检测 第 ${pageIdx}/${totalPages} 页…`,
-        current: pageIdx, total: totalPages
+        message: `扫描完成: ${scanResult.totalQuestions}题, ${scanResult.totalErrors}道疑似错题 (${scanResult.totalTime}s)`,
+        current: totalPages, total: totalPages
       };
 
-      try {
-        const result = await scanner.scanPage(pagePath, {
-          apiKey: KIMI_KEY,
-          outputDir: sessionDir,
-          pageIndex: pageIdx,
-          markingMethod
-        });
-
-        const errorQs = result.analysis.questions.filter(q => q.isError);
-        log('info', `v3.0 扫描完成 page${pageIdx}`, {
-          questions: result.ocr.totalQuestions,
-          marks: result.marks.totalMarks,
-          errors: errorQs.length
-        });
-
-        for (const q of errorQs) {
-          allErrors.push({
-            pageIndex: pageIdx,
-            questionNumber: q.questionNumber,
-            questionType: q.questionType || '',
-            questionText: q.questionText || '',
-            options: q.options || {},
-            studentAnswer: '',
-            correctAnswer: '',
-            errorType: '未知',
-            confidence: q.confidence || 'medium',
-            needsReview: q.confidence === 'low',
-            reviewReason: q.confidence === 'low' ? '无红笔标记，需人工确认' : '',
-            matchedMarks: q.matchedMarks || [],
-            markCount: q.markCount || 0
-          });
-        }
-
-        paperTasks.get(id).progress = {
-          stage: 'scan',
-          message: `第 ${pageIdx}/${totalPages} 页: ${result.ocr.totalQuestions}题, ${errorQs.length}道疑似错题`,
-          current: pageIdx, total: totalPages
-        };
-
-      } catch (pageErr) {
-        log('warn', `v3.0 扫描页失败 page${pageIdx}`, { error: pageErr.message });
-      }
+    } catch (scanErr) {
+      log('error', '并行扫描失败', { error: scanErr.message });
+      throw scanErr;
     }
 
     if (allErrors.length === 0) {
@@ -1273,7 +1273,7 @@ async function executePaperTask(task) {
       message: `${savedCount} 道错题已整理${reviewCount > 0 ? `（${reviewCount}道需复核）` : ''} | ${scanner.SCANNER_VERSION || SCANNER_VERSION}`
     };
 
-    log('info', 'v3.0 流水线完成', { taskId: id, subject, errors: savedCount, needsReview: reviewCount, markingMethod });
+    log('info', 'v3.2 流水线完成', { taskId: id, subject, errors: savedCount, needsReview: reviewCount, markingMethod });
 
   } catch (err) {
     log('error', '整卷分析失败', { taskId: id, error: err.message });
@@ -1372,7 +1372,7 @@ app.get('/health', (req, res) => {
     version: '2.0-async',
     providers: { ocr: { name: 'Kimi', model: MODEL_OCR }, grading: { name: 'DeepSeek', model: MODEL_GRADING } },
     prompt: { version: PROMPT_VERSION, file: 'prompts/grading-v5.js' },
-    scanner: { version: SCANNER_VERSION, engine: 'v3.1 Preprocess v7.2 PaddleOCR + red pen detection', file: 'scanner-v3.mjs' },
+    scanner: { version: SCANNER_VERSION, engine: 'v3.2 VL OCR + Preprocess v7.2 并行扫描 (Tencent OCR 备用)', file: 'scanner-v3.mjs' },
     queue: { grading: { active: gradingQueue.active, pending: gradingQueue.pending }, error: { active: errorQueue.active, pending: errorQueue.pending }, paper: { active: paperQueue.active, pending: paperQueue.pending, maxConcurrent: PAPER_MAX_CONCURRENT } },
     tasks: { memory: tasks.size, persistent: getStats() },
     uptime: Math.floor(process.uptime())
