@@ -379,8 +379,8 @@ function parseMarkdownResult(content) {
         const deductionMatch = evalText.match(/扣分原因[：:]\s*([^\n]+)/);
         const deductionReason = deductionMatch ? deductionMatch[1].trim() : '';
         const strengths = [];
-        const strengthMatches = evalText.matchAll(/[•·\-\*]\s*(?:\[如为亮点\]\s*)?原文引用[：:]\s*["""]([^""\n]+)["""]\s*——\s*([^\n]+)/g);
-        for (const sm of strengthMatches) strengths.push(`${sm[1]} —— ${sm[2]}`);
+        const strengthMatches = evalText.matchAll(/[•·\-\*]\s*(?:\[如为亮点\]\s*)?原文引用[：:]\s*["""]([^""\n]+)["""]\s*--\s*([^\n]+)/g);
+        for (const sm of strengthMatches) strengths.push(`${sm[1]} -- ${sm[2]}`);
         result.dimensions[dimKey] = { score, full, evaluation: evalText || '暂无评价', deductionReason, strengths: strengths.length > 0 ? strengths : undefined };
       }
     }
@@ -884,7 +884,7 @@ ${errorInfo.options && Object.keys(errorInfo.options).length > 0 ? `选项: ${JS
       temperature: 0.3,
       max_tokens: 1000
     });
-    
+
     const content = (result.choices?.[0]?.message?.content || '').trim();
     try {
       const cleaned = content.replace(/```json|```/g, '').trim();
@@ -900,7 +900,7 @@ ${errorInfo.options && Object.keys(errorInfo.options).length > 0 ? `选项: ${JS
 }
 
 /**
- * 阶段 2：深度分析 — 用 DeepSeek 对错题进行诊断（旧版，保留兼容）
+ * 阶段 2：深度分析 - 用 DeepSeek 对错题进行诊断（旧版，保留兼容）
  * 批量处理：每批 ≤6 道题，多批并行（并发上限 3），避免超时
  */
 async function analyzeErrors(subject, wrongQuestions) {
@@ -1005,17 +1005,17 @@ async function analyzeErrors(subject, wrongQuestions) {
 function validateScanResults(questions) {
   const valid = [];
   const flagged = [];
-  
+
   for (const q of questions) {
     const issues = [];
-    
+
     // 0. 确保 isUnanswered 字段存在
     if (q.isUnanswered === undefined) q.isUnanswered = false;
-    
+
     // 1. 必填字段检查
     if (!q.questionNumber && q.questionNumber !== 0) issues.push('缺少题号');
     if (!q.isCorrect && q.isCorrect !== false) issues.push('缺少对错判断');
-    
+
     // 2. 选择题答案格式检查
     if (q.questionType === '选择题' && q.studentAnswer) {
       const ans = q.studentAnswer.toUpperCase().trim();
@@ -1025,7 +1025,7 @@ function validateScanResults(questions) {
         q.studentAnswer = ans[0];
       }
     }
-    
+
     // 3. consistency check: 如有红笔写的答案≠学生答案 → 必须 isCorrect=false
     if (q.redInkContent && q.studentAnswer && q.correctAnswer) {
       if (q.studentAnswer !== q.correctAnswer && q.isCorrect === true) {
@@ -1033,7 +1033,7 @@ function validateScanResults(questions) {
         q.isCorrect = false;
       }
     }
-    
+
     // 4. 扣分标记检查
     if (q.gradingMark && /-\d/.test(q.gradingMark) && q.isCorrect === true) {
       issues.push(`矛盾：有扣分标记但标记为正确`);
@@ -1048,10 +1048,10 @@ function validateScanResults(questions) {
         q.isCorrect = false;
       }
     }
-    
+
     // 6. 置信度
     if (!q.confidence) q.confidence = q.gradingMark ? 'high' : 'medium';
-    
+
     if (issues.length > 0) {
       q._validationIssues = issues;
       flagged.push(q);
@@ -1059,7 +1059,7 @@ function validateScanResults(questions) {
       valid.push(q);
     }
   }
-  
+
   const unanswered = questions.filter(q => q.isUnanswered).length;
   const wrong = questions.filter(q => !q.isCorrect && !q.isUnanswered).length;
   log('info', '扫描校验完成', { total: questions.length, valid: valid.length, flagged: flagged.length, wrong, unanswered });
@@ -1115,18 +1115,19 @@ async function executePaperTask(task) {
 
     // ===== Phase 1-3：v3.2 并行扫描 =====
     const scanner = await import('./scanner-v3.mjs');
-    
+
     paperTasks.get(id).progress = {
       stage: 'scan',
       message: `并行扫描 ${totalPages} 页 (VL OCR + 红笔检测)…`,
       current: 0, total: totalPages
     };
-
+    
     let allErrors = [];
+    let scanResult = null;  // Declare outside try for later use
     
     try {
       // v3.2: parallel multi-page scan (VL concurrency=4, preprocess concurrency=20)
-      const scanResult = await scanner.scanPages(savedPaths, {
+      scanResult = await scanner.scanPages(savedPaths, {
         apiKey: KIMI_KEY,
         outputDir: sessionDir,
         markingMethod
@@ -1169,6 +1170,11 @@ async function executePaperTask(task) {
     } catch (scanErr) {
       log('error', '并行扫描失败', { error: scanErr.message });
       throw scanErr;
+    }
+
+    // Guard: scanResult must exist
+    if (!scanResult) {
+      throw new Error('扫描未返回结果');
     }
 
     if (allErrors.length === 0) {
@@ -1228,7 +1234,7 @@ async function executePaperTask(task) {
     };
     paperTasks.get(id).progress = {
       stage: 'awaiting_confirmation',
-      message: `扫描完成: ${scanResult.totalQuestions}题, ${savedCount}道疑似错题 — 请确认后分析`
+      message: `扫描完成: ${scanResult.totalQuestions}题, ${savedCount}道疑似错题 - 请确认后分析`
     };
 
     log('info', 'v3.2 扫描完成 (等待确认)', {
@@ -1249,32 +1255,32 @@ async function executePaperTask(task) {
 async function executeConfirmationAnalysis(sessionId, userId, confirmedQuestions) {
   const session = getPaperSession(sessionId);
   if (!session) throw new Error('试卷会话不存在');
-  
+
   const subject = session.subject || '英语';
   const scanner = await import('./scanner-v3.mjs');
-  
+
   log('info', 'Phase 6 开始分析', { sessionId, subject, questionCount: confirmedQuestions.length });
-  
+
   let analyzedCount = 0;
   const questionsPerBatch = 6;
-  
+
   for (let batch = 0; batch < Math.ceil(confirmedQuestions.length / questionsPerBatch); batch++) {
     const batchQs = confirmedQuestions.slice(batch * questionsPerBatch, (batch + 1) * questionsPerBatch);
-    
+
     // Parallel analysis within each batch
     const batchPromises = batchQs.map(async (q) => {
       try {
         // Find the existing error record
         const existingErrors = listErrorProblems({ userId, sessionId, limit: 500 });
-        const target = existingErrors.records?.find(e => 
+        const target = existingErrors.records?.find(e =>
           e.topic && e.topic.includes(`Q${q.questionNumber}`)
         );
-        
+
         if (!target) {
           log('warn', `Phase 6: 找不到错题记录 Q${q.questionNumber}`);
           return;
         }
-        
+
         const questionInfo = {
           questionNumber: q.questionNumber,
           questionText: target.questionText || q.questionText || '',
@@ -1284,9 +1290,9 @@ async function executeConfirmationAnalysis(sessionId, userId, confirmedQuestions
           correctAnswer: target.correctAnswer || q.correctAnswer || '',
           errorType: target.errorType || '未知'
         };
-        
+
         const analysis = await analyzeSingleError(subject, questionInfo);
-        
+
         // Update the error record with analysis results (using INSERT OR REPLACE)
         saveErrorProblem({
           id: target.id,
@@ -1316,20 +1322,20 @@ async function executeConfirmationAnalysis(sessionId, userId, confirmedQuestions
           reviewStatus: 'confirmed',
           createdAt: target.createdAt || Date.now()
         });
-        
+
         analyzedCount++;
         log('info', `Phase 6: Q${q.questionNumber} 分析完成`);
       } catch (e) {
         log('error', `Phase 6: Q${q.questionNumber} 分析失败`, { error: e.message });
       }
     });
-    
+
     await Promise.all(batchPromises);
   }
-  
+
   updatePaperSession(sessionId, { status: 'analyzed', analyzedCount });
   log('info', 'Phase 6 分析完成', { sessionId, subject, analyzedCount });
-  
+
   return { sessionId, analyzedCount, subject };
 }
 
@@ -1564,7 +1570,7 @@ app.get('/admin/users', authMiddleware, adminMiddleware, (req, res) => {
   const page = Math.max(1, parseInt(req.query.page) || 1);
   const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 50));
   const result = listUsers(page, limit);
-  // 脱敏——不返回 passwordHash
+  // 脱敏--不返回 passwordHash
   result.users = result.users.map(u => ({
     id: u.id, email: u.email, nickname: u.nickname, region: u.region,
     role: u.role, grade: u.grade, school: u.school,
@@ -1984,7 +1990,7 @@ app.get('/paper/:sessionId/confirm', authMiddleware, (req, res) => {
   const session = getPaperSession(req.params.sessionId);
   if (!session) return res.status(404).json({ error: '试卷不存在' });
   if (session.userId !== req.user.id) return res.status(403).json({ error: '无权访问' });
-  
+
   const errors = listErrorProblems({ userId: req.user.id, sessionId: req.params.sessionId, limit: 200 });
   res.json({ success: true, questions: errors });
 });
@@ -1994,31 +2000,33 @@ app.post('/paper/:sessionId/confirm', authMiddleware, (req, res) => {
   const session = getPaperSession(req.params.sessionId);
   if (!session) return res.status(404).json({ error: '试卷不存在' });
   if (session.userId !== req.user.id) return res.status(403).json({ error: '无权访问' });
-  
+
   const { confirmed, removed, added } = req.body;
-  
+
   // Update confirmed questions
   if (Array.isArray(confirmed)) {
     const sessionErrors = listErrorProblems({ userId: req.user.id, sessionId: req.params.sessionId, limit: 500 });
+    const errorRecords = sessionErrors?.records || [];
     for (const qnum of confirmed) {
-      const target = sessionErrors.find(e => e.topic && e.topic.includes(`Q${qnum}`));
+      const target = errorRecords.find(e => e.topic && e.topic.includes(`Q${qnum}`));
       if (target) {
         updateErrorReviewStatus(target.id, 'confirmed');
       }
     }
   }
-  
+
   // Remove denied questions
   if (Array.isArray(removed)) {
     const sessionErrors = listErrorProblems({ userId: req.user.id, sessionId: req.params.sessionId, limit: 500 });
+    const errorRecords = sessionErrors?.records || [];
     for (const qnum of removed) {
-      const target = sessionErrors.find(e => e.topic && e.topic.includes(`Q${qnum}`));
+      const target = errorRecords.find(e => e.topic && e.topic.includes(`Q${qnum}`));
       if (target) {
         deleteErrorProblem(target.id);
       }
     }
   }
-  
+
   // Add manually added questions (create minimal error records)
   if (Array.isArray(added)) {
     for (const qnum of added) {
@@ -2037,37 +2045,37 @@ app.post('/paper/:sessionId/confirm', authMiddleware, (req, res) => {
       });
     }
   }
-  
-  log('info', '错题确认完成', { 
-    sessionId: req.params.sessionId, 
-    confirmed: confirmed?.length || 0, 
-    removed: removed?.length || 0, 
-    added: added?.length || 0 
+
+  log('info', '错题确认完成', {
+    sessionId: req.params.sessionId,
+    confirmed: confirmed?.length || 0,
+    removed: removed?.length || 0,
+    added: added?.length || 0
   });
-  
+
   // ===== Phase 6: 异步触发 DeepSeek 分析（不阻塞响应）=====
   if (confirmed && confirmed.length > 0) {
     const allConfirmed = [...confirmed, ...(added || [])];
     const confirmedQuestions = allConfirmed.map(qnum => ({
       questionNumber: typeof qnum === 'number' ? qnum : parseInt(qnum)
     }));
-    
+
     if (confirmedQuestions.length > 0) {
       // Fire-and-forget: don't await, don't block the response
       executeConfirmationAnalysis(req.params.sessionId, req.user.id, confirmedQuestions)
         .then(result => log('info', 'Phase 6 后台分析完成', result))
         .catch(err => log('error', 'Phase 6 后台分析失败', { sessionId: req.params.sessionId, error: err.message }));
-      
+
       updatePaperSession(req.params.sessionId, { status: 'analyzing' });
-      
-      return res.json({ 
-        success: true, 
+
+      return res.json({
+        success: true,
         analyzing: true,
         message: `已确认 ${confirmedQuestions.length} 道错题，DeepSeek 正在后台分析…`
       });
     }
   }
-  
+
   res.json({ success: true });
 });
 
