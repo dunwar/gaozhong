@@ -1,14 +1,16 @@
 /**
- * gaozhong.online — Scanner v3.2
+ * gaozhong.online — Scanner v3.3
+ * 
+ * v3.3 变更: 连通域质心落点匹配，替代页面级阈值
+ *   - 使用 /red-regions (connectedComponentsWithStats) 代替轮廓分析
+ *   - 质心 Point-in-BBox (10% margin) 替代重叠面积比
+ *   - 逐题局部密度替代全局 red_signal × 2.5
  * 
  * Architecture:
- *   Primary:   VL OCR (Kimi k2.6) → question structure + Preprocess v7.2 → red marks
- *   Fallback:  Tencent Cloud OCR → text blocks + rule engine → question structure
- *   All pages scanned in PARALLEL (concurrency-limited)
- *   
- * Performance (10 pages):
- *   Before: ~900s (serial VL)  
- *   After:  ~180s (4-way parallel VL)
+ *   Primary:   VL OCR (Kimi k2.6) → question structure
+ *   Red:       Preprocess v8.0 /red-regions → red centroid map
+ *   Fallback:  Tencent Cloud OCR → text blocks + rule engine
+ *   All pages scanned in PARALLEL
  */
 
 import { readFileSync } from 'fs';
@@ -19,10 +21,10 @@ import http from 'http';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-export const SCANNER_VERSION = 'v3.2';
+export const SCANNER_VERSION = 'v3.3';
 const PREPROCESS_URL = process.env.PREPROCESS_URL || 'http://localhost:5002';
-const VL_CONCURRENCY = 4;  // Max concurrent VL API calls
-const PREPROCESS_CONCURRENCY = 20;  // Preprocess is local, high concurrency OK
+const VL_CONCURRENCY = 4;
+const PREPROCESS_CONCURRENCY = 20;
 
 // ═══════════════════════════════════════
 // Concurrency limiter
@@ -96,62 +98,110 @@ async function httpPostJson(hostname, port, path, body, timeout = 300_000) {
 // OCR Engines
 // ═══════════════════════════════════════
 
-// ── Engine 1: VL OCR (primary) ──
-
 function extractQuestionsVL(pagePath, apiKey) {
   const result = runPython('ocr-page.py', [pagePath, '--api-key', apiKey]);
   if (result.status !== 'ok') throw new Error(`VL OCR failed: ${result.error}`);
   return result;
 }
 
-// ── Engine 2: Preprocess red detection ──
+async function detectRedCentroids(imageBase64) {
+  const u = new URL(PREPROCESS_URL);
+  const data = await httpPostJson(u.hostname, parseInt(u.port) || 5002, '/red-regions', {
+    image: imageBase64,
+    options: { deskew: true, enhance: true }
+  });
+  if (data.status !== 'ok') throw new Error(`Red regions failed: ${data.error}`);
+  return data.result;
+}
 
-async function detectRedRegions(imageBase64) {
+async function detectPreprocess(imageBase64) {
   const u = new URL(PREPROCESS_URL);
   const data = await httpPostJson(u.hostname, parseInt(u.port) || 5002, '/preprocess', {
     image: imageBase64,
-    options: { deskew: true, red: true, layout: false }
+    options: { deskew: true }
   });
   if (data.status !== 'ok') throw new Error(`Preprocess failed: ${data.error}`);
   return data.result;
 }
 
-// ── Engine 3: Tencent Cloud OCR (fallback) ──
-
 async function extractQuestionsTencent(pagePath, tencentSecret) {
-  // Uses Tencent Cloud GeneralBasicOCR or GeneralAccurateOCR
-  // Returns same format as VL OCR: { questions: [{ questionNumber, questionType, questionText, options, bbox }] }
   const result = runPython('ocr-tencent.py', [
     pagePath,
     '--secret-id', tencentSecret.secretId,
     '--secret-key', tencentSecret.secretKey,
     '--region', tencentSecret.region || 'ap-guangzhou',
-    '--high-precision'  // Use high-precision model (99% accuracy)
+    '--high-precision'
   ]);
   if (result.status !== 'ok') throw new Error(`Tencent OCR failed: ${result.error}`);
   return result;
 }
 
 // ═══════════════════════════════════════
-// Red overlap computation
+// v3.3: Centroid-based matching
 // ═══════════════════════════════════════
 
-function computeRedOverlap(questionBbox, redRegions) {
-  const qx1 = questionBbox.x, qy1 = questionBbox.y;
-  const qx2 = qx1 + questionBbox.w, qy2 = qy1 + questionBbox.h;
-  let maxRedRatio = 0;
+/**
+ * Check if a point falls within an expanded bbox.
+ * @param {{x:number,y:number}} centroid 
+ * @param {{x:number,y:number,w:number,h:number}} bbox
+ * @param {number} marginPct - expansion margin (0.1 = 10%)
+ */
+function centroidInBbox(centroid, bbox, marginPct = 0.1) {
+  const mxW = bbox.w * marginPct;
+  const mxH = bbox.h * marginPct;
+  const x1 = bbox.x - mxW;
+  const y1 = bbox.y - mxH;
+  const x2 = bbox.x + bbox.w + mxW;
+  const y2 = bbox.y + bbox.h + mxH;
+  return centroid.x >= x1 && centroid.x <= x2 && centroid.y >= y1 && centroid.y <= y2;
+}
+
+/**
+ * For each question, count centroids inside its expanded bbox and sum red energy.
+ * Returns per-question { centroidCount, redEnergy, matchedRegions[] }
+ */
+function matchCentroidsToQuestions(questions, regions, pageStats) {
+  const MIN_RED_ENERGY = Math.max(pageStats.median * 3, 100);  // floor: 100px
+  const results = [];
   
-  for (const reg of (redRegions || [])) {
-    if (!reg.bbox || reg.bbox.length < 4) continue;
-    const [rx, ry, rw, rh] = reg.bbox;
-    const rx2 = rx + rw, ry2 = ry + rh;
-    const ix1 = Math.max(qx1, rx), iy1 = Math.max(qy1, ry);
-    const ix2 = Math.min(qx2, rx2), iy2 = Math.min(qy2, ry2);
-    if (ix1 < ix2 && iy1 < iy2) {
-      maxRedRatio = Math.max(maxRedRatio, reg.red_ratio || 0);
+  for (const q of questions) {
+    if (!q.bbox || q.bbox.w == null) {
+      results.push({ ...q, centroidCount: 0, redEnergy: 0, matchedRegions: [], isError: false });
+      continue;
     }
+    
+    const matched = [];
+    let redEnergy = 0;
+    
+    for (const reg of (regions || [])) {
+      if (!reg.centroid) continue;
+      if (centroidInBbox(reg.centroid, q.bbox)) {
+        matched.push(reg);
+        redEnergy += reg.area || 0;
+      }
+    }
+    
+    const centroidCount = matched.length;
+    // 判定: ≥2个红笔质心 OR 累积红笔面积超过阈值
+    const isError = centroidCount >= 2 || redEnergy >= MIN_RED_ENERGY;
+    
+    results.push({
+      questionNumber: q.questionNumber,
+      questionType: q.questionType || 'choice',
+      questionText: q.questionText || '',
+      options: q.options || {},
+      bbox: q.bbox,
+      pageIndex: q.pageIndex,
+      hasRed: centroidCount > 0,
+      centroidCount,
+      redEnergy,
+      isError,
+      errorSource: isError ? 'red_centroids' : null,
+      matchedRegions: matched.map(r => ({ cx: r.centroid.x, cy: r.centroid.y, area: r.area }))
+    });
   }
-  return maxRedRatio;
+  
+  return results;
 }
 
 // ═══════════════════════════════════════
@@ -161,85 +211,83 @@ function computeRedOverlap(questionBbox, redRegions) {
 export async function scanPage(pagePath, { apiKey, outputDir, pageIndex = 1, markingMethod = 'red_pen', tencentSecret = null }) {
   const imageB64 = imgToBase64(pagePath);
   
-  // Run OCR and red detection in parallel
-  let ocrResult;
-  try {
-    ocrResult = await extractQuestionsVL(pagePath, apiKey);
-    console.log(`[scanner] Page ${pageIndex}: VL OCR → ${ocrResult.totalQuestions} questions`);
-  } catch (vlErr) {
-    console.log(`[scanner] Page ${pageIndex}: VL OCR failed (${vlErr.message}), trying Tencent OCR...`);
-    if (tencentSecret) {
+  // Run OCR, red centroids, and preprocess images in parallel
+  const [ocrResult, redCentroidResult, ppImageResult] = await Promise.all([
+    (async () => {
       try {
-        ocrResult = await extractQuestionsTencent(pagePath, tencentSecret);
-        console.log(`[scanner] Page ${pageIndex}: Tencent OCR → ${ocrResult.totalQuestions} questions`);
-      } catch (tcErr) {
-        throw new Error(`Both VL and Tencent OCR failed for page ${pageIndex}: ${tcErr.message}`);
+        return { ok: true, data: await extractQuestionsVL(pagePath, apiKey), engine: 'vl' };
+      } catch (vlErr) {
+        console.log(`[scanner] Page ${pageIndex}: VL OCR failed (${vlErr.message}), trying Tencent...`);
+        if (tencentSecret) {
+          try {
+            return { ok: true, data: await extractQuestionsTencent(pagePath, tencentSecret), engine: 'tencent' };
+          } catch (tcErr) {
+            throw new Error(`Both VL and Tencent OCR failed for page ${pageIndex}: ${tcErr.message}`);
+          }
+        }
+        throw vlErr;
       }
-    } else {
-      throw vlErr;  // No fallback available
-    }
-  }
+    })(),
+    detectRedCentroids(imageB64),
+    detectPreprocess(imageB64)
+  ]);
   
-  const redResult = await detectRedRegions(imageB64);
+  if (!ocrResult.ok) throw new Error(`OCR failed for page ${pageIndex}`);
   
-  // Cross-reference
-  const vlQuestions = ocrResult.questions || [];
-  const redRegions = redResult.regions || [];
-  const pageRedSignal = redResult.red_signal || 0.001;
-  const RED_MULTIPLIER = 2.5;
+  const vlQuestions = ocrResult.data.questions || [];
+  const regions = redCentroidResult.regions || [];
+  const pageStats = redCentroidResult.page_stats || { median: 0, mean: 0, p75: 0 };
   
-  const questions = vlQuestions.map(vq => {
-    const redRatio = computeRedOverlap(vq.bbox, redRegions);
-    const hasRed = redRatio > pageRedSignal * RED_MULTIPLIER;
-    return {
-      questionNumber: vq.questionNumber,
-      questionType: vq.questionType || 'choice',
-      questionText: vq.questionText || '',
-      options: vq.options || {},
-      bbox: vq.bbox,
-      pageIndex, hasRed,
-      redRatio: Math.round(redRatio * 100000) / 100000,
-      isError: hasRed,
-      errorSource: hasRed ? 'red_overlap' : null
-    };
-  });
+  console.log(`[scanner] Page ${pageIndex}: ${vlQuestions.length} questions, ${regions.length} red regions (median area=${pageStats.median})`);
+  
+  // Match centroids to questions
+  const questions = matchCentroidsToQuestions(
+    vlQuestions.map(q => ({ ...q, pageIndex })), 
+    regions, 
+    pageStats
+  );
+  
+  const errors = questions.filter(q => q.isError);
   
   return {
     pageIndex,
     version: SCANNER_VERSION,
-    engine: 'vl-ocr + preprocess-v7.2-red',
+    engine: 'vl-ocr + preprocess-v8.0-centroids',
     totalQuestions: questions.length,
-    totalErrors: questions.filter(q => q.isError).length,
-    redSignal: redResult.red_signal,
+    totalErrors: errors.length,
+    redSignal: redCentroidResult.red_signal,
+    pageStats,
+    totalRegions: regions.length,
     questions,
-    errors: questions.filter(q => q.isError),
-    correctedImage: redResult.corrected,
-    redHighlightedImage: redResult.red_highlighted,
-    imageSize: ocrResult.imageSize || null
+    errors,
+    correctedImage: ppImageResult.corrected,
+    redHighlightedImage: ppImageResult.red_highlighted,
+    imageSize: ocrResult.data.imageSize || null
   };
 }
 
 // ═══════════════════════════════════════
-// MULTI-PAGE PARALLEL SCAN (v3.2)
+// MULTI-PAGE PARALLEL SCAN (v3.3)
 // ═══════════════════════════════════════
 
 export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 'red_pen', tencentSecret = null }) {
   const totalStart = Date.now();
-  console.log(`[scanner] Scanning ${pagePaths.length} pages (VL concurrency=${VL_CONCURRENCY}, preprocess concurrency=${PREPROCESS_CONCURRENCY})`);
+  console.log(`[scanner v3.3] Scanning ${pagePaths.length} pages (VL=${VL_CONCURRENCY}, PP=${PREPROCESS_CONCURRENCY})`);
   
-  // Phase 1: Preprocess ALL pages in parallel (local, fast)
-  const ppStart = Date.now();
+  // Preprocess + red centroids (local, fast)
   const ppGate = new ConcurrencyGate(PREPROCESS_CONCURRENCY);
-  
   const preprocessJobs = pagePaths.map((pp, i) => 
     ppGate.run(async () => {
       const b64 = imgToBase64(pp);
-      const result = await detectRedRegions(b64);
-      return { index: i, result };
+      const [centroids, images] = await Promise.all([
+        detectRedCentroids(b64),
+        detectPreprocess(b64)
+      ]);
+      return { index: i, centroids, images };
     })
   );
   
-  // Phase 2: VL OCR all pages in parallel (API-limited)
+  // VL OCR (API-limited)
   const ocrGate = new ConcurrencyGate(VL_CONCURRENCY);
   const ocrJobs = pagePaths.map((pp, i) =>
     ocrGate.run(async () => {
@@ -261,52 +309,42 @@ export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 
     })
   );
   
-  // Wait for ALL results
   const [ppResults, ocrResults] = await Promise.all([
     Promise.all(preprocessJobs),
     Promise.all(ocrJobs)
   ]);
   
-  const ppTime = (Date.now() - ppStart) / 1000;
-  console.log(`[scanner] Preprocess done in ${ppTime.toFixed(1)}s`);
+  const ppTime = ((Date.now() - totalStart) / 1000).toFixed(1);
+  console.log(`[scanner] All prep done in ${ppTime}s`);
   
-  // Phase 3: Cross-reference and assemble
+  // Phase 3: Centroid matching per page
   const pageResults = [];
   for (let i = 0; i < pagePaths.length; i++) {
     const pp = ppResults.find(r => r.index === i);
     const ocr = ocrResults.find(r => r.index === i);
     
     const vlQuestions = ocr.result.questions || [];
-    const redRegions = pp.result.regions || [];
-    const pageRedSignal = pp.result.red_signal || 0.001;
-    const RED_MULTIPLIER = 2.5;
+    const regions = pp.centroids.regions || [];
+    const pageStats = pp.centroids.page_stats || { median: 0 };
     
-    const questions = vlQuestions.map(vq => {
-      const redRatio = computeRedOverlap(vq.bbox, redRegions);
-      const hasRed = redRatio > pageRedSignal * RED_MULTIPLIER;
-      return {
-        questionNumber: vq.questionNumber,
-        questionType: vq.questionType || 'choice',
-        questionText: vq.questionText || '',
-        options: vq.options || {},
-        bbox: vq.bbox,
-        pageIndex: i + 1, hasRed,
-        redRatio: Math.round(redRatio * 100000) / 100000,
-        isError: hasRed,
-        errorSource: hasRed ? 'red_overlap' : null
-      };
-    });
+    const questions = matchCentroidsToQuestions(
+      vlQuestions.map(q => ({ ...q, pageIndex: i + 1 })),
+      regions,
+      pageStats
+    );
     
     pageResults.push({
       pageIndex: i + 1,
       engine: ocr.engine,
       totalQuestions: questions.length,
       totalErrors: questions.filter(q => q.isError).length,
-      redSignal: pp.result.red_signal,
+      redSignal: pp.centroids.red_signal,
+      pageStats,
+      totalRegions: regions.length,
       questions,
       errors: questions.filter(q => q.isError),
-      correctedImage: pp.result.corrected,
-      redHighlightedImage: pp.result.red_highlighted
+      correctedImage: pp.images.corrected,
+      redHighlightedImage: pp.images.red_highlighted
     });
   }
   
@@ -314,11 +352,11 @@ export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 
   const allQuestions = pageResults.flatMap(p => p.questions);
   const allErrors = pageResults.flatMap(p => p.errors);
   
-  console.log(`[scanner] Done: ${pageResults.length} pages, ${allQuestions.length} questions, ${allErrors.length} errors in ${totalTime}s`);
+  console.log(`[scanner v3.3] Done: ${pageResults.length} pages, ${allQuestions.length} Q, ${allErrors.length} errors in ${totalTime}s`);
   
   return {
     version: SCANNER_VERSION,
-    engine: 'vl-ocr + preprocess-v7.2-red (parallel)',
+    engine: 'vl-ocr + preprocess-v8.0-centroids (parallel)',
     pages: pageResults.length,
     totalQuestions: allQuestions.length,
     totalErrors: allErrors.length,
