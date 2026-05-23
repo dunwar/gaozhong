@@ -24,7 +24,7 @@
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
               ✏️ 作文批改
             </router-link>
-            <router-link to="/paper/upload" class="inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-medium px-6 py-3.5 rounded-2xl text-sm sm:text-base transition-all shadow-lg shadow-emerald-600/30 hover:shadow-emerald-500/40">
+            <router-link to="/error-upload" class="inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-medium px-6 py-3.5 rounded-2xl text-sm sm:text-base transition-all shadow-lg shadow-emerald-600/30 hover:shadow-emerald-500/40">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
               📄 错题上传
             </router-link>
@@ -141,7 +141,7 @@
         <h2 class="text-2xl md:text-3xl font-bold text-gray-900 mb-4">准备好整理你的错题了吗？</h2>
         <p class="text-gray-500 mb-8 text-sm md:text-base max-w-xl mx-auto">上传第一张试卷，让 AI 帮你把错题变成进步</p>
         <div class="flex flex-col sm:flex-row gap-4 justify-center">
-          <router-link to="/paper/upload" class="inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-medium px-6 py-3.5 rounded-2xl text-sm sm:text-base transition-all shadow-lg shadow-emerald-600/30">
+          <router-link to="/error-upload" class="inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-medium px-6 py-3.5 rounded-2xl text-sm sm:text-base transition-all shadow-lg shadow-emerald-600/30">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
             📄 上传试卷
           </router-link>
