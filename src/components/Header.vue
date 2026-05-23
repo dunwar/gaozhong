@@ -46,7 +46,7 @@
             </button>
             <div class="absolute top-full left-0 w-full h-2 group-hover:block hidden"></div>
             <div class="absolute top-[calc(100%+0.5rem)] left-0 w-36 bg-white rounded-xl shadow-lg border border-gray-100 py-1.5 z-50 hidden group-hover:block">
-              <router-link to="/error-upload" class="dropdown-link">错题上传</router-link>
+              <router-link to="/paper/upload" class="dropdown-link">错题上传</router-link>
               <router-link to="/error/list" class="dropdown-link">错题本</router-link>
               <router-link to="/knowledge" class="dropdown-link">知识点</router-link>
             </div>
@@ -103,7 +103,7 @@
           <router-link to="/history" class="mobile-link" @click="mobileOpen = false">历史记录</router-link>
 
           <div class="px-4 pt-3 pb-1 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">📔 错题整理</div>
-          <router-link to="/error-upload" class="mobile-link" @click="mobileOpen = false">错题上传</router-link>
+          <router-link to="/paper/upload" class="mobile-link" @click="mobileOpen = false">错题上传</router-link>
           <router-link to="/error/list" class="mobile-link" @click="mobileOpen = false">错题本</router-link>
           <router-link to="/knowledge" class="mobile-link" @click="mobileOpen = false">知识点</router-link>
 
