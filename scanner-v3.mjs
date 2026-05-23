@@ -14,7 +14,7 @@
  */
 
 import { readFileSync } from 'fs';
-import { spawnSync } from 'child_process';
+import { execFile, spawn } from 'child_process';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import http from 'http';
@@ -63,14 +63,43 @@ function imgToBase64(filePath) {
 
 function runPython(script, args = []) {
   const scriptPath = join(__dirname, 'scripts', script);
-  const result = spawnSync('python3', [scriptPath, ...args], {
-    encoding: 'utf-8', timeout: 300_000, maxBuffer: 10 * 1024 * 1024
+  return new Promise((resolve, reject) => {
+    execFile('python3', [scriptPath, ...args], {
+      encoding: 'utf-8', timeout: 300_000, maxBuffer: 10 * 1024 * 1024
+    }, (error, stdout) => {
+      const output = (stdout || '').trim();
+      // Try parsing stdout as JSON even on non-zero exit (python script returns error JSON)
+      if (output) {
+        try {
+          const parsed = JSON.parse(output);
+          // If it's a valid status response, use it regardless of exit code
+          if (parsed.status) return resolve(parsed);
+        } catch (_) { /* fall through to error handling */ }
+      }
+      if (error) {
+        if (error.killed) return reject(new Error(`Python ${script} timed out (5min)`));
+        const detail = output ? `: ${output.slice(0, 200)}` : '';
+        return reject(new Error(`Python ${script} failed${detail}`));
+      }
+      if (!output) return reject(new Error(`Python ${script} returned empty output`));
+    });
   });
-  if (result.error) throw result.error;
-  const stdout = result.stdout.trim();
-  if (!stdout) throw new Error(`Python ${script} returned empty output`);
-  try { return JSON.parse(stdout); }
-  catch (e) { throw new Error(`Python ${script} invalid JSON: ${stdout.slice(0, 200)}`); }
+}
+
+async function httpGetJson(hostname, port, path, timeout = 5000) {
+  return new Promise((resolve, reject) => {
+    const req = http.request({ hostname, port, path, method: 'GET', timeout }, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try { resolve(JSON.parse(data)); }
+        catch (e) { reject(new Error(`Invalid JSON: ${data.slice(0, 200)}`)); }
+      });
+    });
+    req.on('error', reject);
+    req.on('timeout', () => { req.destroy(); reject(new Error('timeout')); });
+    req.end();
+  });
 }
 
 async function httpPostJson(hostname, port, path, body, timeout = 300_000) {
@@ -98,8 +127,25 @@ async function httpPostJson(hostname, port, path, body, timeout = 300_000) {
 // OCR Engines
 // ═══════════════════════════════════════
 
-function extractQuestionsVL(pagePath, apiKey) {
-  const result = runPython('ocr-page.py', [pagePath, '--api-key', apiKey]);
+async function detectPreflight() {
+  const u = new URL(PREPROCESS_URL);
+  const port = parseInt(u.port) || 5002;
+  
+  // Check health, retry up to 5 times with increasing wait
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      const data = await httpGetJson(u.hostname, port, '/health', 8000);
+      if (data.status === 'ok') return true;
+    } catch (_) {}
+    const waitMs = (attempt + 1) * 2000;
+    console.log(`[scanner] Preprocess v8.0 not ready, retry ${attempt + 1}/5 in ${waitMs / 1000}s...`);
+    await new Promise(r => setTimeout(r, waitMs));
+  }
+  throw new Error(`预处理服务 v8.0 不可用 (port ${port})，请稍后重试`);
+}
+
+async function extractQuestionsVL(pagePath, apiKey) {
+  const result = await runPython('ocr-page.py', [pagePath, '--api-key', apiKey]);
   if (result.status !== 'ok') throw new Error(`VL OCR failed: ${result.error}`);
   return result;
 }
@@ -125,7 +171,7 @@ async function detectPreprocess(imageBase64) {
 }
 
 async function extractQuestionsTencent(pagePath, tencentSecret) {
-  const result = runPython('ocr-tencent.py', [
+  const result = await runPython('ocr-tencent.py', [
     pagePath,
     '--secret-id', tencentSecret.secretId,
     '--secret-key', tencentSecret.secretKey,
@@ -273,6 +319,11 @@ export async function scanPage(pagePath, { apiKey, outputDir, pageIndex = 1, mar
 export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 'red_pen', tencentSecret = null }) {
   const totalStart = Date.now();
   console.log(`[scanner v3.3] Scanning ${pagePaths.length} pages (VL=${VL_CONCURRENCY}, PP=${PREPROCESS_CONCURRENCY})`);
+  
+  // Preflight: check preprocess v8.0 is alive, restart if dead
+  try { await detectPreflight(); } catch (e) {
+    throw new Error(`预处理服务不可用 (port 5002): ${e.message}`);
+  }
   
   // Preprocess + red centroids (local, fast)
   const ppGate = new ConcurrencyGate(PREPROCESS_CONCURRENCY);

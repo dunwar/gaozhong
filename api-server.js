@@ -1179,7 +1179,20 @@ async function executePaperTask(task) {
 
     if (allErrors.length === 0) {
       log('info', '未检测到错题', { taskId: id });
-      updatePaperSession(id, { status: 'done', errorCount: 0, totalQuestions: scanResult.totalQuestions });
+      const allQuestionsFlat = [];
+      for (const pr of (scanResult.pageResults || [])) {
+        for (const q of pr.questions) {
+          allQuestionsFlat.push({
+            questionNumber: q.questionNumber,
+            questionText: q.questionText || '',
+            questionType: q.questionType || 'choice',
+            options: q.options || {},
+            pageIndex: pr.pageIndex,
+            isError: q.isError || false
+          });
+        }
+      }
+      updatePaperSession(id, { status: 'done', errorCount: 0, totalQuestions: scanResult.totalQuestions, scanData: JSON.stringify(allQuestionsFlat) });
       paperTasks.get(id).status = 'done';
       paperTasks.get(id).result = {
         subject, sessionId: id, totalErrors: 0,
@@ -1217,10 +1230,27 @@ async function executePaperTask(task) {
       savedCount++;
     }
 
+    // 保存全量题目数据（供复核页面文字版使用）
+    const allQuestionsFlat = [];
+    for (const pr of (scanResult.pageResults || [])) {
+      for (const q of pr.questions) {
+        allQuestionsFlat.push({
+          questionNumber: q.questionNumber,
+          questionText: q.questionText || '',
+          questionType: q.questionType || 'choice',
+          options: q.options || {},
+          pageIndex: pr.pageIndex,
+          isError: q.isError || false,
+          centroidCount: q.centroidCount || 0,
+          redEnergy: q.redEnergy || 0
+        });
+      }
+    }
     updatePaperSession(id, {
       status: 'awaiting_confirmation',
       errorCount: savedCount,
-      totalQuestions: scanResult.totalQuestions
+      totalQuestions: scanResult.totalQuestions,
+      scanData: JSON.stringify(allQuestionsFlat)
     });
 
     paperTasks.get(id).status = 'done';
@@ -2139,14 +2169,24 @@ app.get('/paper/:sessionId/review', authMiddleware, (req, res) => {
     }
   }
 
+  // 解析全量题目数据
+  let allQuestions = [];
+  try {
+    if (session.scanData) {
+      allQuestions = JSON.parse(session.scanData);
+    }
+  } catch (_) {}
+
   res.json({
     success: true,
     session: {
       id: session.id, subject: session.subject, title: session.title,
       imageCount: session.imageCount, totalQuestions: session.totalQuestions,
-      errorCount: session.errorCount, createdAt: session.createdAt
+      errorCount: session.errorCount, createdAt: session.createdAt,
+      status: session.status, scanTime: session.scanTime
     },
     images,
+    allQuestions,
     errors: errors.records || [],
     reviews,
     total: errors.total
@@ -2159,35 +2199,61 @@ app.post('/paper/:sessionId/review', authMiddleware, (req, res) => {
   if (!session) return res.status(404).json({ error: '试卷不存在' });
   if (session.userId !== req.user.id) return res.status(403).json({ error: '无权访问' });
 
-  const { reviews = [], additions = [] } = req.body;
+  const { reviews: legacyReviews = [], additions: legacyAdditions = [], reviewActions } = req.body;
   const results = { confirmed: 0, rejected: 0, corrected: 0, added: 0 };
 
-  for (const r of reviews) {
-    if (!r.errorId) continue;
-    saveReview({
-      errorId: r.errorId,
-      sessionId: req.params.sessionId,
-      userId: req.user.id,
-      reviewAction: r.action,
-      correctionData: r.correction || {},
-      positionData: r.position || '',
-      userNote: r.note || ''
-    });
+  // V5: 新格式 reviewActions（统一处理）
+  const actions = reviewActions || [];
+  for (const r of legacyReviews) {
+    actions.push(r);
+  }
 
-    if (r.action === 'confirmed') {
-      updateErrorReviewStatus(r.errorId, 'confirmed');
+  for (const a of actions) {
+    if (a.action === 'confirmed') {
+      if (a.errorId) {
+        saveReview({ errorId: a.errorId, sessionId: req.params.sessionId, userId: req.user.id, reviewAction: 'confirmed', correctionData: a.questionData || {}, userNote: '' });
+        updateErrorReviewStatus(a.errorId, 'confirmed');
+      }
       results.confirmed++;
-    } else if (r.action === 'rejected') {
-      deleteErrorProblem(r.errorId);
+    } else if (a.action === 'rejected') {
+      if (a.errorId) {
+        saveReview({ errorId: a.errorId, sessionId: req.params.sessionId, userId: req.user.id, reviewAction: 'rejected', correctionData: {}, userNote: '用户标记为误判' });
+        deleteErrorProblem(a.errorId);
+      }
       results.rejected++;
-    } else if (r.action === 'corrected') {
-      updateErrorReviewStatus(r.errorId, 'corrected', r.correction);
+    } else if (a.action === 'corrected') {
+      if (a.errorId) {
+        saveReview({ errorId: a.errorId, sessionId: req.params.sessionId, userId: req.user.id, reviewAction: 'corrected', correctionData: a.correction || {}, userNote: '' });
+        updateErrorReviewStatus(a.errorId, 'corrected', a.correction);
+      }
       results.corrected++;
+    } else if (a.action === 'added') {
+      const qd = a.questionData || {};
+      const errorId = crypto.randomUUID().slice(0, 8);
+      saveErrorProblem({
+        id: errorId, userId: req.user.id, subject: session.subject,
+        topic: qd.questionNumber ? `第${qd.questionNumber}题` : '用户添加',
+        questionText: qd.questionText || '', questionType: qd.questionType || '未知',
+        answerOptions: JSON.stringify(qd.options || {}),
+        wrongAnswer: qd.studentAnswer || '', correctAnswer: qd.correctAnswer || '',
+        errorType: '待分析', correctSolution: '', difficulty: 3,
+        knowledgeExplanation: '{}', gradingEvidence: '用户手动标记',
+        aiRaw: '{}', notes: '用户手动添加遗漏错题',
+        sessionId: req.params.sessionId, paperIndex: qd.pageIndex || 1,
+        status: 'done', reviewStatus: 'user_added',
+        positionData: '{}', createdAt: Date.now()
+      });
+      saveReview({
+        errorId, sessionId: req.params.sessionId, userId: req.user.id,
+        reviewAction: 'added', correctionData: qd,
+        positionData: '{}', userNote: ''
+      });
+      results.added++;
     }
   }
 
-  // 处理用户添加的遗漏错题
-  for (const add of additions) {
+  // 兼容旧格式 additions
+  for (const add of legacyAdditions) {
     const errorId = crypto.randomUUID().slice(0, 8);
     saveErrorProblem({
       id: errorId,
