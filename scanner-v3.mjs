@@ -25,7 +25,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 export const SCANNER_VERSION = 'v3.4';
 const PREPROCESS_URL = process.env.PREPROCESS_URL || 'http://localhost:5002';
 const VL_CONCURRENCY = 4;
-const PREPROCESS_CONCURRENCY = 20;
+const PREPROCESS_CONCURRENCY = 4;
 
 // ═══════════════════════════════════════
 // Concurrency limiter

@@ -205,4 +205,4 @@ def red_regions():
 
 if __name__ == '__main__':
     print("gaozhong.online 预处理 v8.0\n端口:5002", flush=True)
-    app.run(host='0.0.0.0', port=5002, debug=False)
+    app.run(host='0.0.0.0', port=5002, debug=False, threaded=True)
