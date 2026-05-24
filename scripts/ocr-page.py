@@ -185,10 +185,59 @@ def build_image_content(image_paths):
     return content
 
 
+def single_page_extract(image_path):
+    """Single page: use a focused prompt optimized for flat question extraction."""
+    SINGLE_PROMPT = """请帮我仔细阅读这张上海高中英语试卷页面，把每道题的内容准确提取出来。
+
+【核心规则 — 仔细阅读每一条】
+1. 只提取带编号的题目。看到 "1." "21." 这样的数字+标点 = 一道题
+2. 一道题 = 一个题号 + 题干 + 四个选项（如有）。四个选项不是四道题！
+3. 第1题的选项只属于第1题，不要重复到第2题
+4. 听力题如果题干没印在图上，questionText 写 "（听力题）"
+5. Section 标题、Directions 说明文字不是题目，不要提取
+
+【每道题输出】
+{
+  "questionNumber": 1,
+  "questionType": "choice",
+  "questionText": "题目原文，一字不差抄下来",
+  "options": {"A": "...", "B": "...", "C": "...", "D": "..."},
+  "bbox": {"x": 50, "y": 200, "w": 540, "h": 80}
+}
+
+【输出格式】直接输出JSON：
+{"questions":[{"questionNumber":1,"questionType":"choice","questionText":"...","options":{"A":"...","B":"...","C":"...","D":"..."},"bbox":{"x":0,"y":0,"w":0,"h":0}}]}
+
+直接输出JSON："""
+
+    messages = [
+        {"role": "system", "content": "你是一位高中英语老师，正在整理试卷。你仔细阅读图片上的印刷文字，逐题提取。最终输出JSON。"},
+        {"role": "user", "content": [{"type": "text", "text": SINGLE_PROMPT}] + build_image_content([image_path])}
+    ]
+    
+    text = call_kimi(messages, max_tokens=16000, timeout=300)
+    result = extract_json(text)
+    
+    questions = result.get('questions', [])
+    print(f"[ocr-page] Single page: {len(questions)} questions", file=sys.stderr)
+    
+    return {
+        "status": "ok",
+        "totalPages": 1,
+        "totalQuestions": len(questions),
+        "pages": [{"pageNumber": 1, "firstQuestion": questions[0]['questionNumber'] if questions else 0, "lastQuestion": questions[-1]['questionNumber'] if questions else 0, "sections": [], "questions": questions}]
+    }
+
 def multi_round_extract(image_paths):
-    """Multi-round conversation: 2 pages per round, context preserved across rounds."""
+    """Multi-round conversation: 2 pages per round, context preserved across rounds.
+    For single page, uses a simplified direct prompt."""
     n = len(image_paths)
-    BATCH = 2  # pages per round
+    
+    # Single page: use direct prompt for speed
+    if n == 1:
+        return single_page_extract(image_paths[0])
+    
+    BATCH = 2
     num_rounds = (n + BATCH - 1) // BATCH
     
     print(f"[ocr-page] Total {n} pages → {num_rounds} rounds ({BATCH} pages each)", file=sys.stderr)
