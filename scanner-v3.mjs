@@ -1,14 +1,15 @@
 /**
- * gaozhong.online — Scanner v3.3
+ * gaozhong.online — Scanner v3.4
  * 
- * v3.3 变更: 连通域质心落点匹配，替代页面级阈值
- *   - 使用 /red-regions (connectedComponentsWithStats) 代替轮廓分析
- *   - 质心 Point-in-BBox (10% margin) 替代重叠面积比
- *   - 逐题局部密度替代全局 red_signal × 2.5
+ * v3.4 变更: VL 红笔标记分类，替代纯定量判错
+ *   - 新增 classifyRedMarks(): VL 识别 ✗ / ✓ / 字母 / 下划线 / 圈 / 注释
+ *   - 判定规则 (error-identification-logic v3.0): 仅 ✗ 和红笔字母 = 错题
+ *   - 质心检测 → "有红笔" → VL 分类 → "什么类型" → 精准判错
  * 
  * Architecture:
  *   Primary:   VL OCR (Kimi k2.6) → question structure
  *   Red:       Preprocess v8.0 /red-regions → red centroid map
+ *   Classify:  VL (Kimi k2.6) → classify red mark types (✗/✓/letter/etc.)
  *   Fallback:  Tencent Cloud OCR → text blocks + rule engine
  *   All pages scanned in PARALLEL
  */
@@ -21,7 +22,7 @@ import http from 'http';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-export const SCANNER_VERSION = 'v3.3';
+export const SCANNER_VERSION = 'v3.4';
 const PREPROCESS_URL = process.env.PREPROCESS_URL || 'http://localhost:5002';
 const VL_CONCURRENCY = 4;
 const PREPROCESS_CONCURRENCY = 20;
@@ -183,7 +184,148 @@ async function extractQuestionsTencent(pagePath, tencentSecret) {
 }
 
 // ═══════════════════════════════════════
-// v3.3: Centroid-based matching
+// v3.4: VL Red Mark Classification
+// ═══════════════════════════════════════
+
+/**
+ * Send the red-highlighted image (white bg + red marks only) to VL
+ * and ask Kimi to classify each red mark's type.
+ * 
+ * Only marks classified as "cross" or "correct_answer" (letter/word)
+ * are counted as errors per error-identification-logic v3.0.
+ * 
+ * @returns {{ classifiedMarks: [], errorQuestionNumbers: Set<number> }}
+ */
+async function classifyRedMarksVL(redHighlightedPath, questions, apiKey) {
+  if (!redHighlightedPath) {
+    console.log('[scanner] No red-highlighted image, skipping VL classification');
+    return { classifiedMarks: [], errorQuestionNumbers: new Set() };
+  }
+  
+  const imageB64 = imgToBase64(redHighlightedPath);
+  
+  const prompt = `请分析这张红笔标记提取图（白底上只保留红色标记）。
+
+【你的任务】
+找出图中所有的红色标记，逐一判断它们的类型。
+
+【标记类型 — 精准定义】
+
+1. "cross" — ✗ 打叉：两条交叉的斜线（X形状），不是字母X
+2. "check" — ✓ 打勾：一条从左上到右下的短斜线 + 一个小弯钩
+3. "correct_answer" — 红笔写的字母/单词/数字：英文大写字母(A/B/C/D)、英文单词、阿拉伯数字
+4. "underline" — 下划线/波浪线：水平线，位于文字下方
+5. "circle" — 红色圆圈/椭圆：围绕某内容的圈
+6. "annotation" — 红笔手写汉字注释（如"主谓一致""过去式"）
+7. "strikethrough" — 横线/斜线划掉文字
+8. "score_deduction" — 红笔扣分标记（如 "-2", "-0.5"）
+
+【判定规则 — 错题判据】
+只有两种标记代表"做错"：
+- ✗ cross — 教师明确标记做错 → 错题 ✅
+- correct_answer（红笔字母/单词）— 教师标注正确答案，学生原选 ≠ 此字母 → 错题 ✅
+
+其余所有标记（✓ check、underline、circle、annotation、strikethrough）均不代表做错，忽略。
+
+【输出格式】纯JSON：
+{
+  "marks": [
+    {"type": "cross", "content": "", "position": "题号22旁边"},
+    {"type": "correct_answer", "content": "C", "position": "题号23旁边"},
+    {"type": "check", "content": "", "position": "题号21旁边"}
+  ]
+}
+
+直接输出JSON。`;
+
+  const body = JSON.stringify({
+    model: 'kimi-k2.6',
+    messages: [
+      { role: 'system', content: '你精准识别红笔批改标记。只输出JSON。' },
+      { role: 'user', content: [
+        { type: 'text', text: prompt },
+        { type: 'image_url', image_url: { url: imageB64, detail: 'high' } }
+      ]}
+    ],
+    temperature: 0.05,
+    max_tokens: 4000
+  });
+  
+  console.log('[scanner] Classifying red marks via VL...');
+  
+  return new Promise((resolve, reject) => {
+    const url = new URL('https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions');
+    const req = http.request({
+      hostname: url.hostname,
+      path: url.pathname,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Length': Buffer.byteLength(body)
+      },
+      timeout: 120_000
+    }, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try {
+          const result = JSON.parse(data);
+          const content = result.choices?.[0]?.message?.content || '';
+          
+          // Extract JSON from response
+          let marks = [];
+          const cleaned = content.trim()
+            .replace(/^```(?:json)?\s*/i, '')
+            .replace(/\s*```$/g, '');
+          
+          try {
+            marks = JSON.parse(cleaned).marks || [];
+          } catch {
+            // Try regex extraction
+            const match = cleaned.match(/\{[\s\S]*\}/);
+            if (match) {
+              try { marks = JSON.parse(match[0]).marks || []; } catch {}
+            }
+          }
+          
+          const errorTypes = new Set(['cross', 'correct_answer']);
+          const classifiedMarks = marks.map(m => ({
+            ...m,
+            isError: errorTypes.has(m.type)
+          }));
+          
+          const totalMarks = classifiedMarks.length;
+          const errorMarks = classifiedMarks.filter(m => m.isError).length;
+          const nonErrorMarks = totalMarks - errorMarks;
+          
+          console.log(`[scanner] VL classified ${totalMarks} marks: ${errorMarks} errors (✗/letters), ${nonErrorMarks} non-errors (✓/underline/circle/annotation)`);
+          
+          resolve({ classifiedMarks, errorQuestionNumbers: new Set() /* filled by caller */ });
+        } catch (e) {
+          // If VL classification fails, fall back to centroid-based judgment with warning
+          console.log(`[scanner] VL mark classification failed: ${e.message}. Falling back to centroid-based judgment.`);
+          resolve({ classifiedMarks: [], errorQuestionNumbers: new Set(), fallback: true });
+        }
+      });
+    });
+    
+    req.on('error', (e) => {
+      console.log(`[scanner] VL classification request failed: ${e.message}, using centroid fallback`);
+      resolve({ classifiedMarks: [], errorQuestionNumbers: new Set(), fallback: true });
+    });
+    req.on('timeout', () => {
+      req.destroy();
+      console.log('[scanner] VL classification timed out, using centroid fallback');
+      resolve({ classifiedMarks: [], errorQuestionNumbers: new Set(), fallback: true });
+    });
+    req.write(body);
+    req.end();
+  });
+}
+
+// ═══════════════════════════════════════
+// v3.4: Updated centroid matching with VL classification
 // ═══════════════════════════════════════
 
 /**
@@ -203,16 +345,19 @@ function centroidInBbox(centroid, bbox, marginPct = 0.1) {
 }
 
 /**
- * For each question, count centroids inside its expanded bbox and sum red energy.
- * Returns per-question { centroidCount, redEnergy, matchedRegions[] }
+ * For each question, count centroids and apply VL classification results.
+ * Per error-identification-logic v3.0:
+ *   - isError = VL classified as "cross" OR "correct_answer" (letter/word)
+ *   - ✓, underline, circle, annotation are NOT errors
+ * Falls back to centroid-count threshold if VL classification unavailable.
  */
-function matchCentroidsToQuestions(questions, regions, pageStats) {
-  const MIN_RED_ENERGY = Math.max(pageStats.median * 3, 100);  // floor: 100px
+function matchCentroidsToQuestions(questions, regions, pageStats, vlClassifiedMarks = null) {
+  const MIN_RED_ENERGY = Math.max(pageStats.median * 3, 100);
   const results = [];
   
   for (const q of questions) {
     if (!q.bbox || q.bbox.w == null) {
-      results.push({ ...q, centroidCount: 0, redEnergy: 0, matchedRegions: [], isError: false });
+      results.push({ ...q, centroidCount: 0, redEnergy: 0, matchedRegions: [], isError: false, errorSource: null });
       continue;
     }
     
@@ -228,8 +373,40 @@ function matchCentroidsToQuestions(questions, regions, pageStats) {
     }
     
     const centroidCount = matched.length;
-    // 判定: ≥2个红笔质心 OR 累积红笔面积超过阈值
-    const isError = centroidCount >= 2 || redEnergy >= MIN_RED_ENERGY;
+    
+    // v3.4: Use VL classification when available, fall back to centroid threshold
+    let isError = false;
+    let errorSource = null;
+    let markTypes = [];
+    
+    if (vlClassifiedMarks && vlClassifiedMarks.length > 0) {
+      // Look for VL-classified marks that match this question
+      const qMarks = vlClassifiedMarks.filter(m => {
+        // Match by position description heuristics OR by centroid proximity
+        if (m.position) {
+          const pos = m.position.toLowerCase();
+          const qn = String(q.questionNumber);
+          if (pos.includes(qn) || pos.includes(`题号${qn}`) || pos.includes(`第${qn}题`)) {
+            return true;
+          }
+        }
+        return false;
+      });
+      
+      if (qMarks.length > 0) {
+        markTypes = qMarks.map(m => m.type);
+        isError = qMarks.some(m => m.isError);
+        errorSource = isError ? 'vl_classified' : 'vl_classified_non_error';
+      } else if (centroidCount > 0) {
+        // Has red ink but VL didn't match to this question → use conservative centroid threshold
+        isError = centroidCount >= 3 || redEnergy >= MIN_RED_ENERGY * 2;
+        errorSource = isError ? 'centroid_fallback' : null;
+      }
+    } else {
+      // No VL classification available → fall back to centroid threshold
+      isError = centroidCount >= 2 || redEnergy >= MIN_RED_ENERGY;
+      errorSource = isError ? 'red_centroids' : null;
+    }
     
     results.push({
       questionNumber: q.questionNumber,
@@ -242,7 +419,8 @@ function matchCentroidsToQuestions(questions, regions, pageStats) {
       centroidCount,
       redEnergy,
       isError,
-      errorSource: isError ? 'red_centroids' : null,
+      errorSource,
+      markTypes,
       matchedRegions: matched.map(r => ({ cx: r.centroid.x, cy: r.centroid.y, area: r.area }))
     });
   }
@@ -283,14 +461,29 @@ export async function scanPage(pagePath, { apiKey, outputDir, pageIndex = 1, mar
   const vlQuestions = ocrResult.data.questions || [];
   const regions = redCentroidResult.regions || [];
   const pageStats = redCentroidResult.page_stats || { median: 0, mean: 0, p75: 0 };
+  const redHighlightedPath = ppImageResult.red_highlighted;
   
   console.log(`[scanner] Page ${pageIndex}: ${vlQuestions.length} questions, ${regions.length} red regions (median area=${pageStats.median})`);
   
-  // Match centroids to questions
+  // v3.4: VL classify red marks on this page
+  let vlMarks = [];
+  let classificationFallback = false;
+  if (redHighlightedPath && regions.length > 0) {
+    try {
+      const classifyResult = await classifyRedMarksVL(redHighlightedPath, vlQuestions, apiKey);
+      vlMarks = classifyResult.classifiedMarks || [];
+      classificationFallback = classifyResult.fallback || false;
+    } catch (e) {
+      console.log(`[scanner] Page ${pageIndex}: VL classification error (${e.message}), using centroid fallback`);
+    }
+  }
+  
+  // Match centroids to questions, now with VL classification
   const questions = matchCentroidsToQuestions(
     vlQuestions.map(q => ({ ...q, pageIndex })), 
     regions, 
-    pageStats
+    pageStats,
+    vlMarks
   );
   
   const errors = questions.filter(q => q.isError);
@@ -298,16 +491,18 @@ export async function scanPage(pagePath, { apiKey, outputDir, pageIndex = 1, mar
   return {
     pageIndex,
     version: SCANNER_VERSION,
-    engine: 'vl-ocr + preprocess-v8.0-centroids',
+    engine: 'vl-ocr + preprocess-v8.0-centroids + vl-mark-classify',
     totalQuestions: questions.length,
     totalErrors: errors.length,
     redSignal: redCentroidResult.red_signal,
     pageStats,
     totalRegions: regions.length,
+    vlMarkCount: vlMarks.length,
+    classificationFallback,
     questions,
     errors,
     correctedImage: ppImageResult.corrected,
-    redHighlightedImage: ppImageResult.red_highlighted,
+    redHighlightedImage: redHighlightedPath,
     imageSize: ocrResult.data.imageSize || null
   };
 }
@@ -368,7 +563,10 @@ export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 
   const ppTime = ((Date.now() - totalStart) / 1000).toFixed(1);
   console.log(`[scanner] All prep done in ${ppTime}s`);
   
-  // Phase 3: Centroid matching per page
+  // Phase 3: VL classify red marks + centroid matching per page
+  const VL_CLASSIFY_CONCURRENCY = 2; // Limit concurrent VL classify calls
+  const classifyGate = new ConcurrencyGate(VL_CLASSIFY_CONCURRENCY);
+  
   const pageResults = [];
   for (let i = 0; i < pagePaths.length; i++) {
     const pp = ppResults.find(r => r.index === i);
@@ -377,11 +575,29 @@ export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 
     const vlQuestions = ocr.result.questions || [];
     const regions = pp.centroids.regions || [];
     const pageStats = pp.centroids.page_stats || { median: 0 };
+    const redHighlightedPath = pp.images.red_highlighted;
+    
+    // v3.4: VL classify red marks for this page
+    let vlMarks = [];
+    let classificationFallback = false;
+    if (redHighlightedPath && regions.length > 0) {
+      try {
+        const classifyResult = await classifyGate.run(() => 
+          classifyRedMarksVL(redHighlightedPath, vlQuestions, apiKey)
+        );
+        vlMarks = classifyResult.classifiedMarks || [];
+        classificationFallback = classifyResult.fallback || false;
+      } catch (e) {
+        console.log(`[scanner] Page ${i + 1}: VL classification error (${e.message}), using centroid fallback`);
+        classificationFallback = true;
+      }
+    }
     
     const questions = matchCentroidsToQuestions(
       vlQuestions.map(q => ({ ...q, pageIndex: i + 1 })),
       regions,
-      pageStats
+      pageStats,
+      vlMarks
     );
     
     pageResults.push({
@@ -392,10 +608,12 @@ export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 
       redSignal: pp.centroids.red_signal,
       pageStats,
       totalRegions: regions.length,
+      vlMarkCount: vlMarks.length,
+      classificationFallback,
       questions,
       errors: questions.filter(q => q.isError),
       correctedImage: pp.images.corrected,
-      redHighlightedImage: pp.images.red_highlighted
+      redHighlightedImage: redHighlightedPath
     });
   }
   
@@ -407,7 +625,7 @@ export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 
   
   return {
     version: SCANNER_VERSION,
-    engine: 'vl-ocr + preprocess-v8.0-centroids (parallel)',
+    engine: 'vl-ocr + preprocess-v8.0-centroids + vl-mark-classify (parallel)',
     pages: pageResults.length,
     totalQuestions: allQuestions.length,
     totalErrors: allErrors.length,
