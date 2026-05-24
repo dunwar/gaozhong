@@ -355,6 +355,10 @@ function matchCentroidsToQuestions(questions, regions, pageStats, vlClassifiedMa
   const MIN_RED_ENERGY = Math.max(pageStats.median * 3, 100);
   const results = [];
   
+  // Track which region indices have been assigned to prevent one red mark
+  // from counting against two adjacent questions
+  const assignedRegions = new Set();
+  
   for (const q of questions) {
     if (!q.bbox || q.bbox.w == null) {
       results.push({ ...q, centroidCount: 0, redEnergy: 0, matchedRegions: [], isError: false, errorSource: null });
@@ -364,10 +368,16 @@ function matchCentroidsToQuestions(questions, regions, pageStats, vlClassifiedMa
     const matched = [];
     let redEnergy = 0;
     
-    for (const reg of (regions || [])) {
+    for (let ri = 0; ri < (regions || []).length; ri++) {
+      if (assignedRegions.has(ri)) continue; // Already belongs to another question
+      const reg = regions[ri];
       if (!reg.centroid) continue;
-      if (centroidInBbox(reg.centroid, q.bbox)) {
+      
+      // Stricter match: centroid must be within bbox with NO margin expansion
+      // This prevents boundary-adjacent marks from counting for both neighbor questions
+      if (centroidInBbox(reg.centroid, q.bbox, 0)) {
         matched.push(reg);
+        assignedRegions.add(ri);
         redEnergy += reg.area || 0;
       }
     }
