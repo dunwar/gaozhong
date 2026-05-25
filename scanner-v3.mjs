@@ -154,40 +154,6 @@ async function extractQuestionsVL(pagePath, apiKey) {
   return result;
 }
 
-/**
- * Multi-page VL OCR: sends ALL pages to Kimi in a multi-round conversation.
- * Falls back to per-page extraction on failure.
- */
-async function extractQuestionsVLMulti(pagePaths, apiKey) {
-  if (pagePaths.length <= 1) {
-    return extractQuestionsVL(pagePaths[0], apiKey);
-  }
-  
-  console.log(`[scanner] Multi-round VL OCR: ${pagePaths.length} pages`);
-  try {
-    const args = [...pagePaths, '--api-key', apiKey];
-    const result = await runPython('ocr-page.py', args);
-    if (result.status !== 'ok') throw new Error(`Multi-round OCR failed: ${result.error}`);
-    
-    // result.pages[] contains per-page question lists
-    const pages = result.pages || [];
-    const totalQuestions = pages.flatMap(p => p.questions || []);
-    console.log(`[scanner] Multi-round done: ${pages.length} pages, ${totalQuestions.length} total questions`);
-    
-    return {
-      status: 'ok',
-      imageSize: null,
-      questions: totalQuestions,
-      // Also return per-page breakdown
-      pages: pages
-    };
-  } catch (err) {
-    console.log(`[scanner] Multi-round failed (${err.message}), falling back to per-page extraction`);
-    // Return a combined result from individual pages
-    return null; // caller handles fallback
-  }
-}
-
 async function detectRedCentroids(imageBase64) {
   const u = new URL(PREPROCESS_URL);
   const data = await httpPostJson(u.hostname, parseInt(u.port) || 5002, '/red-regions', {
