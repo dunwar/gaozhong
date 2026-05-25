@@ -66,7 +66,7 @@ function runPython(script, args = []) {
   const scriptPath = join(__dirname, 'scripts', script);
   return new Promise((resolve, reject) => {
     execFile('python3', [scriptPath, ...args], {
-      encoding: 'utf-8', timeout: 300_000, maxBuffer: 10 * 1024 * 1024
+      encoding: 'utf-8', timeout: 600_000, maxBuffer: 10 * 1024 * 1024
     }, (error, stdout) => {
       const output = (stdout || '').trim();
       // Try parsing stdout as JSON even on non-zero exit (python script returns error JSON)
@@ -557,10 +557,12 @@ export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 
             const result = await extractQuestionsTencent(pp, tencentSecret);
             return { index: i, result, engine: 'tencent' };
           } catch (tcErr) {
-            throw new Error(`Page ${i + 1}: both OCR engines failed`);
+            console.log(`[scanner] Page ${i + 1}: Tencent also failed (${tcErr.message}), page skipped`);
+            return { index: i, result: { questions: [], imageSize: null }, engine: 'failed', skipped: true };
           }
         }
-        throw vlErr;
+        console.log(`[scanner] Page ${i + 1}: skipped (no Tencent fallback)`);
+        return { index: i, result: { questions: [], imageSize: null }, engine: 'failed', skipped: true };
       }
     })
   );

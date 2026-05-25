@@ -126,11 +126,11 @@ def call_kimi(messages, max_tokens=32000, timeout=300):
 
 
 def extract_json(text):
-    """Extract JSON from response with fallbacks."""
+    """Extract JSON from response with fallbacks. Handles truncated JSON."""
     cleaned = str(text).strip()
     import re
     
-    # Try to find JSON inside ``` fences first (model often wraps in markdown)
+    # Try to find JSON inside ``` fences first
     fence_match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', cleaned)
     if fence_match:
         try:
@@ -155,16 +155,24 @@ def extract_json(text):
     # Find first '{' and try to extract complete JSON object
     brace_start = cleaned.find('{')
     if brace_start >= 0:
-        # Try from first brace
         candidate = cleaned[brace_start:]
         
-        # Try parsing with increasing amounts (handle truncation)
-        for end_offset in range(len(candidate), 0, -1):
+        # Try parsing with decreasing lengths (handle truncation)
+        for end_offset in range(len(candidate), max(brace_start, len(candidate) - 2000), -1):
             try:
                 return json.loads(candidate[:end_offset])
             except json.JSONDecodeError as e:
-                if 'Expecting' not in str(e) and 'Unterminated' not in str(e):
-                    break  # Not a truncation issue
+                if 'Unterminated string' in str(e) or 'Expecting value' in str(e):
+                    continue
+                break  # Not a truncation issue
+                
+        # Last resort: try to close the truncated JSON by adding closing brackets
+        truncated = candidate[:len(candidate) - 100]  # Remove the clearly broken part
+        # Try adding closing brackets
+        for suffix in [']}]', '}]', ']', '}']:
+            try:
+                return json.loads(truncated + suffix)
+            except:
                 continue
     
     raise RuntimeError(f"Failed to extract JSON from: {cleaned[:500]}")
@@ -215,7 +223,7 @@ def single_page_extract(image_path):
         {"role": "user", "content": [{"type": "text", "text": SINGLE_PROMPT}] + build_image_content([image_path])}
     ]
     
-    text = call_kimi(messages, max_tokens=16000, timeout=300)
+    text = call_kimi(messages, max_tokens=32000, timeout=300)
     result = extract_json(text)
     
     questions = result.get('questions', [])
