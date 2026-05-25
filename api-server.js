@@ -27,6 +27,32 @@ import { renderPaperAnalysisPrompt } from './prompts/paper-analysis-v4.js';
 import { STUDY_GUIDANCE_PROMPT_V1 } from './prompts/study-guidance-v1.js';
 import { PAPER_SCANNER_VERSION, buildScannerMessages, postFilter, classifyErrors } from './prompts/paper-scanner-v5.js';
 
+// ═══════════════════════════════════════
+// 全局错误处理 — 防止静默崩溃
+// ═══════════════════════════════════════
+process.on('uncaughtException', (err) => {
+  console.error(`[FATAL] uncaughtException: ${err.message}`);
+  console.error(err.stack);
+  if (err.code === 'EADDRINUSE' || err.code === 'EACCES') {
+    process.exit(1);
+  }
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error(`[FATAL] unhandledRejection: ${reason}`);
+  if (reason?.stack) console.error(reason.stack);
+});
+
+process.on('SIGTERM', () => {
+  console.log('[SHUTDOWN] SIGTERM received, closing gracefully...');
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  console.log('[SHUTDOWN] SIGINT received');
+  process.exit(0);
+});
+
 // Scanner v3.0
 const SCANNER_VERSION = 'v3.4';
 import { initDB, saveDB, saveRecord, getRecord, getHistory, getStats, createUser, getUserByEmail, getUserById, updateUser, changePassword, listUsers, saveErrorProblem, saveErrorKnowledgeTags, getErrorProblem, listErrorProblems, getErrorStats, getKnowledgeStats, getErrorsByKnowledgePoint, searchKnowledgePoints, createPaperSession, updatePaperSession, getPaperSession, listPaperSessions, listErrorsByPaper, listErrorsByTime, listErrorsBySubject, listErrorsForGuidance, saveReview, updateErrorReviewStatus, deleteErrorProblem, getSessionReviews, resetStalledPaperSessions } from './db.js';
