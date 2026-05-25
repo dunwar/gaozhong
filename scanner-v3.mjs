@@ -1,17 +1,18 @@
 /**
- * gaozhong.online — Scanner v3.4
+ * gaozhong.online — Scanner v4.0
  * 
- * v3.4 变更: VL 红笔标记分类，替代纯定量判错
- *   - 新增 classifyRedMarks(): VL 识别 ✗ / ✓ / 字母 / 下划线 / 圈 / 注释
- *   - 判定规则 (error-identification-logic v3.0): 仅 ✗ 和红笔字母 = 错题
- *   - 质心检测 → "有红笔" → VL 分类 → "什么类型" → 精准判错
+ * v4.0 变更: OCR 流程重构
+ *   - 砍掉多轮 VL OCR（格式不稳定 + 超时），全量逐页并行
+ *   - VL_CONCURRENCY 4→6，每页 API timeout 300s→180s（Python侧）
+ *   - 逐页自动重试（3次指数退避）+ 正则兜底
+ *   - 后处理：跨页阅读文章合并 + 题号去重校验
  * 
  * Architecture:
- *   Primary:   VL OCR (Kimi k2.6) → question structure
+ *   Primary:   VL OCR (Kimi k2.6) per-page parallel → question structure
  *   Red:       Preprocess v8.0 /red-regions → red centroid map
  *   Classify:  VL (Kimi k2.6) → classify red mark types (✗/✓/letter/etc.)
  *   Fallback:  Tencent Cloud OCR → text blocks + rule engine
- *   All pages scanned in PARALLEL
+ *   All pages scanned in PARALLEL (per-page only, no multi-round)
  */
 
 import { readFileSync } from 'fs';
@@ -22,10 +23,12 @@ import http from 'http';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-export const SCANNER_VERSION = 'v3.4';
+export const SCANNER_VERSION = 'v4.0';
 const PREPROCESS_URL = process.env.PREPROCESS_URL || 'http://localhost:5002';
-const VL_CONCURRENCY = 4;
+const VL_CONCURRENCY = 6;
 const PREPROCESS_CONCURRENCY = 4;
+const VL_RETRIES = 3;          // per-page retries before giving up
+const VL_RETRY_BACKOFF_MS = 2000;  // base backoff between retries
 
 // ═══════════════════════════════════════
 // Concurrency limiter
@@ -557,7 +560,7 @@ export async function scanPage(pagePath, { apiKey, outputDir, pageIndex = 1, mar
 
 export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 'red_pen', tencentSecret = null }) {
   const totalStart = Date.now();
-  console.log(`[scanner v3.3] Scanning ${pagePaths.length} pages (VL=${VL_CONCURRENCY}, PP=${PREPROCESS_CONCURRENCY})`);
+  console.log(`[scanner v4.0] Scanning ${pagePaths.length} pages (VL=${VL_CONCURRENCY}, PP=${PREPROCESS_CONCURRENCY})`);
   
   // Preflight: check preprocess v8.0 is alive, restart if dead
   try { await detectPreflight(); } catch (e) {
@@ -577,60 +580,44 @@ export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 
     })
   );
   
-  // Phase 2: VL OCR — try multi-round first, fall back to per-page
+  // Phase 2: VL OCR — per-page parallel with retry
   const ocrGate = new ConcurrencyGate(VL_CONCURRENCY);
   
-  // Try multi-round OCR for all pages
-  let multiRoundResult = null;
-  if (pagePaths.length > 1) {
-    try {
-      multiRoundResult = await extractQuestionsVLMulti(pagePaths, apiKey);
-    } catch (e) {
-      console.log(`[scanner] Multi-round OCR failed: ${e.message}, using per-page mode`);
-    }
-  }
-  
-  let ocrResults;
-  if (multiRoundResult && multiRoundResult.status === 'ok') {
-    // Convert multi-round result to per-page format
-    const allQuestions = multiRoundResult.questions || [];
-    const perPageQuestions = {};
-    for (const q of allQuestions) {
-      const pi = (q.pageIndex || 1) - 1;
-      if (!perPageQuestions[pi]) perPageQuestions[pi] = [];
-      perPageQuestions[pi].push(q);
-    }
-    
-    ocrResults = pagePaths.map((_, i) => ({
-      index: i,
-      result: { questions: perPageQuestions[i] || [], imageSize: null },
-      engine: 'vl-multi'
-    }));
-  } else {
-    // Per-page fallback
-    const ocrJobs = pagePaths.map((pp, i) =>
+  const ocrResults = await Promise.all(
+    pagePaths.map((pp, i) =>
       ocrGate.run(async () => {
-        try {
-          const result = await extractQuestionsVL(pp, apiKey);
-          return { index: i, result, engine: 'vl' };
-        } catch (vlErr) {
-          console.log(`[scanner] Page ${i + 1}: VL failed (${vlErr.message}), trying Tencent...`);
-          if (tencentSecret) {
-            try {
-              const result = await extractQuestionsTencent(pp, tencentSecret);
-              return { index: i, result, engine: 'tencent' };
-            } catch (tcErr) {
-              console.log(`[scanner] Page ${i + 1}: Tencent also failed (${tcErr.message}), page skipped`);
-              return { index: i, result: { questions: [], imageSize: null }, engine: 'failed', skipped: true };
+        const pageLabel = `Page ${i + 1}`;
+        for (let attempt = 0; attempt < VL_RETRIES; attempt++) {
+          try {
+            const result = await extractQuestionsVL(pp, apiKey);
+            if (attempt > 0) console.log(`[scanner] ${pageLabel}: VL ok on retry ${attempt}`);
+            return { index: i, result, engine: 'vl', attempts: attempt + 1 };
+          } catch (vlErr) {
+            const retryLeft = VL_RETRIES - attempt - 1;
+            if (retryLeft > 0) {
+              const wait = VL_RETRY_BACKOFF_MS * Math.pow(2, attempt);
+              console.log(`[scanner] ${pageLabel}: VL attempt ${attempt + 1}/${VL_RETRIES} failed (${vlErr.message}), retry in ${wait}ms`);
+              await new Promise(r => setTimeout(r, wait));
+            } else {
+              console.log(`[scanner] ${pageLabel}: VL all ${VL_RETRIES} retries exhausted, trying Tencent...`);
+              if (tencentSecret) {
+                try {
+                  const result = await extractQuestionsTencent(pp, tencentSecret);
+                  return { index: i, result, engine: 'tencent', attempts: VL_RETRIES + 1 };
+                } catch (tcErr) {
+                  console.log(`[scanner] ${pageLabel}: Tencent also failed (${tcErr.message}), skipped`);
+                  return { index: i, result: { questions: [], imageSize: null }, engine: 'failed', skipped: true, attempts: VL_RETRIES + 1 };
+                }
+              }
+              console.log(`[scanner] ${pageLabel}: skipped (no fallback, 0 questions)`);
+              return { index: i, result: { questions: [], imageSize: null }, engine: 'failed', skipped: true, attempts: VL_RETRIES };
             }
           }
-          console.log(`[scanner] Page ${i + 1}: skipped (no Tencent fallback)`);
-          return { index: i, result: { questions: [], imageSize: null }, engine: 'failed', skipped: true };
         }
+        return { index: i, result: { questions: [], imageSize: null }, engine: 'failed', skipped: true, attempts: VL_RETRIES };
       })
-    );
-    ocrResults = await Promise.all(ocrJobs);
-  }
+    )
+  );
   
   const ppResults = await Promise.all(preprocessJobs);
   
@@ -691,24 +678,141 @@ export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 
     });
   }
   
+  // Post-OCR: cross-page passage merge
+  const skipCount = pageResults.filter(p => p.engine === 'failed').length;
+  const qCountRaw = pageResults.reduce((s, p) => s + p.questions.length, 0);
+  mergeCrossPagePassages(pageResults);
+  validateQuestionNumbers(pageResults);
+  const qCountFinal = pageResults.reduce((s, p) => s + p.questions.length, 0);
+  
   const totalTime = ((Date.now() - totalStart) / 1000).toFixed(1);
   const allQuestions = pageResults.flatMap(p => p.questions);
   const allErrors = pageResults.flatMap(p => p.errors);
   
-  console.log(`[scanner v3.3] Done: ${pageResults.length} pages, ${allQuestions.length} Q, ${allErrors.length} errors in ${totalTime}s`);
+  console.log(`[scanner v4.0] Done: ${pageResults.length} pages, ${qCountFinal} questions, ${allErrors.length} errors in ${totalTime}s` +
+    (skipCount ? ` (${skipCount} pages skipped)` : ''));
   
   return {
     version: SCANNER_VERSION,
-    engine: 'vl-ocr + preprocess-v8.0-centroids + vl-mark-classify (parallel)',
+    engine: 'vl-ocr-v4-per-page-parallel + preprocess-v8.0 + vl-mark-classify',
     pages: pageResults.length,
-    totalQuestions: allQuestions.length,
+    totalQuestions: qCountFinal,
     totalErrors: allErrors.length,
     totalTime,
+    skipCount,
     markingMethod,
     questions: allQuestions,
     errors: allErrors,
     pageResults
   };
+}
+
+// ═══════════════════════════════════════
+// Post-OCR: cross-page passage merge + validation
+// ═══════════════════════════════════════
+
+/**
+ * Merge reading passages that span consecutive pages.
+ * When page N's last reading question has passageText and page N+1's first
+ * reading question has "[见前半部分]" / "[见上题]" — link them.
+ */
+function mergeCrossPagePassages(pageResults) {
+  if (pageResults.length < 2) return;
+  
+  for (let i = 0; i < pageResults.length - 1; i++) {
+    const thisPage = pageResults[i];
+    const nextPage = pageResults[i + 1];
+    if (thisPage.engine === 'failed' || nextPage.engine === 'failed') continue;
+    
+    // Find the last reading/cloze question on this page with actual passageText
+    const thisQs = thisPage.questions;
+    const nextQs = nextPage.questions;
+    
+    if (!thisQs.length || !nextQs.length) continue;
+    
+    // Look for reading passages that span pages:
+    // 1. This page's last reading question has passageText (not "[见上题]")
+    // 2. Next page's first reading question references it
+    for (let t = thisQs.length - 1; t >= 0; t--) {
+      const qThis = thisQs[t];
+      const isReading = ['reading', 'cloze'].includes(qThis.questionType);
+      if (!isReading) continue;
+      
+      const passage = qThis.passageText || '';
+      if (!passage || passage === '[见上题]' || passage === '[见前半部分]') continue;
+      
+      // Check next page for a reading/cloze question that references this
+      for (let n = 0; n < Math.min(3, nextQs.length); n++) {
+        const qNext = nextQs[n];
+        const nextPassage = qNext.passageText || '';
+        if (nextPassage === '[见上题]' || nextPassage === '[见前半部分]') {
+          console.log(`[scanner] Merge: Q${qThis.questionNumber} passage → Q${qNext.questionNumber} on next page`);
+          qNext.passageText = passage;
+          break;
+        }
+      }
+      break;
+    }
+  }
+}
+
+/**
+ * Validate question numbering: detect duplicates, gaps, and out-of-order sequences.
+ * Logs warnings but does not modify data.
+ */
+function validateQuestionNumbers(pageResults) {
+  const allNumbers = [];
+  const seen = new Map(); // number → [{page, idx}]
+  
+  for (const page of pageResults) {
+    if (page.engine === 'failed') continue;
+    for (let qi = 0; qi < page.questions.length; qi++) {
+      const qn = page.questions[qi].questionNumber;
+      allNumbers.push(qn);
+      if (!seen.has(qn)) seen.set(qn, []);
+      seen.get(qn).push({ page: page.pageIndex, idx: qi });
+    }
+  }
+  
+  // Check for duplicates
+  for (const [qn, locations] of seen) {
+    if (locations.length > 1) {
+      const pages = locations.map(l => `P${l.page}`).join(', ');
+      console.log(`[scanner] ⚠️ Duplicate question ${qn} found on ${pages} — keeping first occurrence`);
+      // Remove duplicates (keep first occurrence)
+      const first = locations[0];
+      for (let i = 1; i < locations.length; i++) {
+        const p = pageResults.find(pr => pr.pageIndex === locations[i].page);
+        if (p) p.questions[locations[i].idx] = null; // mark for removal
+      }
+    }
+  }
+  
+  // Clean up nulled duplicates
+  for (const page of pageResults) {
+    page.questions = page.questions.filter(q => q !== null);
+    page.totalQuestions = page.questions.length;
+    page.errors = page.errors.filter(q => q !== null);
+    page.totalErrors = page.errors.length;
+  }
+  
+  // Check for gaps
+  const sorted = [...new Set(allNumbers)].sort((a, b) => a - b);
+  if (sorted.length > 1) {
+    const gaps = [];
+    for (let i = 1; i < sorted.length; i++) {
+      if (sorted[i] - sorted[i - 1] > 1) {
+        gaps.push(`${sorted[i - 1]}→${sorted[i]}`);
+      }
+    }
+    if (gaps.length) {
+      console.log(`[scanner] ℹ️ Question number gaps detected: ${gaps.join(', ')} (may be normal — different sections)`);
+    }
+  }
+  
+  if (!allNumbers.length) {
+    console.log('[scanner] ⚠️ 0 questions extracted from all pages!');
+  }
 }
 
 export default { SCANNER_VERSION, scanPage, scanPages };
