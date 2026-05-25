@@ -66,7 +66,7 @@ function runPython(script, args = []) {
   const scriptPath = join(__dirname, 'scripts', script);
   return new Promise((resolve, reject) => {
     execFile('python3', [scriptPath, ...args], {
-      encoding: 'utf-8', timeout: 600_000, maxBuffer: 10 * 1024 * 1024
+      encoding: 'utf-8', timeout: 900_000, maxBuffer: 20 * 1024 * 1024
     }, (error, stdout) => {
       const output = (stdout || '').trim();
       // Try parsing stdout as JSON even on non-zero exit (python script returns error JSON)
@@ -149,6 +149,40 @@ async function extractQuestionsVL(pagePath, apiKey) {
   const result = await runPython('ocr-page.py', [pagePath, '--api-key', apiKey]);
   if (result.status !== 'ok') throw new Error(`VL OCR failed: ${result.error}`);
   return result;
+}
+
+/**
+ * Multi-page VL OCR: sends ALL pages to Kimi in a multi-round conversation.
+ * Falls back to per-page extraction on failure.
+ */
+async function extractQuestionsVLMulti(pagePaths, apiKey) {
+  if (pagePaths.length <= 1) {
+    return extractQuestionsVL(pagePaths[0], apiKey);
+  }
+  
+  console.log(`[scanner] Multi-round VL OCR: ${pagePaths.length} pages`);
+  try {
+    const args = [...pagePaths, '--api-key', apiKey];
+    const result = await runPython('ocr-page.py', args);
+    if (result.status !== 'ok') throw new Error(`Multi-round OCR failed: ${result.error}`);
+    
+    // result.pages[] contains per-page question lists
+    const pages = result.pages || [];
+    const totalQuestions = pages.flatMap(p => p.questions || []);
+    console.log(`[scanner] Multi-round done: ${pages.length} pages, ${totalQuestions.length} total questions`);
+    
+    return {
+      status: 'ok',
+      imageSize: null,
+      questions: totalQuestions,
+      // Also return per-page breakdown
+      pages: pages
+    };
+  } catch (err) {
+    console.log(`[scanner] Multi-round failed (${err.message}), falling back to per-page extraction`);
+    // Return a combined result from individual pages
+    return null; // caller handles fallback
+  }
 }
 
 async function detectRedCentroids(imageBase64) {
@@ -543,34 +577,62 @@ export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 
     })
   );
   
-  // VL OCR (API-limited)
+  // Phase 2: VL OCR — try multi-round first, fall back to per-page
   const ocrGate = new ConcurrencyGate(VL_CONCURRENCY);
-  const ocrJobs = pagePaths.map((pp, i) =>
-    ocrGate.run(async () => {
-      try {
-        const result = await extractQuestionsVL(pp, apiKey);
-        return { index: i, result, engine: 'vl' };
-      } catch (vlErr) {
-        console.log(`[scanner] Page ${i + 1}: VL failed (${vlErr.message}), trying Tencent...`);
-        if (tencentSecret) {
-          try {
-            const result = await extractQuestionsTencent(pp, tencentSecret);
-            return { index: i, result, engine: 'tencent' };
-          } catch (tcErr) {
-            console.log(`[scanner] Page ${i + 1}: Tencent also failed (${tcErr.message}), page skipped`);
-            return { index: i, result: { questions: [], imageSize: null }, engine: 'failed', skipped: true };
-          }
-        }
-        console.log(`[scanner] Page ${i + 1}: skipped (no Tencent fallback)`);
-        return { index: i, result: { questions: [], imageSize: null }, engine: 'failed', skipped: true };
-      }
-    })
-  );
   
-  const [ppResults, ocrResults] = await Promise.all([
-    Promise.all(preprocessJobs),
-    Promise.all(ocrJobs)
-  ]);
+  // Try multi-round OCR for all pages
+  let multiRoundResult = null;
+  if (pagePaths.length > 1) {
+    try {
+      multiRoundResult = await extractQuestionsVLMulti(pagePaths, apiKey);
+    } catch (e) {
+      console.log(`[scanner] Multi-round OCR failed: ${e.message}, using per-page mode`);
+    }
+  }
+  
+  let ocrResults;
+  if (multiRoundResult && multiRoundResult.status === 'ok') {
+    // Convert multi-round result to per-page format
+    const allQuestions = multiRoundResult.questions || [];
+    const perPageQuestions = {};
+    for (const q of allQuestions) {
+      const pi = (q.pageIndex || 1) - 1;
+      if (!perPageQuestions[pi]) perPageQuestions[pi] = [];
+      perPageQuestions[pi].push(q);
+    }
+    
+    ocrResults = pagePaths.map((_, i) => ({
+      index: i,
+      result: { questions: perPageQuestions[i] || [], imageSize: null },
+      engine: 'vl-multi'
+    }));
+  } else {
+    // Per-page fallback
+    const ocrJobs = pagePaths.map((pp, i) =>
+      ocrGate.run(async () => {
+        try {
+          const result = await extractQuestionsVL(pp, apiKey);
+          return { index: i, result, engine: 'vl' };
+        } catch (vlErr) {
+          console.log(`[scanner] Page ${i + 1}: VL failed (${vlErr.message}), trying Tencent...`);
+          if (tencentSecret) {
+            try {
+              const result = await extractQuestionsTencent(pp, tencentSecret);
+              return { index: i, result, engine: 'tencent' };
+            } catch (tcErr) {
+              console.log(`[scanner] Page ${i + 1}: Tencent also failed (${tcErr.message}), page skipped`);
+              return { index: i, result: { questions: [], imageSize: null }, engine: 'failed', skipped: true };
+            }
+          }
+          console.log(`[scanner] Page ${i + 1}: skipped (no Tencent fallback)`);
+          return { index: i, result: { questions: [], imageSize: null }, engine: 'failed', skipped: true };
+        }
+      })
+    );
+    ocrResults = await Promise.all(ocrJobs);
+  }
+  
+  const ppResults = await Promise.all(preprocessJobs);
   
   const ppTime = ((Date.now() - totalStart) / 1000).toFixed(1);
   console.log(`[scanner] All prep done in ${ppTime}s`);
