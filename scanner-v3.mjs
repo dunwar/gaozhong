@@ -30,6 +30,12 @@ const PREPROCESS_CONCURRENCY = 4;
 const VL_RETRIES = 3;          // per-page retries before giving up
 const VL_RETRY_BACKOFF_MS = 2000;  // base backoff between retries
 
+// 智谱 VL 配置
+const ZHIPU_KEY = process.env.ZHIPU_API_KEY || '';
+const ZHIPU_BASE_URL = process.env.ZHIPU_BASE_URL || 'https://open.bigmodel.cn/api/coding/paas/v4';
+const MODEL_ZHIPU_VL = process.env.MODEL_ZHIPU_VL || 'glm-4.6v-flash';
+const USE_ZHIPU_VL = !!ZHIPU_KEY;  // 有 key 就启用智谱通道
+
 // ═══════════════════════════════════════
 // Concurrency limiter
 // ═══════════════════════════════════════
@@ -131,6 +137,48 @@ async function httpPostJson(hostname, port, path, body, timeout = 300_000) {
 // OCR Engines
 // ═══════════════════════════════════════
 
+/**
+ * 调用智谱 VL 模型（图片+文字多模态）
+ */
+async function zhipuVLRequest({ messages, model, max_tokens = 4096, temperature = 0.05 }) {
+  const useModel = model || MODEL_ZHIPU_VL;
+  const body = JSON.stringify({ model: useModel, messages, max_tokens, temperature });
+  const url = new URL(ZHIPU_BASE_URL + '/chat/completions');
+
+  return new Promise((resolve, reject) => {
+    const req = http.request({
+      hostname: url.hostname,
+      path: url.pathname,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${ZHIPU_KEY}`,
+        'Content-Length': Buffer.byteLength(body)
+      },
+      timeout: 180_000
+    }, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try {
+          const result = JSON.parse(data);
+          if (result.error) {
+            reject(new Error(`Zhipu API error: ${result.error.message || JSON.stringify(result.error)}`));
+            return;
+          }
+          resolve(result);
+        } catch (e) {
+          reject(new Error(`Zhipu parse error: ${data.slice(0, 300)}`));
+        }
+      });
+    });
+    req.on('error', reject);
+    req.on('timeout', () => { req.destroy(); reject(new Error('Zhipu VL timeout')); });
+    req.write(body);
+    req.end();
+  });
+}
+
 async function detectPreflight() {
   const u = new URL(PREPROCESS_URL);
   const port = parseInt(u.port) || 5002;
@@ -149,6 +197,60 @@ async function detectPreflight() {
 }
 
 async function extractQuestionsVL(pagePath, apiKey) {
+  // v4.1: 尝试智谱 VL OCR（如果配置了 key），fallback 到 Python Kimi
+  if (USE_ZHIPU_VL) {
+    try {
+      console.log('[scanner] Trying Zhipu VL OCR...');
+      const imageB64 = imgToBase64(pagePath);
+      const result = await zhipuVLRequest({
+        messages: [
+          { role: 'system', content: '你是一位高中老师。你仔细看试卷图片，逐题提取题目结构。最终只输出JSON，不加任何解释。' },
+          { role: 'user', content: [
+            { type: 'text', text: `请识别这张试卷页面上的所有题目，逐题提取信息。
+
+【核心规则】
+1. 看到题号（如 1. 21. 等）= 一道题
+2. 一道题 = 题号 + 题干 + 选项（如有）
+3. 听力题题干空白时 questionText 填 "(听力题)"
+4. Section 标题、Directions、页眉页脚忽略
+5. 阅读文章：第一道阅读题 passageText 抄全文，后续填 "[见上题]"
+
+【输出JSON格式】
+{"questions":[
+  {"questionNumber":1,"questionType":"choice","questionText":"题干","options":{"A":"选项A","B":"选项B","C":"选项C","D":"选项D"},"passageText":"","bbox":{"x":50,"y":200,"w":540,"h":80}}
+]}
+
+只输出JSON，不要markdown代码块。` },
+            { type: 'image_url', image_url: { url: imageB64, detail: 'high' } }
+          ]}
+        ],
+        max_tokens: 16000,
+        temperature: 0.05
+      });
+      
+      const content = result.choices?.[0]?.message?.content || '';
+      // Parse JSON
+      const cleaned = content.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/g, '');
+      let parsed;
+      try {
+        parsed = JSON.parse(cleaned);
+      } catch {
+        const match = cleaned.match(/\{[\s\S]*\}/);
+        if (match) parsed = JSON.parse(match[0]);
+        else throw new Error('Failed to parse Zhipu VL response');
+      }
+      
+      const questions = parsed.questions || [];
+      if (questions.length === 0) throw new Error('Zhipu VL returned 0 questions');
+      
+      console.log(`[scanner] Zhipu VL OCR: ${questions.length} questions`);
+      return { status: 'ok', totalQuestions: questions.length, questions, engine: 'zhipu-vl' };
+    } catch (e) {
+      console.log(`[scanner] Zhipu VL OCR failed (${e.message}), falling back to Kimi...`);
+    }
+  }
+  
+  // Fallback: Kimi k2.6 via Python
   const result = await runPython('ocr-page.py', [pagePath, '--api-key', apiKey]);
   if (result.status !== 'ok') throw new Error(`VL OCR failed: ${result.error}`);
   return result;
@@ -192,10 +294,9 @@ async function extractQuestionsTencent(pagePath, tencentSecret) {
 
 /**
  * Send the red-highlighted image (white bg + red marks only) to VL
- * and ask Kimi to classify each red mark's type.
+ * to classify each red mark's type.
  * 
- * Only marks classified as "cross" or "correct_answer" (letter/word)
- * are counted as errors per error-identification-logic v3.0.
+ * v4.1: 支持 Zhipu VL（优先）和 Kimi VL（fallback）
  * 
  * @returns {{ classifiedMarks: [], errorQuestionNumbers: Set<number> }}
  */
@@ -241,20 +342,69 @@ async function classifyRedMarksVL(redHighlightedPath, questions, apiKey) {
 
 直接输出JSON。`;
 
+  const userContent = [
+    { type: 'text', text: prompt },
+    { type: 'image_url', image_url: { url: imageB64, detail: 'high' } }
+  ];
+
+  // Helper to parse VL response
+  function parseClassifyResponse(content) {
+    let marks = [];
+    const cleaned = content.trim()
+      .replace(/^```(?:json)?\s*/i, '')
+      .replace(/\s*```$/g, '');
+    
+    try {
+      marks = JSON.parse(cleaned).marks || [];
+    } catch {
+      const match = cleaned.match(/\{[\s\S]*\}/);
+      if (match) {
+        try { marks = JSON.parse(match[0]).marks || []; } catch {}
+      }
+    }
+    
+    const errorTypes = new Set(['cross', 'correct_answer']);
+    return marks.map(m => ({
+      ...m,
+      isError: errorTypes.has(m.type)
+    }));
+  }
+
+  // 尝试智谱 VL（优先）
+  if (USE_ZHIPU_VL) {
+    console.log('[scanner] Classifying red marks via Zhipu VL...');
+    try {
+      const result = await zhipuVLRequest({
+        messages: [
+          { role: 'system', content: '你精准识别红笔批改标记。只输出JSON。' },
+          { role: 'user', content: userContent }
+        ],
+        model: MODEL_ZHIPU_VL,
+        max_tokens: 4096,
+        temperature: 0.05
+      });
+      
+      const content = result.choices?.[0]?.message?.content || '';
+      const classifiedMarks = parseClassifyResponse(content);
+      const errorMarks = classifiedMarks.filter(m => m.isError).length;
+      console.log(`[scanner] Zhipu VL classified ${classifiedMarks.length} marks: ${errorMarks} errors`);
+      return { classifiedMarks, errorQuestionNumbers: new Set() };
+    } catch (e) {
+      console.log(`[scanner] Zhipu VL failed (${e.message}), falling back to Kimi...`);
+    }
+  }
+
+  // Fallback: Kimi k2.6 (DashScope)
+  console.log('[scanner] Classifying red marks via Kimi VL...');
   const body = JSON.stringify({
     model: 'kimi-k2.6',
     messages: [
       { role: 'system', content: '你精准识别红笔批改标记。只输出JSON。' },
-      { role: 'user', content: [
-        { type: 'text', text: prompt },
-        { type: 'image_url', image_url: { url: imageB64, detail: 'high' } }
-      ]}
+      { role: 'user', content: userContent }
     ],
     temperature: 0.05,
     max_tokens: 4000
   });
-  
-  console.log('[scanner] Classifying red marks via VL...');
   
   return new Promise((resolve, reject) => {
     const url = new URL('https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions');
@@ -275,38 +425,16 @@ async function classifyRedMarksVL(redHighlightedPath, questions, apiKey) {
         try {
           const result = JSON.parse(data);
           const content = result.choices?.[0]?.message?.content || '';
-          
-          // Extract JSON from response
-          let marks = [];
-          const cleaned = content.trim()
-            .replace(/^```(?:json)?\s*/i, '')
-            .replace(/\s*```$/g, '');
-          
-          try {
-            marks = JSON.parse(cleaned).marks || [];
-          } catch {
-            // Try regex extraction
-            const match = cleaned.match(/\{[\s\S]*\}/);
-            if (match) {
-              try { marks = JSON.parse(match[0]).marks || []; } catch {}
-            }
-          }
-          
-          const errorTypes = new Set(['cross', 'correct_answer']);
-          const classifiedMarks = marks.map(m => ({
-            ...m,
-            isError: errorTypes.has(m.type)
-          }));
+          const classifiedMarks = parseClassifyResponse(content);
           
           const totalMarks = classifiedMarks.length;
           const errorMarks = classifiedMarks.filter(m => m.isError).length;
           const nonErrorMarks = totalMarks - errorMarks;
           
-          console.log(`[scanner] VL classified ${totalMarks} marks: ${errorMarks} errors (✗/letters), ${nonErrorMarks} non-errors (✓/underline/circle/annotation)`);
+          console.log(`[scanner] Kimi VL classified ${totalMarks} marks: ${errorMarks} errors, ${nonErrorMarks} non-errors`);
           
-          resolve({ classifiedMarks, errorQuestionNumbers: new Set() /* filled by caller */ });
+          resolve({ classifiedMarks, errorQuestionNumbers: new Set() });
         } catch (e) {
-          // If VL classification fails, fall back to centroid-based judgment with warning
           console.log(`[scanner] VL mark classification failed: ${e.message}. Falling back to centroid-based judgment.`);
           resolve({ classifiedMarks: [], errorQuestionNumbers: new Set(), fallback: true });
         }
@@ -445,10 +573,51 @@ function matchCentroidsToQuestions(questions, regions, pageStats, vlClassifiedMa
 // Single page scan
 // ═══════════════════════════════════════
 
-export async function scanPage(pagePath, { apiKey, outputDir, pageIndex = 1, markingMethod = 'red_pen', tencentSecret = null }) {
+export async function scanPage(pagePath, { apiKey, outputDir, pageIndex = 1, markingMethod = 'red_pen', tencentSecret = null, subject = '自动' }) {
   const imageB64 = imgToBase64(pagePath);
   
-  // Run OCR, red centroids, and preprocess images in parallel
+  // v4.1: 尝试智谱 DirectJudge（端到端双图判错），如果成功则跳过质心匹配
+  if (USE_ZHIPU_VL) {
+    try {
+      // 先并行获取预处理图（红笔突出图）
+      const ppImageResult = await detectPreprocess(imageB64);
+      const redHighlightedPath = ppImageResult.red_highlighted;
+      
+      if (redHighlightedPath) {
+        console.log(`[scanner] Page ${pageIndex}: Trying Zhipu DirectJudge...`);
+        const djResult = await directJudgeDualImage(pagePath, redHighlightedPath, subject);
+        
+        if (djResult.errors.length > 0 || true) {  // 即使 0 errors 也算成功
+          // DirectJudge 成功，直接返回结果
+          const errors = djResult.errors.map(e => ({ ...e, pageIndex }));
+          console.log(`[scanner] Page ${pageIndex}: DirectJudge found ${errors.length} errors`);
+          
+          return {
+            pageIndex,
+            version: SCANNER_VERSION + '-direct-judge',
+            engine: 'zhipu-vl-direct-judge',
+            totalQuestions: errors.length,  // DirectJudge 只报告错题，总数未知
+            totalErrors: errors.length,
+            redSignal: 0,
+            pageStats: {},
+            totalRegions: 0,
+            vlMarkCount: 0,
+            classificationFallback: false,
+            questions: errors,  // questions 和 errors 相同
+            errors,
+            correctedImage: ppImageResult.corrected,
+            redHighlightedImage: redHighlightedPath,
+            imageSize: null,
+            directJudgeMode: true
+          };
+        }
+      }
+    } catch (djErr) {
+      console.log(`[scanner] Page ${pageIndex}: DirectJudge failed (${djErr.message}), falling back to pipeline...`);
+    }
+  }
+  
+  // Fallback: 原有流水线（OCR + 质心 + VL 分类）
   const [ocrResult, redCentroidResult, ppImageResult] = await Promise.all([
     (async () => {
       try {
@@ -524,7 +693,7 @@ export async function scanPage(pagePath, { apiKey, outputDir, pageIndex = 1, mar
 // MULTI-PAGE PARALLEL SCAN (v3.3)
 // ═══════════════════════════════════════
 
-export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 'red_pen', tencentSecret = null }) {
+export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 'red_pen', tencentSecret = null, subject = '自动' }) {
   const totalStart = Date.now();
   console.log(`[scanner v4.0] Scanning ${pagePaths.length} pages (VL=${VL_CONCURRENCY}, PP=${PREPROCESS_CONCURRENCY})`);
   
@@ -671,6 +840,118 @@ export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 
     errors: allErrors,
     pageResults
   };
+}
+
+// ═══════════════════════════════════════
+// v4.1: Zhipu DirectJudge — 端到端双图判错
+// ═══════════════════════════════════════
+
+/**
+ * 端到端双图判错：原图+红笔图一起发给 VL，一次完成 OCR+判错。
+ * 跳过质心匹配环节，减少中间信息丢失。
+ * 
+ * @param {string} originalPath - 原图文件路径
+ * @param {string} redHighlightedPath - 红笔突出图路径
+ * @param {string} subject - 科目
+ * @returns {Promise<{questions:[], errors:[]}>}
+ */
+async function directJudgeDualImage(originalPath, redHighlightedPath, subject) {
+  const origB64 = imgToBase64(originalPath);
+  const redB64 = redHighlightedPath ? imgToBase64(redHighlightedPath) : null;
+  
+  const subjectHint = subject && subject !== '自动' ? `\n当前学科：${subject}` : '';
+  
+  const prompt = `你是试卷错题识别专家。你会收到两张图片。
+
+📷 图1（原图）：读取题目文字、选项、学生蓝黑笔作答
+🔴 图2（红笔提取图）：白底只保留红色批改标记，非红内容已淡化
+
+═══ 铁律 ═══
+- 蓝/黑笔迹 = 学生答案（图1查看）
+- 红色笔迹 = 教师批改（图2查看）
+- 红色印刷（标题、边框）≠ 批改，忽略
+- 只有红笔明确标记"错误"才算错题
+
+═══ 红笔标记判定表 ═══
+✗打叉 → 错题（studentAnswer=学生原选，correctAnswer=从题目推断）
+红笔划掉+写新答案 → 错题（studentAnswer=被划，correctAnswer=红笔写的）
+红笔标注答案且≠学生原选 → 错题
+红笔圈出选项 → 被圈=正确答案，学生选别的=错题
+✓打勾 → 对题，跳过
+红笔注释/下划线/波浪线 → 标记重点，不是错题
+无红笔标记 → 对题，跳过
+
+═══ 质量自检 ═══
+一页试卷通常 3-10 道错题。如果超过 15 道，重新检查。
+不确定的题 → 跳过，宁可漏判不要误判。
+
+═══ 输出格式 — 纯JSON ═══
+{
+  "errors": [
+    {
+      "questionNumber": 21,
+      "questionText": "完整题干",
+      "questionType": "choice",
+      "options": {"A":"选项A","B":"选项B","C":"选项C","D":"选项D"},
+      "studentAnswer": "B",
+      "correctAnswer": "D",
+      "markType": "cross",
+      "confidence": "high"
+    }
+  ]
+}
+
+没有错题输出 {"errors":[]}
+直接输出JSON，不要markdown代码块。${subjectHint}`;
+
+  const images = [
+    { type: 'image_url', image_url: { url: origB64, detail: 'high' } }
+  ];
+  if (redB64) {
+    images.push({ type: 'image_url', image_url: { url: redB64, detail: 'high' } });
+  }
+
+  const result = await zhipuVLRequest({
+    messages: [{
+      role: 'user',
+      content: [{ type: 'text', text: prompt }, ...images]
+    }],
+    max_tokens: 16000,
+    temperature: 0.05
+  });
+
+  const content = result.choices?.[0]?.message?.content || '';
+  
+  // Parse JSON
+  const cleaned = content.trim()
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/\s*```$/g, '');
+  
+  let parsed;
+  try {
+    parsed = JSON.parse(cleaned);
+  } catch {
+    const match = cleaned.match(/\{[\s\S]*\}/);
+    if (match) parsed = JSON.parse(match[0]);
+    else throw new Error('DirectJudge: 无法解析 JSON');
+  }
+  
+  const errors = (parsed.errors || []).map(e => ({
+    questionNumber: e.questionNumber,
+    questionText: e.questionText || '',
+    questionType: e.questionType || 'choice',
+    options: e.options || {},
+    studentAnswer: (e.studentAnswer || '').trim().toUpperCase(),
+    correctAnswer: (e.correctAnswer || '').trim().toUpperCase(),
+    markType: e.markType || '',
+    confidence: e.confidence || 'medium',
+    isError: true,
+    pageIndex: 0,  // caller will set
+    errorSource: 'zhipu_direct_judge'
+  }));
+  
+  console.log(`[scanner] DirectJudge: ${errors.length} errors detected`);
+  return { errors, raw: parsed };
 }
 
 // ═══════════════════════════════════════

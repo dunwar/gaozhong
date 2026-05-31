@@ -91,6 +91,9 @@ const GATEWAY_TOKEN = process.env.OPENCLAW_GATEWAY_TOKEN;
 const DEEPSEEK_KEY = process.env.DEEPSEEK_API_KEY;
 const MODEL_OCR = process.env.MODEL_OCR || 'kimi-k2.6';
 const MODEL_GRADING = process.env.MODEL_GRADING || 'deepseek-v4-pro';
+const ZHIPU_KEY = process.env.ZHIPU_API_KEY || '';
+const ZHIPU_BASE_URL = process.env.ZHIPU_BASE_URL || 'https://open.bigmodel.cn/api/coding/paas/v4';
+const MODEL_ZHIPU_VL = process.env.MODEL_ZHIPU_VL || 'glm-4.6v-flash';
 const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex');
 const JWT_EXPIRES_IN = '7d';
 const BCRYPT_ROUNDS = 10;
@@ -332,6 +335,58 @@ function deepseekRequest(body) {
     body
   });
 }
+
+// ========== 智谱 VL 请求（GLM-4.6V 系列）==========
+/**
+ * 调用智谱 VL 模型（图片+文字多模态）
+ * 支持 Coding Plan API 和标准 API 两种端点
+ * @param {Object} params
+ * @param {Array} params.messages - OpenAI 格式消息数组（含 image_url）
+ * @param {string} [params.model] - 模型名，默认 MODEL_ZHIPU_VL
+ * @param {number} [params.max_tokens] - 最大输出 tokens
+ * @param {number} [params.temperature] - 温度
+ * @returns {Promise<Object>} API 响应
+ */
+async function zhipuVLRequest({ messages, model, max_tokens = 4096, temperature = 0.05 }) {
+  const useModel = model || MODEL_ZHIPU_VL;
+  const body = JSON.stringify({ model: useModel, messages, max_tokens, temperature });
+  const url = new URL(ZHIPU_BASE_URL + '/chat/completions');
+
+  return new Promise((resolve, reject) => {
+    const req = https.request({
+      hostname: url.hostname,
+      path: url.pathname,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${ZHIPU_KEY}`,
+        'Content-Length': Buffer.byteLength(body)
+      },
+      timeout: 180_000
+    }, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try {
+          const result = JSON.parse(data);
+          if (result.error) {
+            reject(new Error(`Zhipu API error: ${result.error.message || JSON.stringify(result.error)}`));
+            return;
+          }
+          resolve(result);
+        } catch (e) {
+          reject(new Error(`Zhipu API parse error: ${data.slice(0, 300)}`));
+        }
+      });
+    });
+    req.on('error', reject);
+    req.on('timeout', () => { req.destroy(); reject(new Error('Zhipu VL request timeout (180s)')); });
+    req.write(body);
+    req.end();
+  });
+}
+
+log('info', '智谱 VL 通道', { model: MODEL_ZHIPU_VL, configured: !!ZHIPU_KEY });
 
 // 解析 Markdown 批改结果（完整保留 v5 解析器）
 function parseMarkdownResult(content) {
@@ -1156,7 +1211,8 @@ async function executePaperTask(task) {
       scanResult = await scanner.scanPages(savedPaths, {
         apiKey: KIMI_KEY,
         outputDir: sessionDir,
-        markingMethod
+        markingMethod,
+        subject
         // tencentSecret: TENCENT_SECRET ? JSON.parse(TENCENT_SECRET) : undefined  // 备用通道（配置后启用）
       });
 
@@ -1484,7 +1540,7 @@ app.get('/health', (req, res) => {
     version: '2.0-async',
     providers: { ocr: { name: 'Kimi', model: MODEL_OCR }, grading: { name: 'DeepSeek', model: MODEL_GRADING } },
     prompt: { version: PROMPT_VERSION, file: 'prompts/grading-v5.js' },
-    scanner: { version: SCANNER_VERSION, engine: 'v4.0 VL OCR per-page parallel + Preprocess v8.0 + VL Mark Classify', file: 'scanner-v3.mjs' },
+    scanner: { version: SCANNER_VERSION, engine: 'v4.0 VL OCR per-page parallel + Preprocess v8.0 + VL Mark Classify' + (ZHIPU_KEY ? ' + Zhipu DirectJudge' : ''), file: 'scanner-v3.mjs', zhipuVL: ZHIPU_KEY ? MODEL_ZHIPU_VL : 'disabled' },
     queue: { grading: { active: gradingQueue.active, pending: gradingQueue.pending }, error: { active: errorQueue.active, pending: errorQueue.pending }, paper: { active: paperQueue.active, pending: paperQueue.pending, maxConcurrent: PAPER_MAX_CONCURRENT } },
     tasks: { memory: tasks.size, persistent: getStats() },
     uptime: Math.floor(process.uptime())
