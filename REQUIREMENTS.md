@@ -1,35 +1,162 @@
-# gaozhong.online — 错题整理模块需求文档
+# gaozhong.online — 项目需求文档
 
-> 版本: 1.0 (2026-05-12)
-> 定位: 学生电子错题本 — 上传已批改试卷 → AI 识别错题 → 按科目/时间/试卷整理 → 薄弱知识点分析
-
----
-
-## 1. 产品定位
-
-不做批改。学校/学生自己做批改动作。只做「阅读已有批改标记 → 判定对错 → 整理分析」。
-
-核心价值：帮学生减负提效，把已批改的试卷变成结构化的错题本 + 知识点地图。
+> 版本: 2.0 (2026-05-31)
+> 定位: 高中生学习分析平台 — 上传已批改试卷 → AI 识别错题 → 分科错题本 + 薄弱知识点分析
+> 代码仓库: git@github.com:dunwar/gaozhong.git
+> 在线地址: https://gaozhong.online
 
 ---
 
-## 2. 已实现功能
+## 📖 给新 AI 接手前的速览
+
+### 这个项目是做什么的？
+
+高中生把老师已批改过的试卷拍照上传 → 系统自动识别红笔批改标记 → 判定每道题对错 → 整理成结构化错题本 → 生成薄弱知识点分析报告。
+
+**不负责批改。** 批改由学校老师/学生互批完成。系统只「阅读批改标记 → 整理分析」。
+
+### 技术栈一句话
+
+Vue 3 (Vite + Tailwind) 前端 + Node.js (Express) API Server + Python Flask OpenCV 预处理 + SQLite (sql.js) 数据库，部署在腾讯云 Docker 容器内。
+
+### 核心流水线（Scanner v4.0）
+
+```
+用户上传试卷图片
+  ↓
+Phase 0: Python Flask 预处理（色彩校正 + HSV红笔分离 + 连通域检测）
+  ↓
+Phase 1: Kimi k2.6 VL 模型 — 双图单次调用（红笔图+原图 → 检测红笔标记位置 + 题目区域识别）
+  ↓
+Phase 2: ImageMagick 裁剪 — 按 bbox 逐题裁剪
+  ↓
+Phase 3: VL 逐题双图判错 — 红笔图+裁切原图 → 判断对/错
+  ↓
+Phase 4: DeepSeek V4 Pro 批量分析 — 错题归类 + 知识点归因 + 薄弱点分析
+```
+
+---
+
+## 1. 项目结构
+
+```
+gaozhong.online/
+├── .env                          ← 环境变量（API Key，不入 git）
+├── .env.example                  ← 环境变量模板
+├── package.json                  ← 项目依赖（Vue3/Vite/Tailwind/Express/sql.js）
+├── vite.config.js                ← Vite 构建配置
+├── index.html                    ← HTML 入口
+│
+├── src/                          ← 前端源码
+│   ├── main.js                   ← 入口
+│   ├── App.vue                   ← 根组件
+│   ├── style.css                 ← 全局样式（Tailwind）
+│   ├── components/               ← 通用组件
+│   │   ├── Header.vue            ← 导航栏
+│   │   ├── Footer.vue            ← 页脚
+│   │   ├── UploadArea.vue        ← 上传区域
+│   │   └── EssayGradingResult.jsx ← 作文批改结果
+│   ├── views/                    ← 页面视图
+│   │   ├── Home.vue              ← 首页（双模块入口）
+│   │   ├── PaperUpload.vue       ← 错题上传页 ✅
+│   │   ├── PaperReview.vue       ← 试卷回顾（三面板布局）✅
+│   │   ├── PaperConfirm.vue      ← 确认页
+│   │   ├── PaperErrors.vue       ← 错题页
+│   │   ├── ErrorWorkbook.vue     ← 错题本主页 ✅
+│   │   ├── ErrorDetail.vue       ← 错题详情（已有代码，待集成）
+│   │   ├── KnowledgeMap.vue      ← 知识点地图 ✅
+│   │   ├── Upload.vue            ← 作文上传
+│   │   ├── Result.vue            ← 作文结果
+│   │   ├── Tasks.vue             ← 任务列表
+│   │   ├── History.vue           ← 历史记录
+│   │   ├── Login.vue             ← 登录
+│   │   ├── Register.vue          ← 注册
+│   │   ├── Password.vue          ← 密码
+│   │   ├── ErrorList.vue         ← 错题列表（旧版，被替换）
+│   │   ├── ErrorUpload.vue       ← 错题上传（旧版，被替换）
+│   │   └── KnowledgeDashboard.vue ← 知识点看板（旧版，被替换）
+│   ├── router/index.js           ← Vue Router 路由配置
+│   ├── utils/                    ← 工具模块
+│   │   ├── authStore.js          ← 认证状态
+│   │   ├── taskStore.js          ← 任务状态
+│   │   └── paperTaskPoller.js    ← 异步任务轮询
+│   └── assets/                   ← 静态资源
+│
+├── api-server.js                 ← API 服务主文件（~2500行，核心后端）
+├── api-server-v2-paper-task.js   ← V2 版本（备用）
+├── db.js                         ← SQLite 数据库模块（sql.js WASM）
+├── ocr-extractor.js              ← OCR 提取模块
+│
+├── prompts/                      ← AI Prompt 模板
+│   ├── paper-workbook-scanner.js ← 主扫描器 Prompt（当前使用）
+│   ├── paper-analysis-v[1-4].js  ← 各版分析 Prompt
+│   ├── paper-scanner-v[4-5].js   ← 各版扫描 Prompt
+│   ├── paper-analyzer-v3.js      ← 分析器
+│   ├── error-diagnosis.js        ← 错题诊断 Prompt
+│   ├── grading-v[3-5].js         ← 作文评分 Prompt（v5 当前）
+│   ├── scanner-english.js        ← 英语科目逻辑
+│   ├── scanner-chinese.js        ← 语文科目逻辑
+│   ├── scanner-math.js           ← 数学科目逻辑
+│   ├── scanner-science.js        ← 理综科目逻辑
+│   └── study-guidance-v1.js      ← 学习指导 Prompt
+│
+├── subject-logic/                ← 科目特定逻辑
+│   ├── error-identification-logic.md  ← 错题判定决策树
+│   └── english-shanghai-gaokao.md     ← 上海高考英语题型定义
+│
+├── preprocess-server.py          ← Python Flask 预处理服务（Opencv 红笔分离）→ 端口 5002
+├── scripts/                      ← 工具脚本
+│   ├── ocr-page.py               ← OCR 页面提取
+│   ├── detect-red.py             ← 红笔检测
+│   ├── hsv-separate.py           ← HSV 色彩分离
+│   └── ...（测试脚本）
+│
+├── data/                         ← 运行时数据
+│   └── grading.db                ← SQLite 数据库文件
+│
+├── dist/                         ← 构建输出（部署到生产目录）
+├── output/                       ← 调试/测试输出（不入 git）
+│
+├── deploy.sh                     ← 一键部署脚本
+├── deploy-host.sh                ← 宿主机部署
+├── deploy-daemon.sh              ← 守护进程部署
+├── deploy-api.sh                 ← API 服务单独部署
+├── start-preprocess.sh           ← 预处理服务启动脚本
+│
+├── docs/
+│   └── pipeline-analysis.md      ← 流水线分析文档
+│
+├── README.md                     ← 项目说明
+├── HARNESS.md                    ← AI 测试工具说明
+├── METHODOLOGY.md                ← 开发方法论
+└── REQUIREMENTS.md               ← 本文件
+```
+
+---
+
+## 2. 核心功能 & 状态
 
 ### 2.1 前端页面
 
 | 路由 | 视图 | 功能 | 状态 |
 |------|------|------|------|
-| `/` | Home.vue | 双模块介绍（作文+错题） | ✅ |
-| `/paper/upload` | PaperUpload.vue | 错题上传：科目选择、多文件(≤10)、队列显示 | ✅ |
-| `/error/list` | ErrorWorkbook.vue | 错题本：按试卷/时间/科目/列表分组查看 | ✅ |
-| `/knowledge` | KnowledgeMap.vue | 知识点：薄弱点TOP、科目分布、搜索 | ✅ |
-| `/review/:sessionId` | PaperReview.vue | 试卷回顾：查看整卷分析结果 | ✅ |
-| (未挂载) | ErrorDetail.vue | 错题详情 | ⬜ 已有代码，待集成 |
-| (未挂载) | ErrorList.vue | 错题列表（旧版） | ⬜ 已有代码，被 ErrorWorkbook 替代 |
-| (未挂载) | ErrorUpload.vue | 错题上传（旧版） | ⬜ 已有代码，被 PaperUpload 替代 |
-| (未挂载) | KnowledgeDashboard.vue | 知识点看板（旧版） | ⬜ 已有代码，被 KnowledgeMap 替代 |
+| `/` | Home.vue | 首页：作文批改 + 错题整理双模块入口 | ✅ |
+| `/paper/upload` | PaperUpload.vue | 错题上传：科目选择、多文件(≤10)、队列 | ✅ |
+| `/paper/confirm/:id` | PaperConfirm.vue | 试卷确认 | ✅ |
+| `/paper/:id/errors` | PaperErrors.vue | 试卷错题 | ✅ |
+| `/paper/review/:id` | PaperReview.vue | 试卷回顾：三面板（原图+文字题+错题清单）| ✅ |
+| `/error/list` | ErrorWorkbook.vue | 错题本：按试卷/时间/科目/列表分组 | ✅ |
+| `/error/:id` | ErrorDetail.vue | 错题详情（已有代码，路由已配置）| ✅ |
+| `/knowledge` | KnowledgeMap.vue | 知识点：薄弱TOP、科目分布、搜索 | ✅ |
+| `/upload` | Upload.vue | 作文上传 | ✅ |
+| `/result/:id` | Result.vue | 作文结果 | ✅ |
+| `/tasks` | Tasks.vue | 我的任务 | ✅ |
+| `/history` | History.vue | 历史记录 | ✅ |
+| `/login` | Login.vue | 登录 | ✅ |
+| `/register` | Register.vue | 注册 | ✅ |
+| `/password` | Password.vue | 密码修改 | ✅ |
 
-### 2.2 后端 API（已实现）
+### 2.2 后端 API
 
 ```
 POST /paper/analyze          — 提交试卷分析（异步队列）
@@ -45,69 +172,106 @@ GET  /error/stats             — 错题统计
 
 GET  /knowledge/search        — 知识点搜索
 GET  /knowledge/stats         — 知识点统计
+
+POST /grading/submit          — 提交作文批改
+GET  /grading/status/:taskId  — 批改状态
+GET  /grading/result/:taskId  — 批改结果
+GET  /grading/history         — 批改历史
 ```
 
-### 2.3 分析流水线 (Scanner v1.0)
+### 2.3 模型分工
 
-```
-阶段0: 预处理（色彩校正 + 红笔分离 opencv）
-阶段1: VL 双图单次调用 → 红笔标记检测 + 题目区域识别
-阶段2: ImageMagick 裁剪 → 逐题 VL 双图判错
-阶段3: DeepSeek 批量分析错题
-```
+| 任务 | 模型 | Provider | 说明 |
+|------|------|----------|------|
+| VL OCR（图片识别） | `kimi-k2.6` | modelstudio (阿里云百炼) | 红笔标记检测 + 题目识别 + 判错 |
+| 文本分析（批改） | `deepseek-v4-pro` | deepseek | 作文评分、错题知识点归因、学习指导 |
+| 预处理（OpenCV） | Python Flask | 本地 5002 端口 | 色彩校正、HSV 红笔分离、连通域检测 |
 
-- 科目逻辑文件: `subject-logic/error-identification-logic.md` + `english-shanghai-gaokao.md`
-- Prompt 文件: `prompts/paper-workbook-scanner.js`
-- 红笔判定规则: 决策树 + 标记分类表
-- 支持题型: choice / fill_blank / reading / dictation / translation / writing
+**⚠️ 注意：OpenClaw Gateway HTTP API 不支持多模态（图片会被静默丢弃），所有 VL/OCR 任务必须直连阿里云百炼 API。**
 
-### 2.4 导航结构
+### 2.4 服务端口
 
-```
-高中在线
-├── ✏️ 作文批改
-│   ├── 作文批改 → /upload
-│   ├── 我的任务 → /tasks
-│   └── 历史记录 → /history
-└── 📔 错题整理
-    ├── 错题上传 → /paper/upload
-    ├── 错题本   → /error/list
-    └── 知识点   → /knowledge
-```
+| 端口 | 服务 | 启动脚本 | 守护 |
+|------|------|---------|------|
+| 3001 | Node.js API Server | `/app/data/start-api.sh` | cron 心跳 + 自动重启 |
+| 5002 | Python Flask 预处理 | `/app/data/start-preprocess.sh` | cron 5min 巡检（preprocess-guard）|
 
 ---
 
-## 3. 待完成 / 已知问题
+## 3. 数据库设计
 
-### 3.1 高优先级
+使用 SQLite (sql.js WASM)，数据文件 `data/grading.db`。核心表：
 
-| # | 问题 | 说明 |
-|---|------|------|
-| 1 | **默写题型 bbox 遗漏** | 阶段1 VL 对默写题型检测不全（11道 vs 应有30道）。已加 `dictation` 类型+密集布局提示，R4 测试检测到 38 道，需用户确认实际准确度 |
-| 2 | **第2页错题数过度检出** | R4: yingyu33 第1页6道正确，第2页检出30道。需确认是默写真实错误数还是 VL 误判 |
-| 3 | **crop 文件命名冲突** | 两页 VL 都从 1 编号 → 第2页覆盖第1页文件。不影响判错，影响前端展示 |
-| 4 | **DeepSeek JSON 解析失败** | 当 questionText 为空时，DeepSeek 返回中文抱怨而非 JSON。已有 fallback 占位符 |
-
-### 3.2 中优先级
-
-| # | 问题 | 说明 |
-|---|------|------|
-| 5 | **科目逻辑文件不支持非高考题型** | 只定义了上海高考 + 少量日常练习类型，需持续补充 |
-| 6 | **仅英语科目有逻辑文件** | 语文、数学待添加 `subject-logic/chinese-*.md` `math-*.md` |
-| 7 | **PaperReview.vue 前端展示** | 已有试卷回顾页但未完全验证与新流水线的兼容性 |
-| 8 | **旧版视图清理** | ErrorDetail/ErrorList/ErrorUpload/KnowledgeDashboard 存在但未挂载路由 |
-
-### 3.3 低优先级
-
-| # | 问题 | 说明 |
-|---|------|------|
-| 9 | **PDF/Word 上传** | 前端接受 PDF/Word 但后端需要转换层（当前只处理图片） |
-| 10 | **并发处理优化** | 当前 VL_SCAN_CONCURRENCY 固定值，可考虑按题目数动态调整 |
-| 11 | **API Server 静默崩溃** | 已多次发生，需 systemd 守护（已有 cron 心跳重启但非根治） |
+- `users` — 用户（邮箱+密码哈希）
+- `tasks` — 批改/分析任务队列
+- `paper_sessions` — 试卷会话
+- `paper_images` — 试卷图片（base64 存储）
+- `paper_errors` — 识别出的错题
+- `knowledge_points` — 知识点
+- `essay_grading_results` — 作文批改结果
+- `error_review` — 错题复核记录
 
 ---
 
-## 4. 数据现状
+## 4. 部署流程
+
+### 4.1 ⚠️ 双目录结构（最容易出错的点）
+
+| 角色 | 容器内路径 | 用途 |
+|------|-----------|------|
+| **开发目录** | `/home/node/.openclaw/workspace/www/gaozhong.online/` | Git 同步、编码 |
+| **生产目录** | `/app/data/www/gaozhong.online/` | Nginx 静态文件、API Server 运行 |
+
+**规则：** 改代码只改开发目录 → `./deploy.sh` 自动构建并复制到生产目录 → 需要用户手动重载 Nginx。
+
+### 4.2 部署命令
+
+```bash
+cd /home/node/.openclaw/workspace/www/gaozhong.online/
+./deploy.sh    # 构建前端 + 复制 dist + 重启 API Server
+```
+
+用户还需在宿主机执行：`sudo nginx -s reload`
+
+### 4.3 Git 提交规范
+
+- 每完成一个子任务 → commit（5-15 分钟粒度）
+- 格式：`type: 描述`（feat/fix/docs/style/refactor/deploy）
+- Commit 后 push 到 `git@github.com:dunwar/gaozhong.git`
+
+---
+
+## 5. 已知问题 & 待完成
+
+### 5.1 高优先级
+
+| # | 问题 | 详情 |
+|---|------|------|
+| 1 | **API Server 静默崩溃** | 已多次发生，靠 cron 定时巡检重启（非根治），需 systemd 守护 |
+| 2 | **默写题型 bbox 遗漏** | VL 对默写题型检测不全，已优化但未完全验证 |
+| 3 | **crop 文件命名冲突** | 多页 VL 都从 1 编号 → 第2页覆盖，影响前端展示 |
+| 4 | **DeepSeek JSON 解析失败** | questionText 为空时 DeepSeek 返回中文抱怨而非 JSON，已有 fallback |
+
+### 5.2 中优先级
+
+| # | 问题 | 详情 |
+|---|------|------|
+| 5 | **仅英语科目有逻辑文件** | subject-logic/ 下只有英语，语文/数学待添加 |
+| 6 | **旧版组件清理** | ErrorList/ErrorUpload/KnowledgeDashboard 存在但路由指向新版 |
+| 7 | **并发优化** | VL_SCAN_CONCURRENCY 固定值，可动态调整 |
+
+### 5.3 功能规划
+
+| # | 功能 | 详情 |
+|---|------|------|
+| 8 | **整卷分析异步化** | 减少用户等待时间 |
+| 9 | **PDF/Word 支持** | 前端接受但后端需转换层 |
+| 10 | **HTTPS 配置** | Let's Encrypt 证书 |
+| 11 | **API Server systemd 守护** | 根治静默崩溃问题 |
+
+---
+
+## 6. 数据现状（2026-05-31）
 
 | 指标 | 数值 |
 |------|------|
@@ -118,10 +282,34 @@ GET  /knowledge/stats         — 知识点统计
 
 ---
 
-## 5. 下一步建议
+## 7. 关键决策记录
 
-1. **确认识别准确度**: 用户确认 yingyu33 第2页（默写）的实际错题数，以判断 VL 判错是否准确
-2. **补充语文/数学逻辑文件**: 按用户此前优先级「英语→语文→数学」
-3. **修复 crop 文件命名**: 改为 `q{pageIndex}_{qnum}` 格式
-4. **整合旧版视图**: ErrorDetail 集成到 ErrorWorkbook，清理冗余
-5. **API Server 守护**: 添加 systemd service 防崩溃
+| 日期 | 决策 |
+|------|------|
+| 2026-04-27 | 选定方案 B：阿里云百炼 qwen 系列模型 |
+| 2026-04-28 | 确立作文批改 Prompt 规范 |
+| 2026-04-29 | 六条核心工程原则 |
+| 2026-04-30 | v5 prompt 效果最优；默认模型切 DeepSeek V4 Pro |
+| 2026-05-02 | 产品定位：从"作文批改工具"→"整卷学习分析平台" |
+| 2026-05-03 | 错题识别优化：修正 RGB→BGR、题号去重、无题干过滤；耗时 190s→90s |
+| 2026-05-04 | OCR 切换至 Kimi k2.6（直连阿里云百炼，不走 Gateway）|
+| 2026-05-12 | Scanner v3.x — VL 红笔分类替代盲阈值；连通域质心匹配 |
+| 2026-05-23 | 发现双目录分叉问题：生产版 PaperReview（692行三面板）比 workspace（484行两面板）更新 |
+| 2026-05-24 | Scanner v4.0 — 放弃多轮VL，改为 per-page parallel + retry |
+| 2026-05-26 | Preprocess v8.0 — gunicorn 守护 + 2 workers，修复 ~8h 挂起问题 |
+| 2026-05-31 | 更新 REQUIREMENTS.md v2.0 + server-environment.md，适配新模型接手 |
+
+---
+
+## 8. 协同开发注意事项
+
+1. **修改前先对比生产目录**：`diff -rq ~/workspace/www/gaozhong.online/ /app/data/www/gaozhong.online/`
+2. **生产是权威**：如果生产版本比 workspace 新 → 先同步到 workspace 并 commit
+3. **不改环境配置**：openclaw.json、模型配置等未经用户同意不得修改
+4. **部署后验证**：`curl http://localhost:3001/health` 确认 API Server 正常
+5. **Prompt 改动慎重**：所有 prompt 文件经多轮迭代验证，改动需先出方案再确认
+6. **不要走 Gateway 做 VL**：图片识别必须直连阿里云百炼 API
+
+---
+
+_本文档由 AI 助手维护，任何模型接手前应完整阅读此文件 + server-environment.md_
