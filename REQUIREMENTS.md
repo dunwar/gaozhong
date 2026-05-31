@@ -1,6 +1,6 @@
 # gaozhong.online — 项目需求文档
 
-> 版本: 2.0 (2026-05-31)
+> 版本: 2.1 (2026-05-31)
 > 定位: 高中生学习分析平台 — 上传已批改试卷 → AI 识别错题 → 分科错题本 + 薄弱知识点分析
 > 代码仓库: git@github.com:dunwar/gaozhong.git
 > 在线地址: https://gaozhong.online
@@ -195,6 +195,16 @@ GET  /grading/history         — 批改历史
 |------|------|---------|------|
 | 3001 | Node.js API Server | `/app/data/start-api.sh` | cron 心跳 + 自动重启 |
 | 5002 | Python Flask 预处理 | `/app/data/start-preprocess.sh` | cron 5min 巡检（preprocess-guard）|
+
+### 2.5 批改标记模式
+
+| 模式 | 值 | 场景 | 判定逻辑 |
+|------|-----|------|----------|
+| 红笔勾叉 | `check_cross` | 老师只打 ✓✗，不写答案 | ✗=错题，✓=对题 |
+| 红笔标注 | `annotation` | 老师红笔写正确答案/批注 | AI 识别红笔标注内容判定 |
+| 混合模式 | `mixed` | ✓✗ + 红笔标注混合 | AI 综合判断勾叉+标注 |
+
+**前端**：PaperUpload.vue 科目选择区下方显示三选一按钮，默认"红笔勾叉"。
 
 ---
 
