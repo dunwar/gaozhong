@@ -822,7 +822,7 @@ export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 
     if (deRed && deRed.cleanBase64) {
       const tmpPath = join(tmpdir(), `gaozhong-dered-${i}-${Date.now()}.jpg`);
       const b64Data = deRed.cleanBase64.includes(',') 
-        ? deRed.cleanBase64.split(',', 1)[1] 
+        ? deRed.cleanBase64.split(',')[1] 
         : deRed.cleanBase64;
       writeFileSync(tmpPath, Buffer.from(b64Data, 'base64'));
       deRedTempFiles.push(tmpPath);
