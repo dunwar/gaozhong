@@ -18,28 +18,44 @@ SINGLE_PAGE_SYSTEM = "你是一位上海高中英语老师。你仔细看试卷�
 
 SINGLE_PAGE_PROMPT = """请识别这张试卷页面上的所有题目，逐题提取印刷文字。
 
-【核心规则】
-1. 看到 "1." "21." 等数字+标点 = 一道题的题号
-2. 一道题 = 一个题号 + 题干 + 四个选项（如有）。四个选项是同一道题的，不要拆开
-3. 听力题如果题干没有印在图上，questionText 填 "(听力题)"
-4. Section 标题、Directions 说明、页眉页脚不是题目，忽略
-5. 阅读文章：如果页面以阅读文章开头，第一道阅读题的 passageText 抄写全文；后续同篇题目的 passageText 填 "[见上题]"
-6. 完形填空短文中含 ___(word) 标记的，questionType 用 "grammar"
+══════════════════════════════════
+【版面分析 — 先判断结构】
+══════════════════════════════════
+第1步：观察页面整体排版
+- 是单栏还是双栏？
+- 双栏的话，先读完左栏（从上到下），再读右栏（从上到下）
+- ⚠️ 严禁将左右两栏的文字混在一起当成一行！
 
+══════════════════════════════════
+【题目识别规则】
+══════════════════════════════════
+1. 看到 "21." "22." 等数字+标点 = 一道题
+2. 一道题 = 题号 + 题干 + 选项（如有）。选项是同一道题的，不要拆开
+3. 听力题题干空白 → questionText 填 "(听力题)"
+4. Section 标题、Directions 说明、页眉页脚 → 忽略
+
+══════════════════════════════════
+【阅读理解 — 特殊处理】
+══════════════════════════════════
+- 第1道阅读题：passageText 抄写文章全文（逐字，不要省略）
+- 第2-5道同一文章的题：passageText 填 "[见上题]"
+- 如果文章跨段落，全部合并到第一道题的 passageText
+
+══════════════════════════════════
 【题型对照】
+══════════════════════════════════
 - choice: 选择题（有A/B/C/D选项）
 - cloze: 完形填空
 - reading: 阅读理解
-- grammar: 语法填空（句子中有 ___(word) 标记）
+- grammar: 语法填空（句子中有 ___ 标记）
 - fill_blank: 填空题
 - translation: 翻译题
 - dictation: 默写
 - listening: 听力题
 
 【输出JSON格式 — 严格按此格式，不要增减字段】
-{"questions":[
-  {"questionNumber":1,"questionType":"choice","questionText":"题干原文","options":{"A":"选项A","B":"选项B","C":"选项C","D":"选项D"},"passageText":"","passageTruncated":false,"bbox":{"x":50,"y":200,"w":540,"h":80}},
-  {"questionNumber":2,"questionType":"choice","questionText":"题干原文","options":{"A":"选项A","B":"选项B","C":"选项C","D":"选项D"},"passageText":"","passageTruncated":false,"bbox":{"x":50,"y":300,"w":540,"h":80}}
+{"passages":[{"text":"阅读文章全文..."}],"questions":[
+  {"questionNumber":1,"questionType":"choice","questionText":"题干原文","options":{"A":"选项A","B":"选项B","C":"选项C","D":"选项D"},"passageText":"","passageRef":null,"bbox":{"x":50,"y":200,"w":540,"h":80}}
 ]}
 
 只输出这个JSON对象，不要markdown代码块，不要"```json"，不要额外解释。"""
@@ -193,7 +209,8 @@ def single_page_extract(image_path):
             return {
                 "status": "ok",
                 "totalQuestions": len(questions),
-                "questions": questions
+                "questions": questions,
+                "passages": result.get('passages', [])
             }
         except Exception as e:
             last_error = e

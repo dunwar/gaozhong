@@ -208,19 +208,73 @@ async function extractQuestionsVL(pagePath, apiKey) {
           { role: 'user', content: [
             { type: 'text', text: `请识别这张试卷页面上的所有题目，逐题提取信息。
 
-【核心规则】
-1. 看到题号（如 1. 21. 等）= 一道题
-2. 一道题 = 题号 + 题干 + 选项（如有）
-3. 听力题题干空白时 questionText 填 "(听力题)"
-4. Section 标题、Directions、页眉页脚忽略
-5. 阅读文章：第一道阅读题 passageText 抄全文，后续填 "[见上题]"
+══════════════════════════════════
+【版面分析 — 先判断结构】
+══════════════════════════════════
+第1步：观察页面整体排版
+- 是单栏还是双栏？
+- 双栏的话，先读完左栏（从上到下），再读右栏（从上到下）
+- 如果页面中间有竖线/空白分隔 → 双栏，左右独立读
+- ⚠️ 严禁将左右两栏的文字混在一起当成一行！
 
-【输出JSON格式】
-{"questions":[
-  {"questionNumber":1,"questionType":"choice","questionText":"题干","options":{"A":"选项A","B":"选项B","C":"选项C","D":"选项D"},"passageText":"","bbox":{"x":50,"y":200,"w":540,"h":80}}
+第2步：识别页面区域类型
+- 阅读理解区域：一大段连续文字 + 后面跟 3-5 道题
+- 选择题区域：题号 + 题干 + A/B/C/D 选项
+- 完形填空区域：一段含 ___(题号) 的短文
+- Section 标题、Directions 说明 → 跳过
+
+══════════════════════════════════
+【题目识别规则】
+══════════════════════════════════
+1. 看到 "21." "22." "44." 等数字+标点 = 一道题
+2. 一道题 = 题号 + 题干 + 选项（如有）
+3. 听力题题干空白 → questionText 填 "(听力题)"
+4. 同一题号的 A/B/C/D 是同一道题的选项，不要拆开
+5. 每道题的 bbox 从左到右覆盖该题的所有选项
+
+══════════════════════════════════
+【阅读理解 — 特殊处理 ⚠️ 极重要】
+══════════════════════════════════
+如果页面有阅读理解文章：
+
+规则A：先在 passages 数组里提取文章全文
+- 一篇文章 = 一个 passage，含完整文本
+- 文章可能跨多段，全部合并
+- passageText 逐字抄写，不要省略、不要"此处省略N字"
+
+规则B：每道阅读题的 passageRef 指向对应文章编号
+- 第1道阅读题 → passageRef: 0
+- 第2-5道同一文章的题 → passageRef: 0（同一篇文章）
+- 第6道（下一篇阅读的第1题）→ passageRef: 1
+
+规则C：阅读题的 questionType 设为 "reading"
+
+══════════════════════════════════
+【题型分类】
+══════════════════════════════════
+choice    — 选择题（有 A/B/C/D）
+cloze     — 完形填空（短文 + 编号空格）
+reading   — 阅读理解（文章 + 题目）
+grammar   — 语法填空（单句或短文含 ___ 标记）
+fill_blank — 填空题
+translation — 翻译题
+dictation — 默写/听写
+listening  — 听力题（有选项无题干文字）
+
+══════════════════════════════════
+【输出JSON格式 — 严格格式】
+══════════════════════════════════
+{"passages":[{"text":"阅读理解文章全文..."}],"questions":[
+  {"questionNumber":21,"questionType":"reading","passageRef":0,"questionText":"题干","options":{"A":"...","B":"...","C":"...","D":"..."},"passageText":"","bbox":{"x":50,"y":200,"w":540,"h":80}},
+  {"questionNumber":22,"questionType":"reading","passageRef":0,"questionText":"题干","options":{"A":"...","B":"...","C":"...","D":"..."},"passageText":"","bbox":{"x":50,"y":300,"w":540,"h":80}}
 ]}
 
-只输出JSON，不要markdown代码块。` },
+⚠️ 质量要求：
+- 只有一道题题干跨行时 bbox.w ≤ 页面宽度，w 和 h 均为正数
+- bbox 覆盖题号+题干+选项的矩形范围
+- 逐题输出，不要遗漏页面上任何一道有题号的题
+- 双栏试卷大约每栏 10-15 道题，总共 20-30 道
+- 直接输出JSON，不要markdown代码块。` },
             { type: 'image_url', image_url: { url: imageB64, detail: 'high' } }
           ]}
         ],
@@ -241,6 +295,17 @@ async function extractQuestionsVL(pagePath, apiKey) {
       }
       
       const questions = parsed.questions || [];
+      const passages = parsed.passages || [];
+      
+      // v4.2: Inject passage text into reading questions via passageRef
+      if (passages.length > 0) {
+        for (const q of questions) {
+          if (q.questionType === 'reading' && q.passageRef != null && passages[q.passageRef]) {
+            q.passageText = q.passageText || passages[q.passageRef].text;
+          }
+        }
+      }
+      
       if (questions.length === 0) throw new Error('Zhipu VL returned 0 questions');
       
       console.log(`[scanner] Zhipu VL OCR: ${questions.length} questions`);
@@ -253,6 +318,17 @@ async function extractQuestionsVL(pagePath, apiKey) {
   // Fallback: Kimi k2.6 via Python
   const result = await runPython('ocr-page.py', [pagePath, '--api-key', apiKey]);
   if (result.status !== 'ok') throw new Error(`VL OCR failed: ${result.error}`);
+  
+  // v4.2: Inject passage text from passages array into reading questions
+  const kimiPassages = result.passages || [];
+  if (kimiPassages.length > 0) {
+    for (const q of (result.questions || [])) {
+      if (q.questionType === 'reading' && q.passageRef != null && kimiPassages[q.passageRef]) {
+        q.passageText = q.passageText || kimiPassages[q.passageRef].text;
+      }
+    }
+  }
+  
   return result;
 }
 
