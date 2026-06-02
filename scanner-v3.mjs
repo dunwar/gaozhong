@@ -1,11 +1,10 @@
 /**
- * gaozhong.online — Scanner v4.0
+ * gaozhong.online — Scanner v4.2
  * 
- * v4.0 变更: OCR 流程重构
- *   - 砍掉多轮 VL OCR（格式不稳定 + 超时），全量逐页并行
- *   - VL_CONCURRENCY 4→6，每页 API timeout 300s→180s（Python侧）
- *   - 逐页自动重试（3次指数退避）+ 正则兜底
- *   - 后处理：跨页阅读文章合并 + 题号去重校验
+ * v4.2 变更: 去红处理 + OCR 输入优化
+ *   - 新增 /de-red 预处理：OCR 前擦除红笔墨水（cv2.inpaint）
+ *   - OCR 输入从原图变为去红图（避免红线穿字导致识别错误）
+ *   - 预处理阶段并行运行 de-red（不增加端到端延迟）
  * 
  * Architecture:
  *   Primary:   VL OCR (Kimi k2.6) per-page parallel → question structure
@@ -15,15 +14,16 @@
  *   All pages scanned in PARALLEL (per-page only, no multi-round)
  */
 
-import { readFileSync } from 'fs';
+import { readFileSync, writeFileSync, unlinkSync } from 'fs';
 import { execFile, spawn } from 'child_process';
 import { join, dirname } from 'path';
+import { tmpdir } from 'os';
 import { fileURLToPath } from 'url';
 import http from 'http';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-export const SCANNER_VERSION = 'v4.0';
+export const SCANNER_VERSION = 'v4.2';
 const PREPROCESS_URL = process.env.PREPROCESS_URL || 'http://localhost:5002';
 const VL_CONCURRENCY = 6;
 const PREPROCESS_CONCURRENCY = 4;
@@ -274,6 +274,21 @@ async function detectPreprocess(imageBase64) {
   });
   if (data.status !== 'ok') throw new Error(`Preprocess failed: ${data.error}`);
   return data.result;
+}
+
+/**
+ * v4.2: De-red — erase red ink from original image before OCR.
+ * Calls preprocess /de-red endpoint → inpainting fills red areas with background.
+ * Returns { cleanBase64, redSignal }.
+ */
+async function deRedImage(imageBase64) {
+  const u = new URL(PREPROCESS_URL);
+  const data = await httpPostJson(u.hostname, parseInt(u.port) || 5002, '/de-red', {
+    image: imageBase64,
+    options: { deskew: true }
+  });
+  if (data.status !== 'ok') throw new Error(`De-red failed: ${data.error}`);
+  return { cleanBase64: data.result.clean_image, redSignal: data.result.red_signal };
 }
 
 async function extractQuestionsTencent(pagePath, tencentSecret) {
@@ -695,36 +710,63 @@ export async function scanPage(pagePath, { apiKey, outputDir, pageIndex = 1, mar
 
 export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 'red_pen', tencentSecret = null, subject = '自动' }) {
   const totalStart = Date.now();
-  console.log(`[scanner v4.0] Scanning ${pagePaths.length} pages (VL=${VL_CONCURRENCY}, PP=${PREPROCESS_CONCURRENCY})`);
+  console.log(`[scanner v4.2] Scanning ${pagePaths.length} pages (VL=${VL_CONCURRENCY}, PP=${PREPROCESS_CONCURRENCY})`);
   
   // Preflight: check preprocess v8.0 is alive, restart if dead
   try { await detectPreflight(); } catch (e) {
     throw new Error(`预处理服务不可用 (port 5002): ${e.message}`);
   }
   
-  // Preprocess + red centroids (local, fast)
+  // Preprocess + de-red + red centroids (local, fast)
   const ppGate = new ConcurrencyGate(PREPROCESS_CONCURRENCY);
   const preprocessJobs = pagePaths.map((pp, i) => 
     ppGate.run(async () => {
       const b64 = imgToBase64(pp);
-      const [centroids, images] = await Promise.all([
+      const [centroids, images, deRed] = await Promise.all([
         detectRedCentroids(b64),
-        detectPreprocess(b64)
+        detectPreprocess(b64),
+        deRedImage(b64).catch(e => {
+          console.log(`[scanner] Page ${i + 1}: de-red failed (${e.message}), will use original`);
+          return null;
+        })
       ]);
-      return { index: i, centroids, images };
+      return { index: i, centroids, images, deRed };
     })
   );
   
-  // Phase 2: VL OCR — per-page parallel with retry
+  // Await preprocess first (need de-red images for OCR)
+  const ppResults = await Promise.all(preprocessJobs);
+  const ppTime = ((Date.now() - totalStart) / 1000).toFixed(1);
+  console.log(`[scanner] All prep done in ${ppTime}s`);
+  
+  // Build OCR image paths: use de-red when available, fallback to original
+  const deRedTempFiles = [];
+  const ocrImagePaths = pagePaths.map((pp, i) => {
+    const deRed = ppResults.find(r => r.index === i)?.deRed;
+    if (deRed && deRed.cleanBase64) {
+      const tmpPath = join(tmpdir(), `gaozhong-dered-${i}-${Date.now()}.jpg`);
+      const b64Data = deRed.cleanBase64.includes(',') 
+        ? deRed.cleanBase64.split(',', 1)[1] 
+        : deRed.cleanBase64;
+      writeFileSync(tmpPath, Buffer.from(b64Data, 'base64'));
+      deRedTempFiles.push(tmpPath);
+      return tmpPath;
+    }
+    return pp;
+  });
+  
+  // Phase 2: VL OCR — per-page parallel with retry (uses de-red images)
   const ocrGate = new ConcurrencyGate(VL_CONCURRENCY);
   
   const ocrResults = await Promise.all(
-    pagePaths.map((pp, i) =>
+    ocrImagePaths.map((imgPath, i) =>
       ocrGate.run(async () => {
         const pageLabel = `Page ${i + 1}`;
+        const isDeRed = imgPath !== pagePaths[i];
+        if (isDeRed) console.log(`[scanner] ${pageLabel}: OCR using de-red image`);
         for (let attempt = 0; attempt < VL_RETRIES; attempt++) {
           try {
-            const result = await extractQuestionsVL(pp, apiKey);
+            const result = await extractQuestionsVL(imgPath, apiKey);
             if (attempt > 0) console.log(`[scanner] ${pageLabel}: VL ok on retry ${attempt}`);
             return { index: i, result, engine: 'vl', attempts: attempt + 1 };
           } catch (vlErr) {
@@ -737,7 +779,7 @@ export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 
               console.log(`[scanner] ${pageLabel}: VL all ${VL_RETRIES} retries exhausted, trying Tencent...`);
               if (tencentSecret) {
                 try {
-                  const result = await extractQuestionsTencent(pp, tencentSecret);
+                  const result = await extractQuestionsTencent(imgPath, tencentSecret);
                   return { index: i, result, engine: 'tencent', attempts: VL_RETRIES + 1 };
                 } catch (tcErr) {
                   console.log(`[scanner] ${pageLabel}: Tencent also failed (${tcErr.message}), skipped`);
@@ -754,10 +796,10 @@ export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 
     )
   );
   
-  const ppResults = await Promise.all(preprocessJobs);
-  
-  const ppTime = ((Date.now() - totalStart) / 1000).toFixed(1);
-  console.log(`[scanner] All prep done in ${ppTime}s`);
+  // Clean up de-red temp files
+  for (const f of deRedTempFiles) {
+    try { unlinkSync(f); } catch (_) {}
+  }
   
   // Phase 3: VL classify red marks + centroid matching per page
   const VL_CLASSIFY_CONCURRENCY = 2; // Limit concurrent VL classify calls
@@ -824,7 +866,7 @@ export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 
   const allQuestions = pageResults.flatMap(p => p.questions);
   const allErrors = pageResults.flatMap(p => p.errors);
   
-  console.log(`[scanner v4.0] Done: ${pageResults.length} pages, ${qCountFinal} questions, ${allErrors.length} errors in ${totalTime}s` +
+  console.log(`[scanner v4.2] Done: ${pageResults.length} pages, ${qCountFinal} questions, ${allErrors.length} errors in ${totalTime}s` +
     (skipCount ? ` (${skipCount} pages skipped)` : ''));
   
   return {

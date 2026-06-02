@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-gaozhong.online — 预处理 v8.0
-功能: 矫正+对比度 + 红笔突出图 + 连通域红笔区域检测
-新增 /red-regions: 使用 connectedComponentsWithStats 提取红笔质心
+gaozhong.online — 预处理 v8.1
+功能: 矫正+对比度 + 红笔突出图 + 连通域红笔区域检测 + 去红处理
+v8.1: 新增 /de-red 端点 — 用红笔 mask 擦除原图红笔墨水，输出干净图像供 OCR
 """
 import base64, traceback, json, numpy as np
 from flask import Flask, request, jsonify
@@ -143,7 +143,7 @@ def red_highlighted_image(img):
 
 @app.route('/health', methods=['GET'])
 def health():
-    return jsonify({'status': 'ok', 'service': 'gaozhong-preprocess', 'version': 'v8.0'})
+    return jsonify({'status': 'ok', 'service': 'gaozhong-preprocess', 'version': 'v8.1'})
 
 @app.route('/preprocess', methods=['POST'])
 def preprocess():
@@ -203,6 +203,52 @@ def red_regions():
         traceback.print_exc()
         return jsonify({'status': 'error', 'error': str(e)}), 500
 
+@app.route('/de-red', methods=['POST'])
+def de_red():
+    """
+    v8.1 新接口：去红笔处理
+    擦除原图中的红笔墨水（用 inpainting 填充背景色），输出干净图像。
+    用于 OCR 前的预处理，避免红笔划线破坏文字形态。
+    
+    输入: { image: "base64...", options: { deskew: true } }
+    输出: { status, result: { clean_image, red_signal } }
+    """
+    import cv2
+    try:
+        data = request.get_json()
+        if not data or 'image' not in data:
+            return jsonify({'status': 'error', 'error': '缺少image'}), 400
+        img = b64_to_cv2(data['image'])
+        if img is None or img.size == 0:
+            return jsonify({'status': 'error', 'error': '无法解码'}), 400
+        
+        options = data.get('options', {})
+        if options.get('deskew', True):
+            img = deskew_image(img)
+        img = enhance_contrast(img)
+        
+        # 提取红笔 mask
+        red_mask = extract_red_mask(img)
+        
+        # 膨胀 mask 2 像素，确保完全覆盖红笔记号边缘
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+        red_mask_dilated = cv2.dilate(red_mask, kernel, iterations=1)
+        
+        # inpainting 填充：用周围像素色填充红笔区域
+        clean = cv2.inpaint(img, red_mask_dilated, inpaintRadius=5, flags=cv2.INPAINT_TELEA)
+        
+        red_signal = round(float(np.sum(red_mask > 0) / red_mask.size), 5)
+        
+        result = {
+            'clean_image': cv2_to_b64(clean),
+            'red_signal': red_signal
+        }
+        return jsonify({'status': 'ok', 'result': result,
+            'image_size': {'width': img.shape[1], 'height': img.shape[0]}})
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'status': 'error', 'error': str(e)}), 500
+
 if __name__ == '__main__':
-    print("gaozhong.online 预处理 v8.0\n端口:5002", flush=True)
+    print("gaozhong.online 预处理 v8.1\n端口:5002", flush=True)
     app.run(host='0.0.0.0', port=5002, debug=False, threaded=True)
