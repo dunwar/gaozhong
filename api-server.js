@@ -54,7 +54,7 @@ process.on('SIGINT', () => {
 });
 
 // Scanner v3.0
-const SCANNER_VERSION = 'v4.0';
+const SCANNER_VERSION = 'v4.2';
 import { initDB, saveDB, saveRecord, getRecord, getHistory, getStats, createUser, getUserByEmail, getUserById, updateUser, changePassword, listUsers, saveErrorProblem, saveErrorKnowledgeTags, getErrorProblem, listErrorProblems, getErrorStats, getKnowledgeStats, getErrorsByKnowledgePoint, searchKnowledgePoints, createPaperSession, updatePaperSession, getPaperSession, listPaperSessions, listErrorsByPaper, listErrorsByTime, listErrorsBySubject, listErrorsForGuidance, saveReview, updateErrorReviewStatus, deleteErrorProblem, getSessionReviews, resetStalledPaperSessions } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -1540,7 +1540,7 @@ app.get('/health', (req, res) => {
     version: '2.0-async',
     providers: { ocr: { name: 'Kimi', model: MODEL_OCR }, grading: { name: 'DeepSeek', model: MODEL_GRADING } },
     prompt: { version: PROMPT_VERSION, file: 'prompts/grading-v5.js' },
-    scanner: { version: SCANNER_VERSION, engine: 'v4.0 VL OCR per-page parallel + Preprocess v8.0 + VL Mark Classify' + (ZHIPU_KEY ? ' + Zhipu DirectJudge' : ''), file: 'scanner-v3.mjs', zhipuVL: ZHIPU_KEY ? MODEL_ZHIPU_VL : 'disabled' },
+    scanner: { version: SCANNER_VERSION, engine: 'v4.2 De-red + VL OCR per-page parallel + Preprocess v8.1 + VL Mark Classify' + (ZHIPU_KEY ? ' + Zhipu DirectJudge v2' : ''), file: 'scanner-v3.mjs', zhipuVL: ZHIPU_KEY ? MODEL_ZHIPU_VL : 'disabled' },
     queue: { grading: { active: gradingQueue.active, pending: gradingQueue.pending }, error: { active: errorQueue.active, pending: errorQueue.pending }, paper: { active: paperQueue.active, pending: paperQueue.pending, maxConcurrent: PAPER_MAX_CONCURRENT } },
     tasks: { memory: tasks.size, persistent: getStats() },
     uptime: Math.floor(process.uptime())
