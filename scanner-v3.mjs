@@ -248,11 +248,9 @@ ${isDualColumn ? '- 左栏 x: 0~' + Math.round(imgW * 0.48) + ', 右栏 x: ' + M
 
   // v4.1: 尝试智谱 VL OCR（如果配置了 key），fallback 到 Python Kimi
   if (USE_ZHIPU_VL) {
-    try {
-      console.log(`[scanner] Trying Zhipu VL OCR... (layout: ${layoutResult ? layoutResult.blocks?.length + ' blocks' : 'none'})`);
-      const imageB64 = imgToBase64(pagePath);
-      const result = await zhipuVLRequest({
-        messages: [
+    console.log(`[scanner] Trying Zhipu VL OCR... (layout: ${layoutResult ? layoutResult.blocks?.length + ' blocks' : 'none'})`);
+    const imageB64 = imgToBase64(pagePath);
+    const zhipuMessages = [
           { role: 'system', content: '你是一位高中老师。你仔细看试卷图片，逐题提取题目结构。最终只输出JSON，不加任何解释。重要：不要输出推理过程（reasoning），直接在content中输出完整JSON。' },
           { role: 'user', content: [
             { type: 'text', text: `请识别这张试卷页面上的所有题目，逐题提取信息。
@@ -333,7 +331,10 @@ listening  — 听力题（有选项无题干文字）
 - 直接输出JSON，不要markdown代码块。` },
             { type: 'image_url', image_url: { url: imageB64, detail: 'high' } }
           ]}
-        ],
+        ];
+    try {
+      const result = await zhipuVLRequest({
+        messages: zhipuMessages,
         max_tokens: 16000,
         temperature: 0.05
       });
@@ -392,20 +393,24 @@ listening  — 听力题（有选项无题干文字）
     } catch (e) {
       // v4.3: Rate limit → wait and retry instead of immediate fallback
       if (e.message === 'ZhipuVLRateLimit') {
-        console.log('[scanner] Zhipu VL rate limited, waiting 15s before retry...');
-        await new Promise(r => setTimeout(r, 15000));
-        try {
-          const retryResult = await zhipuVLRequest({ messages, model, max_tokens: 16000, temperature: 0.05 });
-          const retryContent = extractContent(retryResult);
-          const retryCleaned = fixNewlinesInJSON(retryContent.trim().replace(/^[`]{3}(?:json)?\s*/i, '').replace(/\s*[`]{3}$/g, '').replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g, ''));
-          let retryParsed;
-          try { retryParsed = JSON.parse(retryCleaned); } catch { const m = retryCleaned.match(/\{[\s\S]*\}/); if (m) try { retryParsed = JSON.parse(m[0]); } catch {} }
-          if (retryParsed?.questions?.length > 0) {
-            console.log(`[scanner] Zhipu VL retry success: ${retryParsed.questions.length} questions`);
-            return { status: 'ok', totalQuestions: retryParsed.questions.length, questions: retryParsed.questions, passages: retryParsed.passages || [], engine: 'zhipu-vl-retry' };
+        // Exponential backoff: try 30s, 60s
+        for (let attempt = 0; attempt < 2; attempt++) {
+          const wait = 30000 * (attempt + 1);
+          console.log(`[scanner] Zhipu VL rate limited, waiting ${wait/1000}s before retry ${attempt+1}/2...`);
+          await new Promise(r => setTimeout(r, wait));
+          try {
+            const retryResult = await zhipuVLRequest({ messages: zhipuMessages, model: MODEL_ZHIPU_VL, max_tokens: 16000, temperature: 0.05 });
+            const retryContent = extractContent(retryResult);
+            const retryCleaned = fixNewlinesInJSON(retryContent.trim().replace(/^[`]{3}(?:json)?\s*/i, '').replace(/\s*[`]{3}$/g, '').replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g, ''));
+            let retryParsed;
+            try { retryParsed = JSON.parse(retryCleaned); } catch { const m = retryCleaned.match(/\{[\s\S]*\}/); if (m) try { retryParsed = JSON.parse(m[0]); } catch {} }
+            if (retryParsed?.questions?.length > 0) {
+              console.log(`[scanner] Zhipu VL retry success (attempt ${attempt+1}): ${retryParsed.questions.length} questions`);
+              return { status: 'ok', totalQuestions: retryParsed.questions.length, questions: retryParsed.questions, passages: retryParsed.passages || [], engine: 'zhipu-vl-retry' };
+            }
+          } catch (e2) {
+            console.log(`[scanner] Zhipu VL retry ${attempt+1} failed: ${e2.message}`);
           }
-        } catch (e2) {
-          console.log(`[scanner] Zhipu VL retry also failed: ${e2.message}`);
         }
       }
       console.log(`[scanner] Zhipu VL OCR failed (${e.message}), falling back to Kimi...`);
