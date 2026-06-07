@@ -90,7 +90,9 @@ def call_kimi(messages, max_tokens=32000, timeout=API_TIMEOUT):
             result = json.loads(resp.read().decode('utf-8'))
         choice = result['choices'][0]
         finish = choice.get('finish_reason', 'unknown')
-        content = choice['message']['content']
+        msg = choice['message']
+        # kimi-k2.6 may return reasoning_content instead of content (thinking mode)
+        content = msg.get('content', '') or msg.get('reasoning_content', '') or ''
         tokens = result.get('usage', {})
         print(f"[kimi] finish={finish}, prompt_tokens={tokens.get('prompt_tokens','?')}, completion_tokens={tokens.get('completion_tokens','?')}, chars={len(content)}", file=sys.stderr)
         if finish == 'length':

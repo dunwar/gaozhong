@@ -25,7 +25,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 export const SCANNER_VERSION = 'v4.3';
 const PREPROCESS_URL = process.env.PREPROCESS_URL || 'http://localhost:5002';
-const VL_CONCURRENCY = 6;
+const VL_CONCURRENCY = 2;  // Low to avoid Zhipu rate limit
 const PREPROCESS_CONCURRENCY = 4;
 const VL_RETRIES = 3;          // per-page retries before giving up
 const VL_RETRY_BACKOFF_MS = 2000;  // base backoff between retries
@@ -34,7 +34,7 @@ const VL_RETRY_BACKOFF_MS = 2000;  // base backoff between retries
 const ZHIPU_KEY = process.env.ZHIPU_API_KEY || '';
 const ZHIPU_BASE_URL = process.env.ZHIPU_BASE_URL || 'https://open.bigmodel.cn/api/coding/paas/v4';
 const MODEL_ZHIPU_VL = process.env.MODEL_ZHIPU_VL || 'glm-4.6v-flash';
-const USE_ZHIPU_VL = !!ZHIPU_KEY;  // 有 key 就启用智谱通道
+const USE_ZHIPU_VL = !!ZHIPU_KEY;  // Use Zhipu VL (endpoint fixed to /api/paas/v4)
 
 // ═══════════════════════════════════════
 // Concurrency limiter
@@ -143,7 +143,9 @@ async function httpPostJson(hostname, port, path, body, timeout = 300_000) {
 async function zhipuVLRequest({ messages, model, max_tokens = 4096, temperature = 0.05 }) {
   const useModel = model || MODEL_ZHIPU_VL;
   const body = JSON.stringify({ model: useModel, messages, max_tokens, temperature });
-  const url = new URL(ZHIPU_BASE_URL + '/chat/completions');
+  // Use standard (non-coding) endpoint for VL — coding endpoint wraps responses differently
+  const vlBaseUrl = (ZHIPU_BASE_URL || '').replace('/api/coding/paas/v4', '/api/paas/v4');
+  const url = new URL(vlBaseUrl + '/chat/completions');
 
   return new Promise((resolve, reject) => {
     const req = http.request({
@@ -163,6 +165,11 @@ async function zhipuVLRequest({ messages, model, max_tokens = 4096, temperature 
         try {
           const result = JSON.parse(data);
           if (result.error) {
+            // Rate limit — use special error type for retry logic
+            if (result.error.code === '429' || (result.error.message || '').includes('速率限制') || (result.error.message || '').includes('rate')) {
+              reject(new Error('ZhipuVLRateLimit'));
+              return;
+            }
             reject(new Error(`Zhipu API error: ${result.error.message || JSON.stringify(result.error)}`));
             return;
           }
@@ -196,7 +203,13 @@ async function detectPreflight() {
   throw new Error(`预处理服务 v8.0 不可用 (port ${port})，请稍后重试`);
 }
 
-async function extractQuestionsVL(pagePath, apiKey, subPage = null) {
+// Extract content from VL response (handles both content and reasoning_content)
+function extractContent(result) {
+  const msg = result.choices?.[0]?.message;
+  return (msg?.content || '') || (msg?.reasoning_content || '') || '';
+}
+
+async function extractQuestionsVL(pagePath, apiKey, subPage = null, pageIndex = 0, totalPages = 0) {
   // v4.3: Layout detection → inject bbox hints into VL prompt
   // Run layout detection in parallel with base64 encoding
   const [layoutResult, imageB64Prep] = await Promise.all([
@@ -244,6 +257,8 @@ ${isDualColumn ? '- 左栏 x: 0~' + Math.round(imgW * 0.48) + ', 右栏 x: ' + M
           { role: 'user', content: [
             { type: 'text', text: `请识别这张试卷页面上的所有题目，逐题提取信息。
 
+${pageIndex > 0 ? `⚠️ 这是试卷的第 ${pageIndex} 页（共 ${totalPages} 页）。题号应该是试卷上的原始编号，不要从1开始重新编号！` : ''}
+
 ${layoutHint}
 ══════════════════════════════════
 【版面分析 — 先判断结构】
@@ -263,11 +278,15 @@ ${subPage ? `- 这张图已经是${subPage === 'left' ? '左' : '右'}半部分�
 ══════════════════════════════════
 【题目识别规则】
 ══════════════════════════════════
-1. 看到 "21." "22." "44." 等数字+标点 = 一道题
-2. 一道题 = 题号 + 题干 + 选项（如有）
-3. 听力题题干空白 → questionText 填 "(听力题)"
-4. 同一题号的 A/B/C/D 是同一道题的选项，不要拆开
-5. 每道题的 bbox 从左到右覆盖该题的所有选项
+1. 题号 = 试卷上印刷的数字编号（如 21. 22. 44. 等），必须照抄原始题号
+2. ⚠️ 绝对不要自己编造题号！如果页面上某道题没有印刷题号，设 questionNumber 为 0
+3. ⚠️ 如果页面是完形填空/语法填空的续页，题号可能是 (1)(2)(3) 这样的括号数字
+4. 一道题 = 题号 + 题干 + 选项（如有）
+5. 听力题题干空白 → questionText 填 "(听力题)"
+6. 同一题号的 A/B/C/D 是同一道题的选项，不要拆开
+7. 每道题的 bbox 从左到右覆盖该题的所有选项
+8. 翻译题和写作题也要识别，即使没有选项
+9. ⚠️ 严禁遗漏任何有题号的题目！如果页面有20道题就输出20道
 
 ══════════════════════════════════
 【阅读理解 — 特殊处理 ⚠️ 极重要】
@@ -319,16 +338,39 @@ listening  — 听力题（有选项无题干文字）
         temperature: 0.05
       });
       
-      const content = result.choices?.[0]?.message?.content || '';
-      // Parse JSON
-      const cleaned = content.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/g, '');
+      const content = extractContent(result);
+      // Parse JSON — with control character cleanup
+      const cleaned = content.trim()
+        .replace(/^```(?:json)?\s*/i, '')
+        .replace(/\s*```$/g, '')
+        // Remove control characters (0x00-0x1F except \t \n \r)
+        .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g, '');
       let parsed;
       try {
         parsed = JSON.parse(cleaned);
       } catch {
+        // Tier 2: find outermost { }
         const match = cleaned.match(/\{[\s\S]*\}/);
-        if (match) parsed = JSON.parse(match[0]);
-        else throw new Error('Failed to parse Zhipu VL response');
+        if (match) {
+          try { parsed = JSON.parse(match[0]); } catch {
+            // Tier 3: try truncation repair — progressively remove trailing chars
+            const s = match[0];
+            for (let end = s.length; end > s.length - 2000 && end > 10; end--) {
+              try { parsed = JSON.parse(s.substring(0, end)); break; } catch {}
+            }
+          }
+        }
+        if (!parsed) {
+          // Tier 4: try adding closing brackets
+          const braceMatch = cleaned.match(/\{[\s\S]*/);
+          if (braceMatch) {
+            const base = braceMatch[0];
+            for (const suffix of ['"}]}', '"}]}}', '}]}', '}]', ']}', '}']) {
+              try { parsed = JSON.parse(base + suffix); break; } catch {}
+            }
+          }
+        }
+        if (!parsed) throw new Error('Failed to extract JSON from response (' + content.length + ' chars): ' + content.substring(0, 200));
       }
       
       const questions = parsed.questions || [];
@@ -348,6 +390,24 @@ listening  — 听力题（有选项无题干文字）
       console.log(`[scanner] Zhipu VL OCR: ${questions.length} questions`);
       return { status: 'ok', totalQuestions: questions.length, questions, engine: 'zhipu-vl' };
     } catch (e) {
+      // v4.3: Rate limit → wait and retry instead of immediate fallback
+      if (e.message === 'ZhipuVLRateLimit') {
+        console.log('[scanner] Zhipu VL rate limited, waiting 15s before retry...');
+        await new Promise(r => setTimeout(r, 15000));
+        try {
+          const retryResult = await zhipuVLRequest({ messages, model, max_tokens: 16000, temperature: 0.05 });
+          const retryContent = extractContent(retryResult);
+          const retryCleaned = fixNewlinesInJSON(retryContent.trim().replace(/^[`]{3}(?:json)?\s*/i, '').replace(/\s*[`]{3}$/g, '').replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g, ''));
+          let retryParsed;
+          try { retryParsed = JSON.parse(retryCleaned); } catch { const m = retryCleaned.match(/\{[\s\S]*\}/); if (m) try { retryParsed = JSON.parse(m[0]); } catch {} }
+          if (retryParsed?.questions?.length > 0) {
+            console.log(`[scanner] Zhipu VL retry success: ${retryParsed.questions.length} questions`);
+            return { status: 'ok', totalQuestions: retryParsed.questions.length, questions: retryParsed.questions, passages: retryParsed.passages || [], engine: 'zhipu-vl-retry' };
+          }
+        } catch (e2) {
+          console.log(`[scanner] Zhipu VL retry also failed: ${e2.message}`);
+        }
+      }
       console.log(`[scanner] Zhipu VL OCR failed (${e.message}), falling back to Kimi...`);
     }
   }
@@ -541,7 +601,7 @@ async function classifyRedMarksVL(redHighlightedPath, questions, apiKey) {
         temperature: 0.05
       });
       
-      const content = result.choices?.[0]?.message?.content || '';
+      const content = extractContent(result);
       const classifiedMarks = parseClassifyResponse(content);
       const errorMarks = classifiedMarks.filter(m => m.isError).length;
       console.log(`[scanner] Zhipu VL classified ${classifiedMarks.length} marks: ${errorMarks} errors`);
@@ -581,7 +641,7 @@ async function classifyRedMarksVL(redHighlightedPath, questions, apiKey) {
       res.on('end', () => {
         try {
           const result = JSON.parse(data);
-          const content = result.choices?.[0]?.message?.content || '';
+          const content = extractContent(result);
           const classifiedMarks = parseClassifyResponse(content);
           
           const totalMarks = classifiedMarks.length;
@@ -974,16 +1034,18 @@ export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 
   // For dual-column pages, OCR left half and right half separately, then merge results
   const ocrGate = new ConcurrencyGate(VL_CONCURRENCY);
   
+  const totalPages = ocrImagePaths.length;
+  
   // v4.3: Build OCR job list — split pages produce 2 jobs (left + right)
   const ocrJobs = [];
   for (let i = 0; i < ocrImagePaths.length; i++) {
     const split = pageSplitMap[i];
     if (split && split.isDual) {
       // Dual-column page: create separate left/right OCR jobs
-      ocrJobs.push({ pageIndex: i, subPage: 'left', imgPath: split.leftPath });
-      ocrJobs.push({ pageIndex: i, subPage: 'right', imgPath: split.rightPath });
+      ocrJobs.push({ pageIndex: i, subPage: 'left', imgPath: split.leftPath, totalPages });
+      ocrJobs.push({ pageIndex: i, subPage: 'right', imgPath: split.rightPath, totalPages });
     } else {
-      ocrJobs.push({ pageIndex: i, subPage: null, imgPath: ocrImagePaths[i] });
+      ocrJobs.push({ pageIndex: i, subPage: null, imgPath: ocrImagePaths[i], totalPages });
     }
   }
   
@@ -1002,7 +1064,7 @@ export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 
         
         for (let attempt = 0; attempt < VL_RETRIES; attempt++) {
           try {
-            const result = await extractQuestionsVL(job.imgPath, apiKey, job.subPage);
+            const result = await extractQuestionsVL(job.imgPath, apiKey, job.subPage, job.pageIndex, job.totalPages);
             if (attempt > 0) console.log(`[scanner] ${label}: VL ok on retry ${attempt}`);
             return { ...job, result, engine: 'vl', attempts: attempt + 1 };
           } catch (vlErr) {
@@ -1301,7 +1363,7 @@ async function directJudgeDualImage(originalPath, redHighlightedPath, subject) {
     temperature: 0.05
   });
 
-  const content = result.choices?.[0]?.message?.content || '';
+  const content = extractContent(result);
   
   // Parse JSON
   const cleaned = content.trim()

@@ -172,6 +172,9 @@ export async function initDB() {
   // 图片持久化
   try { db.run(`ALTER TABLE paper_sessions ADD COLUMN image_paths TEXT DEFAULT '';`); } catch (_) {}
 
+  // V4: 扫描数据持久化
+  try { db.run(`ALTER TABLE paper_sessions ADD COLUMN scan_data TEXT DEFAULT '';`); } catch (_) {}
+
   // V4: 错题复核 — error_problems 新增复核字段
   try { db.run(`ALTER TABLE error_problems ADD COLUMN review_status TEXT DEFAULT 'pending';`); } catch (_) {}
   try { db.run(`ALTER TABLE error_problems ADD COLUMN position_data TEXT DEFAULT '';`); } catch (_) {}
@@ -684,7 +687,7 @@ export function createPaperSession({ id, userId, subject, title, imageCount = 1,
 
 export function updatePaperSession(id, fields) {
   if (!db) return null;
-  const fieldMap = { status: 'status', errorCount: 'error_count', aiRaw: 'ai_raw', imageCount: 'image_count', title: 'title', totalQuestions: 'total_questions', correctCount: 'correct_count', imagePaths: 'image_paths', subject: 'subject' };
+  const fieldMap = { status: 'status', errorCount: 'error_count', aiRaw: 'ai_raw', imageCount: 'image_count', title: 'title', totalQuestions: 'total_questions', correctCount: 'correct_count', imagePaths: 'image_paths', subject: 'subject', scanData: 'scan_data' };
   const sets = [];
   const vals = [];
   for (const [k, v] of Object.entries(fields)) {
@@ -737,6 +740,7 @@ function deserializePaper(row) {
     title: row.title, imageCount: row.image_count, status: row.status,
     aiRaw: row.ai_raw, errorCount: row.error_count,
     totalQuestions: row.total_questions || 0, correctCount: row.correct_count || 0,
+    scanData: row.scan_data || '',
     imagePaths: row.image_paths || '',
     createdAt: row.created_at, updatedAt: row.updated_at
   };
