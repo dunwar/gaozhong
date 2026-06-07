@@ -253,7 +253,7 @@ ${isDualColumn ? '- 左栏 x: 0~' + Math.round(imgW * 0.48) + ', 右栏 x: ' + M
       const imageB64 = imgToBase64(pagePath);
       const result = await zhipuVLRequest({
         messages: [
-          { role: 'system', content: '你是一位高中老师。你仔细看试卷图片，逐题提取题目结构。最终只输出JSON，不加任何解释。' },
+          { role: 'system', content: '你是一位高中老师。你仔细看试卷图片，逐题提取题目结构。最终只输出JSON，不加任何解释。重要：不要输出推理过程（reasoning），直接在content中输出完整JSON。' },
           { role: 'user', content: [
             { type: 'text', text: `请识别这张试卷页面上的所有题目，逐题提取信息。
 
