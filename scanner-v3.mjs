@@ -41,17 +41,27 @@ const USE_ZHIPU_VL = !!ZHIPU_KEY;  // Use Zhipu VL (endpoint fixed to /api/paas/
 // ═══════════════════════════════════════
 
 class ConcurrencyGate {
-  constructor(limit) {
+  constructor(limit, minDelayMs = 0) {
     this.limit = limit;
     this.running = 0;
     this.queue = [];
+    this.minDelayMs = minDelayMs;
+    this.lastStart = 0;
   }
   
   async run(fn) {
     while (this.running >= this.limit) {
       await new Promise(resolve => this.queue.push(resolve));
     }
+    // Enforce minimum delay between starts
+    if (this.minDelayMs > 0 && this.lastStart > 0) {
+      const elapsed = Date.now() - this.lastStart;
+      if (elapsed < this.minDelayMs) {
+        await new Promise(r => setTimeout(r, this.minDelayMs - elapsed));
+      }
+    }
     this.running++;
+    this.lastStart = Date.now();
     try {
       return await fn();
     } finally {
