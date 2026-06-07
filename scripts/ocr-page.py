@@ -8,9 +8,9 @@ from urllib.request import Request, urlopen
 from urllib.error import URLError
 
 API_KEY = os.environ.get("KIMI_API_KEY", "")
-API_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"
-MODEL = "kimi-k2.6"
-API_TIMEOUT = 180  # per-call timeout (seconds)
+API_URL = "https://api.moonshot.cn/v1/chat/completions"
+MODEL = "moonshot-v1-8k-vision-preview"
+API_TIMEOUT = 300  # per-call timeout (seconds) — kimi-k2.6 reasoning model needs more time
 MAX_RETRIES = 3
 RETRY_BACKOFF_BASE = 3  # seconds; actual = base * 2^attempt
 
@@ -55,10 +55,12 @@ SINGLE_PAGE_PROMPT = """请识别这张试卷页面上的所有题目，逐题�
 
 【输出JSON格式 — 严格按此格式，不要增减字段】
 {"passages":[{"text":"阅读文章全文..."}],"questions":[
-  {"questionNumber":1,"questionType":"choice","questionText":"题干原文","options":{"A":"选项A","B":"选项B","C":"选项C","D":"选项D"},"passageText":"","passageRef":null,"bbox":{"x":50,"y":200,"w":540,"h":80}}
+  {"questionNumber":1,"questionType":"choice","questionText":"题干原文","options":{"A":"选项A","B":"选项B","C":"选项C","D":"选项D"},"passageText":"","passageRef":null,"bbox":{"x":0,"y":0,"w":0,"h":0}}
 ]}
 
-只输出这个JSON对象，不要markdown代码块，不要"```json"，不要额外解释。"""
+只输出这个JSON对象，不要markdown代码块，不要"```json"，不要额外解释。
+
+⚠️ bbox要求：每道题的bbox必须根据图片中的实际位置逐一计算，禁止所有题目使用相同的bbox值！"""
 
 
 def encode_image(path):
@@ -74,7 +76,7 @@ def call_kimi(messages, max_tokens=32000, timeout=API_TIMEOUT):
     body = json.dumps({
         "model": MODEL,
         "messages": messages,
-        "temperature": 0.05,
+        "temperature": 1,  # kimi-k2.6 only allows temperature=1
         "max_tokens": max_tokens
     }).encode('utf-8')
     

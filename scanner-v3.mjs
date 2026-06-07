@@ -23,7 +23,7 @@ import http from 'http';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-export const SCANNER_VERSION = 'v4.2';
+export const SCANNER_VERSION = 'v4.3';
 const PREPROCESS_URL = process.env.PREPROCESS_URL || 'http://localhost:5002';
 const VL_CONCURRENCY = 6;
 const PREPROCESS_CONCURRENCY = 4;
@@ -196,11 +196,47 @@ async function detectPreflight() {
   throw new Error(`预处理服务 v8.0 不可用 (port ${port})，请稍后重试`);
 }
 
-async function extractQuestionsVL(pagePath, apiKey) {
+async function extractQuestionsVL(pagePath, apiKey, subPage = null) {
+  // v4.3: Layout detection → inject bbox hints into VL prompt
+  // Run layout detection in parallel with base64 encoding
+  const [layoutResult, imageB64Prep] = await Promise.all([
+    detectLayout(pagePath),
+    Promise.resolve().then(() => { /* will load below */ return null; })
+  ]);
+
+  // Build layout hint text
+  let layoutHint = '';
+  if (layoutResult && layoutResult.blocks?.length > 0) {
+    const imgW = layoutResult.image_size?.width || 0;
+    const imgH = layoutResult.image_size?.height || 0;
+    const blocks = layoutResult.blocks;
+    const isDualColumn = imgW > 0 && blocks.filter(b => b.x1 > imgW * 0.45 && b.x2 > imgW * 0.5).length > 3;
+
+    layoutHint = `
+══════════════════════════════════
+【AI 版面分析结果（已确认，可信）】
+══════════════════════════════════
+页面尺寸: ${imgW}×${imgH}
+检测到 ${blocks.length} 个文本块，排版: ${isDualColumn ? '双栏（先左后右）' : '单栏'}
+${isDualColumn ? '- 左栏 x: 0~' + Math.round(imgW * 0.48) + ', 右栏 x: ' + Math.round(imgW * 0.45) + '~' + imgW : ''}
+
+文本块列表（按阅读顺序）：
+`;
+    for (const b of blocks) {
+      layoutHint += `  [${b.label}] (${b.x1},${b.y1})-(${b.x2},${b.y2}) ${b.w}×${b.h} 置信${b.score.toFixed(2)}\n`;
+    }
+    layoutHint += `
+⚠️ 以上位置信息由 AI 版面检测引擎确认，请基于这些坐标确定：
+- 页面是${isDualColumn ? '双栏' : '单栏'}排版
+- 每道题的 bbox 应准确覆盖题号+题干+选项的矩形范围
+- 禁止将不同栏的文字混一行！左右栏 y 坐标可能重叠但内容完全不同，必须严格按栏读取
+`;
+  }
+
   // v4.1: 尝试智谱 VL OCR（如果配置了 key），fallback 到 Python Kimi
   if (USE_ZHIPU_VL) {
     try {
-      console.log('[scanner] Trying Zhipu VL OCR...');
+      console.log(`[scanner] Trying Zhipu VL OCR... (layout: ${layoutResult ? layoutResult.blocks?.length + ' blocks' : 'none'})`);
       const imageB64 = imgToBase64(pagePath);
       const result = await zhipuVLRequest({
         messages: [
@@ -208,11 +244,12 @@ async function extractQuestionsVL(pagePath, apiKey) {
           { role: 'user', content: [
             { type: 'text', text: `请识别这张试卷页面上的所有题目，逐题提取信息。
 
+${layoutHint}
 ══════════════════════════════════
 【版面分析 — 先判断结构】
 ══════════════════════════════════
 第1步：观察页面整体排版
-- 是单栏还是双栏？
+${subPage ? `- 这张图已经是${subPage === 'left' ? '左' : '右'}半部分（已切图），直接按单栏从上到下读取` : '- 是单栏还是双栏？'}
 - 双栏的话，先读完左栏（从上到下），再读右栏（从上到下）
 - 如果页面中间有竖线/空白分隔 → 双栏，左右独立读
 - ⚠️ 严禁将左右两栏的文字混在一起当成一行！
@@ -265,13 +302,13 @@ listening  — 听力题（有选项无题干文字）
 【输出JSON格式 — 严格格式】
 ══════════════════════════════════
 {"passages":[{"text":"阅读理解文章全文..."}],"questions":[
-  {"questionNumber":21,"questionType":"reading","passageRef":0,"questionText":"题干","options":{"A":"...","B":"...","C":"...","D":"..."},"passageText":"","bbox":{"x":50,"y":200,"w":540,"h":80}},
-  {"questionNumber":22,"questionType":"reading","passageRef":0,"questionText":"题干","options":{"A":"...","B":"...","C":"...","D":"..."},"passageText":"","bbox":{"x":50,"y":300,"w":540,"h":80}}
+  {"questionNumber":21,"questionType":"reading","passageRef":0,"questionText":"题干","options":{"A":"...","B":"...","C":"...","D":"..."},"passageText":"","bbox":{"x":0,"y":0,"w":0,"h":0}},
+  {"questionNumber":22,"questionType":"reading","passageRef":0,"questionText":"题干","options":{"A":"...","B":"...","C":"...","D":"..."},"passageText":"","bbox":{"x":0,"y":0,"w":0,"h":0}}
 ]}
 
 ⚠️ 质量要求：
-- 只有一道题题干跨行时 bbox.w ≤ 页面宽度，w 和 h 均为正数
-- bbox 覆盖题号+题干+选项的矩形范围
+- bbox 覆盖题号+题干+选项的矩形范围，每道题的 bbox 必须不同
+- ⚠️ 禁止所有题目使用相同的 bbox 值！必须根据图片中每道题的实际位置逐一计算
 - 逐题输出，不要遗漏页面上任何一道有题号的题
 - 双栏试卷大约每栏 10-15 道题，总共 20-30 道
 - 直接输出JSON，不要markdown代码块。` },
@@ -315,8 +352,9 @@ listening  — 听力题（有选项无题干文字）
     }
   }
   
-  // Fallback: Kimi k2.6 via Python
-  const result = await runPython('ocr-page.py', [pagePath, '--api-key', apiKey]);
+  // Fallback: Kimi k2.6 via Python (use KIMI_API_KEY env, not the passed apiKey which may be Zhipu's)
+  const kimiKey = process.env.KIMI_API_KEY || apiKey;
+  const result = await runPython('ocr-page.py', [pagePath, '--api-key', kimiKey]);
   if (result.status !== 'ok') throw new Error(`VL OCR failed: ${result.error}`);
   
   // v4.2: Inject passage text from passages array into reading questions
@@ -328,7 +366,12 @@ listening  — 听力题（有选项无题干文字）
       }
     }
   }
-  
+
+  // v4.3.2: Post-process — validate & fix bbox, detect cross-column contamination
+  if (result.questions?.length > 0 && layoutResult?.blocks?.length > 0) {
+    postProcessQuestions(result.questions, layoutResult);
+  }
+
   return result;
 }
 
@@ -340,6 +383,29 @@ async function detectRedCentroids(imageBase64) {
   });
   if (data.status !== 'ok') throw new Error(`Red regions failed: ${data.error}`);
   return data.result;
+}
+
+/**
+ * Layout detection via PaddleOCR LayoutDetection (PP-DocLayout_plus-L)
+ * Returns array of { label, score, x1, y1, x2, y2, w, h } sorted by reading order.
+ * Takes ~4s on CPU; returns null on failure (non-fatal).
+ */
+async function detectLayout(pagePath) {
+  try {
+    const u = new URL(PREPROCESS_URL);
+    const data = await httpPostJson(u.hostname, parseInt(u.port) || 5002, '/layout-detect', {
+      file_path: pagePath,
+      options: { min_score: 0.4 }
+    }, 30_000);  // 30s timeout (includes first-time model load)
+    if (data.status !== 'ok') {
+      console.log(`[scanner] Layout detect failed: ${data.error}`);
+      return null;
+    }
+    return data.result;  // { blocks, total, label_counts, image_size, predict_ms }
+  } catch (e) {
+    console.log(`[scanner] Layout detect error: ${e.message}`);
+    return null;
+  }
 }
 
 async function detectPreprocess(imageBase64) {
@@ -498,7 +564,7 @@ async function classifyRedMarksVL(redHighlightedPath, questions, apiKey) {
   });
   
   return new Promise((resolve, reject) => {
-    const url = new URL('https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions');
+    const url = new URL('https://api.moonshot.cn/v1/chat/completions');
     const req = http.request({
       hostname: url.hostname,
       path: url.pathname,
@@ -781,10 +847,51 @@ export async function scanPage(pagePath, { apiKey, outputDir, pageIndex = 1, mar
 }
 
 // ═══════════════════════════════════════
+
+
+/**
+ * v4.3: Calls preprocess /split-columns endpoint → splits dual-column page into left/right halves.
+ * @param {string} imagePath - path to the page image
+ * @returns {{ isDual: boolean, midline: number, leftPath: string|null, rightPath: string|null }}
+ */
+async function splitColumns(imagePath) {
+  const u = new URL(PREPROCESS_URL);
+  const b64 = imgToBase64(imagePath);
+  try {
+    const data = await httpPostJson(u.hostname, parseInt(u.port) || 5002, '/split-columns', {
+      image: b64,
+      options: {}  // auto-detect mode
+    }, 30_000);
+    
+    if (data.status !== 'ok') return { isDual: false, midline: 0, leftPath: null, rightPath: null };
+    const r = data.result;
+    if (!r.is_dual_column) return { isDual: false, midline: r.midline_x, leftPath: null, rightPath: null };
+    
+    // Save left/right images to temp files
+    const leftPath = join(tmpdir(), `gaozhong-split-left-${Date.now()}.jpg`);
+    const rightPath = join(tmpdir(), `gaozhong-split-right-${Date.now()}.jpg`);
+    
+    for (const [side, path] of [['left_image', leftPath], ['right_image', rightPath]]) {
+      const imgB64 = r[side];
+      if (imgB64 && imgB64.includes(',')) {
+        writeFileSync(path, Buffer.from(imgB64.split(',')[1], 'base64'));
+      } else {
+        return { isDual: false, midline: r.midline_x, leftPath: null, rightPath: null };
+      }
+    }
+    
+    console.log(`[scanner] Split dual-column page at midline=${r.midline_x}: left=${r.left_size?.width}x${r.left_size?.height}, right=${r.right_size?.width}x${r.right_size?.height}`);
+    return { isDual: true, midline: r.midline_x, leftPath, rightPath };
+  } catch (e) {
+    console.log(`[scanner] split-columns failed: ${e.message}`);
+    return { isDual: false, midline: 0, leftPath: null, rightPath: null };
+  }
+}
+
 // MULTI-PAGE PARALLEL SCAN (v3.3)
 // ═══════════════════════════════════════
 
-export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 'red_pen', tencentSecret = null, subject = '自动' }) {
+export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 'red_pen', tencentSecret = null, subject = '自动', dualColumn = false }) {
   const totalStart = Date.now();
   console.log(`[scanner v4.2] Scanning ${pagePaths.length} pages (VL=${VL_CONCURRENCY}, PP=${PREPROCESS_CONCURRENCY})`);
   
@@ -831,49 +938,140 @@ export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 
     return pp;
   });
   
+  // v4.3: Dual-column splitting
+  // If dualColumn=true, attempt to split each page; track split results
+  const splitTempFiles = [];
+  const pageSplitMap = []; // pageSplitMap[pageIndex] = { isDual, leftPath, rightPath, midline }
+  
+  if (dualColumn) {
+    console.log(`[scanner] Dual-column mode enabled, attempting split for ${ocrImagePaths.length} pages...`);
+    const splitGate = new ConcurrencyGate(PREPROCESS_CONCURRENCY);
+    const splitJobs = ocrImagePaths.map((imgPath, i) =>
+      splitGate.run(async () => {
+        const result = await splitColumns(imgPath);
+        return { index: i, ...result };
+      })
+    );
+    const splitResults = await Promise.all(splitJobs);
+    
+    for (const sr of splitResults) {
+      pageSplitMap[sr.index] = sr;
+      if (sr.isDual) {
+        if (sr.leftPath) splitTempFiles.push(sr.leftPath);
+        if (sr.rightPath) splitTempFiles.push(sr.rightPath);
+      }
+    }
+    
+    const dualCount = splitResults.filter(r => r.isDual).length;
+    console.log(`[scanner] Dual-column split: ${dualCount}/${splitResults.length} pages detected as dual`);
+  } else {
+    for (let i = 0; i < ocrImagePaths.length; i++) {
+      pageSplitMap[i] = { isDual: false, leftPath: null, rightPath: null, midline: 0 };
+    }
+  }
+  
   // Phase 2: VL OCR — per-page parallel with retry (uses de-red images)
+  // For dual-column pages, OCR left half and right half separately, then merge results
   const ocrGate = new ConcurrencyGate(VL_CONCURRENCY);
   
-  const ocrResults = await Promise.all(
-    ocrImagePaths.map((imgPath, i) =>
+  // v4.3: Build OCR job list — split pages produce 2 jobs (left + right)
+  const ocrJobs = [];
+  for (let i = 0; i < ocrImagePaths.length; i++) {
+    const split = pageSplitMap[i];
+    if (split && split.isDual) {
+      // Dual-column page: create separate left/right OCR jobs
+      ocrJobs.push({ pageIndex: i, subPage: 'left', imgPath: split.leftPath });
+      ocrJobs.push({ pageIndex: i, subPage: 'right', imgPath: split.rightPath });
+    } else {
+      ocrJobs.push({ pageIndex: i, subPage: null, imgPath: ocrImagePaths[i] });
+    }
+  }
+  
+  console.log(`[scanner] OCR jobs: ${ocrJobs.length} (${ocrImagePaths.length} pages, ${ocrJobs.length - ocrImagePaths.length} split halves)`);
+  
+  const ocrRawResults = await Promise.all(
+    ocrJobs.map((job) =>
       ocrGate.run(async () => {
-        const pageLabel = `Page ${i + 1}`;
-        const isDeRed = imgPath !== pagePaths[i];
-        if (isDeRed) console.log(`[scanner] ${pageLabel}: OCR using de-red image`);
+        const label = job.subPage 
+          ? `Page ${job.pageIndex + 1}.${job.subPage}` 
+          : `Page ${job.pageIndex + 1}`;
+        const pageImgPath = pagePaths[job.pageIndex];
+        const isDeRed = job.imgPath !== pageImgPath && !job.subPage;
+        if (isDeRed) console.log(`[scanner] ${label}: OCR using de-red image`);
+        if (job.subPage) console.log(`[scanner] ${label}: OCR split ${job.subPage} half`);
+        
         for (let attempt = 0; attempt < VL_RETRIES; attempt++) {
           try {
-            const result = await extractQuestionsVL(imgPath, apiKey);
-            if (attempt > 0) console.log(`[scanner] ${pageLabel}: VL ok on retry ${attempt}`);
-            return { index: i, result, engine: 'vl', attempts: attempt + 1 };
+            const result = await extractQuestionsVL(job.imgPath, apiKey, job.subPage);
+            if (attempt > 0) console.log(`[scanner] ${label}: VL ok on retry ${attempt}`);
+            return { ...job, result, engine: 'vl', attempts: attempt + 1 };
           } catch (vlErr) {
             const retryLeft = VL_RETRIES - attempt - 1;
             if (retryLeft > 0) {
               const wait = VL_RETRY_BACKOFF_MS * Math.pow(2, attempt);
-              console.log(`[scanner] ${pageLabel}: VL attempt ${attempt + 1}/${VL_RETRIES} failed (${vlErr.message}), retry in ${wait}ms`);
+              console.log(`[scanner] ${label}: VL attempt ${attempt + 1}/${VL_RETRIES} failed (${vlErr.message}), retry in ${wait}ms`);
               await new Promise(r => setTimeout(r, wait));
             } else {
-              console.log(`[scanner] ${pageLabel}: VL all ${VL_RETRIES} retries exhausted, trying Tencent...`);
+              console.log(`[scanner] ${label}: VL all ${VL_RETRIES} retries exhausted`);
               if (tencentSecret) {
                 try {
-                  const result = await extractQuestionsTencent(imgPath, tencentSecret);
-                  return { index: i, result, engine: 'tencent', attempts: VL_RETRIES + 1 };
+                  const result = await extractQuestionsTencent(job.imgPath, tencentSecret);
+                  return { ...job, result, engine: 'tencent', attempts: VL_RETRIES + 1 };
                 } catch (tcErr) {
-                  console.log(`[scanner] ${pageLabel}: Tencent also failed (${tcErr.message}), skipped`);
-                  return { index: i, result: { questions: [], imageSize: null }, engine: 'failed', skipped: true, attempts: VL_RETRIES + 1 };
+                  console.log(`[scanner] ${label}: Tencent also failed (${tcErr.message}), skipped`);
+                  return { ...job, result: { questions: [], imageSize: null }, engine: 'failed', skipped: true, attempts: VL_RETRIES + 1 };
                 }
               }
-              console.log(`[scanner] ${pageLabel}: skipped (no fallback, 0 questions)`);
-              return { index: i, result: { questions: [], imageSize: null }, engine: 'failed', skipped: true, attempts: VL_RETRIES };
+              return { ...job, result: { questions: [], imageSize: null }, engine: 'failed', skipped: true, attempts: VL_RETRIES };
             }
           }
         }
-        return { index: i, result: { questions: [], imageSize: null }, engine: 'failed', skipped: true, attempts: VL_RETRIES };
+        return { ...job, result: { questions: [], imageSize: null }, engine: 'failed', skipped: true, attempts: VL_RETRIES };
       })
     )
   );
   
-  // Clean up de-red temp files
-  for (const f of deRedTempFiles) {
+  // Merge split sub-page results back into per-page results
+  const ocrResults = [];
+  const pageGroups = {};
+  for (const r of ocrRawResults) {
+    const key = r.pageIndex;
+    if (!pageGroups[key]) pageGroups[key] = [];
+    pageGroups[key].push(r);
+  }
+  
+  for (let i = 0; i < ocrImagePaths.length; i++) {
+    const group = pageGroups[i] || [];
+    if (group.length === 0) {
+      ocrResults.push({ index: i, result: { questions: [], imageSize: null }, engine: 'failed', skipped: true, attempts: 0 });
+      continue;
+    }
+    
+    if (group.length === 1) {
+      // Single result (no split)
+      ocrResults.push({ index: i, ...group[0] });
+    } else {
+      // Merged split results: concatenate questions from left + right
+      const allQuestions = [];
+      for (const sub of group) {
+        if (sub.result?.questions) {
+          allQuestions.push(...sub.result.questions);
+        }
+      }
+      const engines = [...new Set(group.map(g => g.engine))];
+      const totalAttempts = group.reduce((s, g) => s + (g.attempts || 1), 0);
+      console.log(`[scanner] Page ${i + 1}: merged ${group.length} split results → ${allQuestions.length} questions`);
+      ocrResults.push({
+        index: i,
+        result: { questions: allQuestions, imageSize: null },
+        engine: engines.join('+'),
+        attempts: totalAttempts
+      });
+    }
+  }
+  
+  // Clean up de-red and split temp files
+  for (const f of [...deRedTempFiles, ...splitTempFiles]) {
     try { unlinkSync(f); } catch (_) {}
   }
   
@@ -1190,6 +1388,115 @@ function mergeCrossPagePassages(pageResults) {
  * Validate question numbering: detect duplicates, gaps, and out-of-order sequences.
  * Logs warnings but does not modify data.
  */
+/**
+ * Post-process questions after VL OCR:
+ * 1. Assign columns based on layout geometry (no hardcoded thresholds)
+ * 2. Detect cross-column text contamination
+ * 3. Fix bbox if all identical (VL model fallback pattern)
+ */
+function postProcessQuestions(questions, layoutResult) {
+  const blocks = layoutResult.blocks || [];
+  const imgW = layoutResult.image_size?.width || 1;
+  const imgH = layoutResult.image_size?.height || 1;
+  if (!blocks.length || !questions.length) return;
+
+  // --- Step 1: Determine column structure dynamically ---
+  // Cluster text blocks by x-center to find column boundaries
+  const textBlocks = blocks.filter(b => b.label === 'text' || b.label === 'paragraph_title' || b.label === 'number');
+  const xCenters = textBlocks.map(b => (b.x1 + b.x2) / 2);
+  
+  // Sort x-centers and find the biggest gap → column separator
+  xCenters.sort((a, b) => a - b);
+  let maxGap = 0, splitX = imgW / 2;
+  for (let i = 1; i < xCenters.length; i++) {
+    const gap = xCenters[i] - xCenters[i - 1];
+    if (gap > maxGap) { maxGap = gap; splitX = (xCenters[i] + xCenters[i - 1]) / 2; }
+  }
+  // Only treat as dual-column if the gap is significant (>10% of image width)
+  const isDual = maxGap > imgW * 0.1 && xCenters.length > 6;
+  
+  // --- Step 2: Assign each question to a column ---
+  const bbox = (q) => q.bbox || {};
+  const qCenterX = (q) => {
+    const b = bbox(q);
+    return b.x != null ? b.x + (b.w || 0) / 2 : 0;
+  };
+  
+  for (const q of questions) {
+    const cx = qCenterX(q);
+    q._column = isDual ? (cx < splitX ? 'L' : 'R') : 'L';
+  }
+
+  // --- Step 3: Fix identical bbox (VL model template-copying pattern) ---
+  const firstBbox = JSON.stringify(bbox(questions[0]));
+  const allSame = questions.every(q => JSON.stringify(bbox(q)) === firstBbox);
+  
+  if (allSame) {
+    console.log(`[scanner] All ${questions.length} questions have identical bbox, redistributing via layout blocks...`);
+    const sortedBlocks = [...textBlocks].sort((a, b) => {
+      const aCol = (a.x1 + a.x2) / 2 < splitX ? 0 : 1;
+      const bCol = (b.x1 + b.x2) / 2 < splitX ? 0 : 1;
+      if (aCol !== bCol) return aCol - bCol;
+      return a.y1 - b.y1;
+    });
+    
+    const questionsPerBlock = Math.max(1, Math.ceil(questions.length / sortedBlocks.length));
+    let qi = 0;
+    for (let bi = 0; bi < sortedBlocks.length && qi < questions.length; bi++) {
+      const blk = sortedBlocks[bi];
+      for (let j = 0; j < questionsPerBlock && qi < questions.length; j++, qi++) {
+        const subH = Math.round(blk.h / questionsPerBlock);
+        questions[qi].bbox = { x: blk.x1, y: blk.y1 + j * subH, w: blk.w, h: subH };
+        questions[qi]._column = isDual ? ((blk.x1 + blk.x2) / 2 < splitX ? 'L' : 'R') : 'L';
+      }
+    }
+    console.log(`[scanner] Redistributed ${qi} questions across ${sortedBlocks.length} layout blocks (dual=${isDual})`);
+  }
+
+  // --- Step 4: Detect cross-column text contamination ---
+  // For each question, check if layout blocks from the OTHER column overlap vertically
+  // and if so, whether the question text might contain their content
+  if (!isDual) return;
+  
+  const leftBlocks = textBlocks.filter(b => (b.x1 + b.x2) / 2 < splitX);
+  const rightBlocks = textBlocks.filter(b => (b.x1 + b.x2) / 2 >= splitX);
+  
+  for (const q of questions) {
+    const b = bbox(q);
+    if (b.y == null || b.h == null) continue;
+    
+    const qTop = b.y;
+    const qBottom = b.y + b.h;
+    const qCol = q._column;
+    
+    // Find blocks from the opposite column that overlap vertically
+    const oppositeBlocks = (qCol === 'L' ? rightBlocks : leftBlocks).filter(ob => {
+      const obTop = ob.y1;
+      const obBottom = ob.y2;
+      return obTop < qBottom && obBottom > qTop;
+    });
+    
+    if (oppositeBlocks.length === 0) continue;
+    
+    // Calculate overlap ratio
+    const overlapRatio = oppositeBlocks.reduce((sum, ob) => {
+      const overlapTop = Math.max(qTop, ob.y1);
+      const overlapBottom = Math.min(qBottom, ob.y2);
+      return sum + Math.max(0, overlapBottom - overlapTop);
+    }, 0) / Math.max(1, qBottom - qTop);
+    
+    // Flag if significant overlap (but don't auto-fix text — just log for now)
+    if (overlapRatio > 0.3) {
+      console.log(`[scanner] ⚠️ Q${q.questionNumber} (${qCol}col) has ${Math.round(overlapRatio * 100)}% vertical overlap with ${oppositeBlocks.length} opposite-column blocks — possible text contamination`);
+      q._crossColumnWarning = {
+        overlapRatio: Math.round(overlapRatio * 100) / 100,
+        oppositeBlockCount: oppositeBlocks.length,
+        column: qCol
+      };
+    }
+  }
+}
+
 function validateQuestionNumbers(pageResults) {
   const allNumbers = [];
   const seen = new Map(); // number → [{page, idx}]
