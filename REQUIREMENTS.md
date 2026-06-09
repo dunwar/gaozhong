@@ -1,6 +1,6 @@
 # gaozhong.online — 项目需求文档
 
-> 版本: 2.2 (2026-06-02)
+> 版本: 2.3 (2026-06-09)
 > 定位: 高中生学习分析平台 — 上传已批改试卷 → AI 识别错题 → 分科错题本 + 薄弱知识点分析
 > 代码仓库: git@github.com:dunwar/gaozhong.git
 > 在线地址: https://gaozhong.online
@@ -19,7 +19,7 @@
 
 Vue 3 (Vite + Tailwind) 前端 + Node.js (Express) API Server + Python Flask OpenCV 预处理 + SQLite (sql.js) 数据库，部署在腾讯云 Docker 容器内。
 
-### 核心流水线（Scanner v4.2）
+### 核心流水线（Scanner v4.3）
 
 ```
 用户上传试卷图片
@@ -268,9 +268,130 @@ cd /home/node/.openclaw/workspace/www/gaozhong.online/
 
 ---
 
-## 5. 已知问题 & 待完成
+## 5. 🔬 识别质量评测体系（Scanner Benchmark）
 
-### 5.1 高优先级
+> **铁律**：任何 scanner 代码改动（prompt、模型、流程、参数）必须经过评测验证后才能合并。
+> **目标**：量化驱动迭代，消灭"感觉好多了"式盲目修改。
+
+### 5.0 评测工作流（每次改代码必走）
+
+```
+1. 改代码前：git stash，跑当前版本的评测 baseline
+2. git stash pop，应用改动
+3. 跑同样试卷的评测
+4. 对比：召回率、精确率、题号准确率、错题判定
+5. 任何试卷指标下降 >5% → 不合并，分析原因
+```
+
+### 5.1 测试集（Ground Truth）
+
+位置：`eval/ground-truth/`
+
+```
+eval/ground-truth/
+  <session_id>/
+    meta.json          ← 试卷元信息（科目、年级、页数）
+    ground-truth.json  ← 人工标注的标准答案
+```
+
+**ground-truth.json 格式**：
+```json
+{
+  "version": 1,
+  "annotator": "人工标注",
+  "totalQuestions": 47,
+  "questions": [
+    {
+      "questionNumber": 1,
+      "questionType": "cloze",
+      "questionText": "Though the cow...",
+      "isError": false
+    }
+  ],
+  "passages": [
+    { "index": 0, "text": "阅读理解文章全文..." }
+  ]
+}
+```
+
+**选卷原则**：
+- 至少 3 张试卷（2页、3页、6页各一张）
+- 覆盖英语、数学等科目
+- 包含双栏排版、阅读理解、完形填空等不同版面
+- 每月新增 1 张标注试卷
+
+### 5.2 评测脚本
+
+位置：`eval/evaluate.mjs`
+
+运行方式：
+```bash
+node eval/evaluate.mjs --version HEAD          # 当前版本
+node eval/evaluate.mjs --version cdf102b        # 指定 git commit
+node eval/evaluate.mjs --session 3623c60f       # 单张试卷
+```
+
+**评测指标**：
+
+| 指标 | 定义 | 权重 |
+|------|------|------|
+| 题目召回率 | 识别到的题目数 / 实际题目数 | ⭐⭐⭐ |
+| 题号精确率 | 题号正确的数量 / 识别到的题目数 | ⭐⭐⭐ |
+| 题型准确率 | 题型标注正确的数量 / 识别到的题目数 | ⭐⭐ |
+| 错题召回率 | 正确识别的错题数 / 实际错题数 | ⭐⭐⭐ |
+| 错题精确率 | 真正错题数 / 标记为错题的总数 | ⭐⭐⭐ |
+| 总耗时 | 端到端扫描时间 | ⭐ |
+
+**输出格式**：
+```
+═══════════════════════════════════════════
+📊 Scanner 评测报告 — v4.3 (c4d3824)
+═══════════════════════════════════════════
+试卷 3623c60f (2p, 英语):
+  题目召回: 26/47 (55.3%)
+  题号精确: 24/26 (92.3%)
+  题型准确: 20/26 (76.9%)
+  错题判定: 2/2 召回, 0 误报
+  耗时: 150s
+
+试卷 04412a9f (3p):
+  ...
+
+═══════════════════════════════════════════
+汇总 (3 张试卷):
+  总题目召回: XX/XXX (XX%)
+  总错题判定: XX/XX 召回, XX 误报
+═══════════════════════════════════════════
+```
+
+### 5.3 版本对比基线
+
+首次建立时，对比 v4.2 vs v4.3，择优作为基准版本。
+
+| 版本 | Commit | 日期 | 主要变更 |
+|------|--------|------|----------|
+| v4.2 | `938329c` | 2026-05-31 | 去红 + DirectJudge + 双栏感知 |
+| v4.3 | `c4d3824` (HEAD) | 2026-06-07 | 重试逻辑 + 指数退避 + no-reasoning prompt |
+
+对比后，**胜出版本的评测结果作为 baseline 写入** `eval/baselines/<version>.json`。
+
+### 5.4 回归检测规则
+
+- 题目召回率下降 >5% → ❌ 阻止合并
+- 错题精确率下降（误报增加）→ ❌ 阻止合并
+- 题号精确率下降 >3% → ⚠️ 需人工确认
+- 耗时增加 >30% → ⚠️ 需人工确认
+- 所有指标持平或改善 → ✅ 可合并
+
+### 5.5 评测历史记录
+
+每次评测结果保存在 `eval/results/<timestamp>_<version>.json`，供追踪趋势。
+
+---
+
+## 6. 已知问题 & 待完成
+
+### 6.1 高优先级
 
 | # | 问题 | 详情 |
 |---|------|------|
@@ -279,7 +400,7 @@ cd /home/node/.openclaw/workspace/www/gaozhong.online/
 | 3 | **默写题型 bbox 遗漏** | VL 对默写题型检测不全，已优化 prompt 但未完全验证 |
 | 4 | **DeepSeek JSON 解析失败** | questionText 为空时 DeepSeek 返回中文抱怨而非 JSON，已有 fallback |
 
-### 5.2 中优先级
+### 6.2 中优先级
 
 | # | 问题 | 详情 |
 |---|------|------|
@@ -287,7 +408,7 @@ cd /home/node/.openclaw/workspace/www/gaozhong.online/
 | 6 | **旧版组件清理** | ErrorList/ErrorUpload/KnowledgeDashboard 存在但路由指向新版 |
 | 7 | **并发优化** | VL_CONCURRENCY 固定值，可动态调整 |
 
-### 5.3 功能规划
+### 6.3 功能规划
 
 | # | 功能 | 详情 |
 |---|------|------|
@@ -298,7 +419,7 @@ cd /home/node/.openclaw/workspace/www/gaozhong.online/
 
 ---
 
-## 6. 关键决策记录
+## 7. 关键决策记录
 
 | 日期 | 决策 |
 |------|------|
@@ -315,10 +436,12 @@ cd /home/node/.openclaw/workspace/www/gaozhong.online/
 | 2026-05-26 | Preprocess v8.0 — gunicorn 守护 + 2 workers，修复 ~8h 挂起问题 |
 | 2026-05-31 | 更新 REQUIREMENTS.md v2.0 + Zhipu VL (glm-4.6v-flash) 集成 |
 | **2026-06-02** | **Scanner v4.2 — 三大改进：去红预处理 + 双栏感知 OCR prompt + DirectJudge 升级** |
+| **2026-06-07** | **Scanner v4.3 — 重试逻辑 + 指数退避 + no-reasoning prompt；76/99q** |
+| **2026-06-09** | **建立识别质量评测体系 — 量化驱动迭代，消灭盲目修改** |
 
 ---
 
-## 7. 协同开发注意事项
+## 8. 协同开发注意事项
 
 1. **修改前先对比生产目录**：`diff -rq ~/workspace/www/gaozhong.online/ /app/data/www/gaozhong.online/`
 2. **生产是权威**：如果生产版本比 workspace 新 → 先同步到 workspace 并 commit
