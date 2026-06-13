@@ -1,9 +1,10 @@
-# gaozhong.online — 项目需求文档
+# gaozhong.online — 项目需求与部署文档
 
-> 版本: 2.3 (2026-06-09)
+> 版本: 3.0 (2026-06-13)
 > 定位: 高中生学习分析平台 — 上传已批改试卷 → AI 识别错题 → 分科错题本 + 薄弱知识点分析
 > 代码仓库: git@github.com:dunwar/gaozhong.git
 > 在线地址: https://gaozhong.online
+> Scanner: v4.5 | 预处理: v8.3
 
 ---
 
@@ -17,23 +18,28 @@
 
 ### 技术栈一句话
 
-Vue 3 (Vite + Tailwind) 前端 + Node.js (Express) API Server + Python Flask OpenCV 预处理 + SQLite (sql.js) 数据库，部署在腾讯云 Docker 容器内。
+Vue 3 (Vite + Tailwind) 前端 + Node.js (Express) API Server + Python Flask OpenCV 预处理 + SQLite (sql.js) 数据库，部署在腾讯云 Docker 容器内。**新增 TextIn API（合合信息商用 OCR）作为主 OCR 引擎。**
 
-### 核心流水线（Scanner v4.3）
+### 核心流水线（Scanner v4.5）
 
 ```
-用户上传试卷图片
+用户上传试卷照片
+  ↓
+Phase 0.5: /prepare-pages — 裁切背景 + 自动旋转 + 双页水平分割 + 页面排序
   ↓
 Phase 0: Python Flask 预处理（色彩校正 + HSV红笔分离 + 去红 inpainting）
   ↓           ↓
 去红图（OCR用）  红笔突出图（判错用）
-  ↓           ↓
-Phase 1: Zhipu glm-4.6v-flash / Kimi k2.6 VL OCR（双栏感知 + passage 提取）
-  ↓           ↓
-Phase 2: Zhipu DirectJudge 端到端双图判错（主路径）
-  │  失败 → Phase 2b: VL 红笔分类 + 质心匹配（fallback）
+  ↓
+Phase 1: ★TextIn xParse OCR（主引擎，99.7%准确率）→ 11阶段题目解析
+  │  失败 → 回退: Zhipu glm-4.6v-flash VL OCR → Kimi k2.6 → Tencent OCR
+  ↓
+Phase 2: VL 红笔分类 + TextIn 手写区域交叉验证 + 质心匹配
+  │  红笔质心 ←交叉验证→ TextIn 手写区域坐标 → 增强错题判定
   ↓
 Phase 3: DeepSeek V4 Pro 批量分析 — 错题归类 + 知识点归因 + 薄弱点分析
+  ↓
+PaperReview.vue 三栏审核界面 — 人工确认/拒绝
 ```
 
 ---
@@ -43,7 +49,7 @@ Phase 3: DeepSeek V4 Pro 批量分析 — 错题归类 + 知识点归因 + 薄�
 ```
 gaozhong.online/
 ├── .env                          ← 环境变量（API Key，不入 git）
-├── .env.example                  ← 环境变量模板
+├── .env.example                  ← 环境变量模板（含 TextIn 配置）
 ├── package.json                  ← 项目依赖（Vue3/Vite/Tailwind/Express/sql.js）
 ├── vite.config.js                ← Vite 构建配置
 ├── index.html                    ← HTML 入口
@@ -55,9 +61,8 @@ gaozhong.online/
 │   ├── components/               ← 通用组件
 │   │   ├── Header.vue            ← 导航栏
 │   │   ├── Footer.vue            ← 页脚
-│   │   ├── UploadArea.vue        ← 上传区域
-│   │   └── EssayGradingResult.jsx ← 作文批改结果
-│   ├── views/                    ← 页面视图
+│   │   └── UploadArea.vue        ← 上传区域
+│   ├── views/                    ← 页面视图（14个活跃页面）
 │   │   ├── Home.vue              ← 首页（双模块入口）
 │   │   ├── PaperUpload.vue       ← 错题上传页 ✅
 │   │   ├── PaperReview.vue       ← 试卷回顾（三面板布局）✅
@@ -72,46 +77,48 @@ gaozhong.online/
 │   │   ├── History.vue           ← 历史记录
 │   │   ├── Login.vue             ← 登录
 │   │   ├── Register.vue          ← 注册
-│   │   ├── Password.vue          ← 密码
-│   │   ├── ErrorList.vue         ← 错题列表（旧版，被替换）
-│   │   ├── ErrorUpload.vue       ← 错题上传（旧版，被替换）
-│   │   └── KnowledgeDashboard.vue ← 知识点看板（旧版，被替换）
+│   │   └── Password.vue          ← 密码
 │   ├── router/index.js           ← Vue Router 路由配置
-│   ├── utils/                    ← 工具模块
-│   │   ├── authStore.js          ← 认证状态
-│   │   ├── taskStore.js          ← 任务状态
-│   │   └── paperTaskPoller.js    ← 异步任务轮询
-│   └── assets/                   ← 静态资源
+│   └── utils/                    ← 工具模块
+│       ├── authStore.js          ← 认证状态
+│       ├── paperStore.js         ← 试卷任务状态
+│       ├── taskStore.js          ← 作文任务状态
+│       └── paperTaskPoller.js    ← 异步任务轮询
 │
 ├── api-server.js                 ← API 服务主文件（~2500行，核心后端）
-├── api-server-v2-paper-task.js   ← V2 版本（备用）
 ├── db.js                         ← SQLite 数据库模块（sql.js WASM）
 │
-├── scanner-v3.mjs                ← 扫描器主模块（当前 v4.2）
+├── scanner-v3.mjs                ← 扫描器主模块（当前 v4.5，~1700行）
 │
-├── prompts/                      ← AI Prompt 模板
-│   ├── paper-workbook-scanner.js ← 错题整理扫描器 Prompt
-│   ├── paper-scanner-v5.js       ← 双图增强版扫描 Prompt
-│   ├── paper-analysis-v[1-4].js  ← 各版分析 Prompt
-│   ├── paper-analyzer-v3.js      ← 分析器
+├── src/textin/                   ← ★ TextIn OCR 集成模块（Python）
+│   ├── __init__.py               ← 模块入口
+│   ├── client.py                 ← TextIn API 客户端（擦除/OCR/xParse）
+│   └── parser.py                 ← 11阶段题目解析 + 连续性推断
+│
+├── prompts/                      ← AI Prompt 模板（5个活跃版本）
+│   ├── paper-scanner-v5.js       ← VL 红笔分类 Prompt（当前）
+│   ├── paper-analysis-v4.js      ← DeepSeek 分析 Prompt（当前）
 │   ├── error-diagnosis.js        ← 错题诊断 Prompt
-│   ├── grading-v[3-5].js         ← 作文评分 Prompt（v5 当前）
-│   ├── scanner-english.js        ← 英语科目逻辑
-│   ├── scanner-chinese.js        ← 语文科目逻辑
-│   ├── scanner-math.js           ← 数学科目逻辑
-│   ├── scanner-science.js        ← 理综科目逻辑
+│   ├── grading-v5.js             ← 作文评分 Prompt（当前）
 │   └── study-guidance-v1.js      ← 学习指导 Prompt
 │
 ├── subject-logic/                ← 科目特定逻辑
 │   ├── error-identification-logic.md  ← 错题判定决策树 v3.0
 │   └── english-shanghai-gaokao.md     ← 上海高考英语题型定义
 │
-├── preprocess-server.py          ← Python Flask 预处理服务（OpenCV 红笔分离）→ 端口 5002
+├── archive/                      ← 历史文件归档（旧版 scanner/prompts/scripts）
+│   ├── prompts/                  ← 12个旧版 prompt
+│   ├── scripts/                  ← 15个实验脚本
+│   └── 旧版 backend 文件
+│
+├── preprocess-server.py          ← Python Flask 预处理服务 v8.3 → 端口 5002
 ├── scripts/                      ← 工具脚本
-│   ├── ocr-page.py               ← VL OCR 单页提取（Kimi k2.6）
-│   ├── ocr-page-paddle.py        ← PaddleOCR 备用通道
-│   ├── ocr-tencent.py            ← 腾讯云 OCR 备用通道
-│   └── ...（测试脚本）
+│   └── test-scanner-v21.mjs      ← Scanner 测试
+│
+├── eval/                         ← 评测体系
+│   ├── evaluate.mjs              ← 评测脚本
+│   ├── ground-truth/             ← 标注数据（3份试卷）
+│   └── results/                  ← 评测结果
 │
 ├── data/                         ← 运行时数据
 │   └── grading.db                ← SQLite 数据库文件
@@ -122,8 +129,12 @@ gaozhong.online/
 ├── deploy.sh                     ← 一键部署脚本
 ├── deploy-host.sh                ← 宿主机部署
 ├── deploy-daemon.sh              ← 守护进程部署
-├── deploy-api.sh                 ← API 服务单独部署
 ├── start-preprocess.sh           ← 预处理服务启动脚本
+│
+├── test-api.sh                   ← API 冒烟测试
+├── test-prod-verify.py           ← 生产验证脚本
+├── test-scanner-v2/v4/v5.mjs     ← Scanner 测试脚本
+├── test-scanner.sh               ← Scanner 测试入口
 │
 ├── docs/
 │   └── pipeline-analysis.md      ← 流水线分析文档
@@ -185,20 +196,24 @@ GET  /grading/history         — 批改历史
 
 | 任务 | 模型 | Provider | 说明 |
 |------|------|----------|------|
-| VL OCR（图片识别） | `kimi-k2.6` / `glm-4.6v-flash` | 阿里云百炼 / 智谱 | 印刷体识别、题目结构提取 |
-| DirectJudge（端到端判错） | `glm-4.6v-flash` | 智谱 | 双图（原图+红笔图）一次完成 OCR + 判错 |
-| 红笔标记分类 | `glm-4.6v-flash` / `kimi-k2.6` | 智谱 / 阿里云百炼 | VL 识别红笔标记类型（✗/✓/字母/圈/划线/注释）|
-| 文本分析（知识点归因） | `deepseek-v4-pro` | DeepSeek | 错题知识点归因、薄弱分析、学习指导 |
-| 预处理（OpenCV） | Python Flask | 本地 5002 端口 | 矫正、HSV 红笔分离、去红 inpainting（v8.1）|
+| ★ **OCR 文本提取（主）** | **TextIn xParse API** | **合合信息** | 99.7%印刷体识别率，精确坐标，手写区域定位 |
+| ★ **题目解析** | **11阶段正则引擎** | **本地** | 97.9%检测率，确定性解析，无幻觉风险 |
+| VL OCR（回退） | `kimi-k2.6` / `glm-4.6v-flash` | 阿里云百炼 / 智谱 | TextIn 失败时回退 |
+| VL OCR（最后回退） | Tencent Cloud OCR | 腾讯云 | 所有远程模型失败时 |
+| DirectJudge（端到端判错） | `glm-4.6v-flash` | 智谱 | 双图一次完成 OCR + 判错 |
+| 红笔标记分类 | `glm-4.6v-flash` / `kimi-k2.6` | 智谱 / 阿里云百炼 | VL 识别 8 种标记类型 |
+| ★ **红笔交叉验证** | **TextIn xParse + HSV** | **本地** | 手写区域坐标 + 红笔质心重叠 → 增强判定 |
+| 文本分析 | `deepseek-v4-pro` | DeepSeek | 错题知识点归因、薄弱分析、学习指导 |
+| 预处理（OpenCV） | Python Flask | 本地 5002 端口 | 裁切/旋转/分页 + HSV 红笔分离 + 去红 |
 
-**⚠️ OpenClaw Gateway HTTP API 不支持多模态（图片会被静默丢弃），所有 VL/OCR 任务必须直连模型 API。**
+**⚠️ OpenClaw Gateway HTTP API 不支持多模态（图片会被静默丢弃），所有 VL/OCR 任务必须直连模型 API。TextIn API 通过 preprocess-server 代理调用，不需要直连。**
 
 ### 2.4 服务端口
 
 | 端口 | 服务 | 版本 | 守护方式 |
 |------|------|------|---------|
-| 3001 | Node.js API Server | v2.0-async, Scanner v4.2 | cron 心跳 + 自动重启 |
-| 5002 | Python Flask 预处理 | v8.1 | cron 15min 巡检（preprocess-guard）|
+| 3001 | Node.js API Server | Scanner v4.5 | cron 心跳 + 自动重启 |
+| 5002 | Python Flask 预处理 | **v8.3** (含 /prepare-pages, /textin/*) | cron 15min 巡检 |
 
 ### 2.5 批改标记模式
 
@@ -208,15 +223,19 @@ GET  /grading/history         — 批改历史
 | 红笔标注 | `annotation` | 老师红笔写正确答案/批注 | AI 识别红笔标注内容判定 |
 | 混合模式 | `mixed` | ✓✗ + 红笔标注混合 | AI 综合判断勾叉+标注 |
 
-### 2.6 Scanner v4.2 新增功能
+### 2.6 Scanner v4.5 功能总览
 
 | 功能 | 版本 | 说明 |
 |------|------|------|
-| **去红处理 (De-red)** | v4.2 | OCR 前用 cv2.inpaint 擦除原图中红笔墨水，避免红线穿字导致 OCR 错误 |
-| **双栏感知 OCR** | v4.2 | VLM prompt 增加版面分析步骤（先识别单/双栏，再逐栏读取）|
-| **Passage 提取** | v4.2 | 阅读理解文章通过 passages 数组独立提取，passageRef 链接题目 |
-| **DirectJudge 升级** | v4.2 | 端到端判错 prompt 增强：10 种标记分类表 + 逐题判定流程 + 强制自检 |
-| **Zhipu VL 通道** | v4.1/v4.2 | 新增智谱 glm-4.6v-flash 作为 OCR + DirectJudge + 红笔分类的主力模型 |
+| ★ **TextIn OCR 主引擎** | v4.4 | TextIn xParse 替代 VL OCR，99.7%印刷体识别率 |
+| ★ **11阶段题目解析** | v4.4 | 确定性正则引擎，97.9%检测率 + 连续性推断 |
+| ★ **页面准备（旋转+分页）** | v4.5 | 裁切背景 + 自动旋转 + 双页水平分割 + 页面排序 |
+| ★ **TextIn 红笔交叉验证** | v4.5 | 手写区域坐标 + 红笔质心重叠 → 增强错题判定 |
+| **去红处理 (De-red)** | v4.2 | OCR 前擦除红笔墨水（cv2.inpaint + TextIn GAN 可选）|
+| **双栏感知** | v4.2 | VLM prompt 版面分析（单/双栏识别）|
+| **Passage 提取** | v4.2 | 阅读理解文章独立提取，passageRef 链接题目 |
+| **DirectJudge 双图判错** | v4.2 | 10 种标记分类 + 逐题判定 + 强制自检 |
+| **三级回退链** | v4.4 | TextIn → Zhipu VL → Kimi VL → Tencent OCR |
 
 ---
 
@@ -248,14 +267,39 @@ GET  /grading/history         — 批改历史
 ### 4.2 部署命令
 
 ```bash
+# ═══ 首次部署或 TextIn 模块更新 ═══
+# 1. 安装 Python 依赖
+pip install requests Pillow numpy
+
+# 2. 复制 src/textin/ 模块到生产目录
+cp -r ~/.openclaw/workspace/www/gaozhong.online/src/textin /app/data/www/gaozhong.online/src/
+
+# 3. 配置 TextIn 环境变量（在 .env 或 Docker 环境变量中）
+# TEXTIN_APP_ID=dda97xxxxxxxxxxxxx
+# TEXTIN_SECRET_CODE=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+# ═══ 日常部署 ═══
 # 只改 scanner/preprocess/python 代码（动态 import，无需重启）
 cp ~/.openclaw/workspace/www/gaozhong.online/scanner-v3.mjs /app/data/www/gaozhong.online/
 cp ~/.openclaw/workspace/www/gaozhong.online/preprocess-server.py /app/data/www/gaozhong.online/
+cp -r ~/.openclaw/workspace/www/gaozhong.online/src/textin /app/data/www/gaozhong.online/src/
 bash /app/data/start-preprocess.sh  # 重启预处理服务
 
 # 改 api-server.js 或前端代码（需要完整部署）
 cd /home/node/.openclaw/workspace/www/gaozhong.online/
 ./deploy.sh    # 构建前端 + 复制 dist + 重启 API Server
+```
+
+部署后验证：
+```bash
+# 检查预处理服务
+curl http://localhost:5002/health              # → {"status":"ok"}
+
+# 检查 TextIn 配置
+curl http://localhost:5002/textin/ping          # → {"textin_configured":true}
+
+# 检查 API 服务
+curl http://localhost:3001/health               # → 正常响应
 ```
 
 用户还需在宿主机执行：`sudo nginx -s reload`
@@ -395,27 +439,30 @@ node eval/evaluate.mjs --session 3623c60f       # 单张试卷
 
 | # | 问题 | 详情 |
 |---|------|------|
-| 1 | **Preprocess 周期性崩溃** | gunicorn worker 达到 max-requests=100 后 master 也退出，约每 2h 一次。cron guard 15min 巡检自动恢复，非根治 |
-| 2 | **GitHub Push 被密钥检测阻挡** | 旧 commit df5368e/00f1731 含腾讯云 Secret ID，需去 GitHub 安全页面解除或清理历史 |
-| 3 | **默写题型 bbox 遗漏** | VL 对默写题型检测不全，已优化 prompt 但未完全验证 |
-| 4 | **DeepSeek JSON 解析失败** | questionText 为空时 DeepSeek 返回中文抱怨而非 JSON，已有 fallback |
+| 1 | **TextIn 凭证未配置 → 自动回退** | 未设 TEXTIN_APP_ID/SECRET_CODE 时自动用 VL OCR，功能正常但识别率较低 |
+| 2 | **Preprocess 周期性崩溃** | gunicorn worker 达 max-requests=100 后退出，约每 2h。cron guard 15min 巡检恢复 |
+| 3 | **Ground truth 数据缺失** | eval/ground-truth/ 仅 3 份 meta.json，无标注数据，无法量化评测 |
+| 4 | **TextIn 无法区分红/蓝手写** | xParse 所有手写标记为 `handwritten`，无颜色字段。已通过 HSV 质心交叉验证缓解 |
+| 5 | **DeepSeek JSON 解析失败** | questionText 为空时返回中文抱怨而非 JSON，已有 fallback |
 
 ### 6.2 中优先级
 
 | # | 问题 | 详情 |
 |---|------|------|
-| 5 | **仅英语科目有逻辑文件** | subject-logic/ 下只有英语，语文/数学待添加 |
-| 6 | **旧版组件清理** | ErrorList/ErrorUpload/KnowledgeDashboard 存在但路由指向新版 |
-| 7 | **并发优化** | VL_CONCURRENCY 固定值，可动态调整 |
+| 6 | **11阶段解析仅支持英语** | 中文/数学/理综题型格式需额外正则模式 |
+| 7 | **仅英语科目有逻辑文件** | subject-logic/ 下只有英语，语文/数学待添加 |
+| 8 | **api-server.js 过大** | ~2500行，建议拆分为独立路由模块 |
+| 9 | **并发优化** | VL_CONCURRENCY 固定值 2，可动态调整 |
 
 ### 6.3 功能规划
 
 | # | 功能 | 详情 |
 |---|------|------|
-| 8 | **整卷分析异步化** | 减少用户等待时间 |
-| 9 | **PDF/Word 支持** | 前端接受但后端需转换层 |
-| 10 | **HTTPS 配置** | Let's Encrypt 证书 |
-| 11 | **Preprocess systemd 守护** | 根治周期性崩溃问题 |
+| 10 | **训练 YOLO 红笔检测模型** | 需 500+ 标注样本，替代纯 CV 方案 |
+| 11 | **补充多科 ground truth** | 目标 50+ 份标注试卷 |
+| 12 | **pdf/Word 支持** | 前端接受但后端需转换层 |
+| 13 | **Preprocess systemd 守护** | 根治周期性崩溃 |
+| 14 | **TextIn 红笔检测专用模型** | TextIn 上线后接入，直接返回红笔区域坐标 |
 
 ---
 
@@ -438,14 +485,57 @@ node eval/evaluate.mjs --session 3623c60f       # 单张试卷
 | **2026-06-02** | **Scanner v4.2 — 三大改进：去红预处理 + 双栏感知 OCR prompt + DirectJudge 升级** |
 | **2026-06-07** | **Scanner v4.3 — 重试逻辑 + 指数退避 + no-reasoning prompt；76/99q** |
 | **2026-06-09** | **建立识别质量评测体系 — 量化驱动迭代，消灭盲目修改** |
+| **2026-06-13** | **v3.0 — TextIn OCR 集成：99.7%识别率 + 11阶段解析 + 页面准备(旋转/分页/排序) + Phase 2 混合交叉验证** |
 
 ---
 
-## 8. 协同开发注意事项
+## 8. TextIn 故障排查
+
+### 8.1 确认 TextIn 是否启用
+
+```bash
+curl http://localhost:5002/textin/ping
+# {"status":"ok","textin_configured":true}  ← 已启用
+# {"status":"not_configured","textin_configured":false} ← 未配置，使用 VL 回退
+```
+
+### 8.2 Scanner 日志关键信息
+
+```
+[scanner v4.5] Scanning N pages (TextIn=true, ...)  ← TextIn 已启用
+[scanner] Page 1: trying TextIn xParse...            ← 尝试 TextIn
+[scanner] Page 1: TextIn ok — 45 questions           ← 成功
+[scanner] Page 2: TextIn failed (timeout), falling back to VL  ← 失败回退
+```
+
+### 8.3 常见问题
+
+| 症状 | 原因 | 解决 |
+|------|------|------|
+| TextIn 始终不工作 | 环境变量未设或错误 | 检查 `echo $TEXTIN_APP_ID`，确认在启动 preprocess-server 的 shell 中已 export |
+| `textin_configured: false` | preprocess-server 未读取到环境变量 | 在 `start-preprocess.sh` 中添加 `export TEXTIN_APP_ID=xxx` |
+| TextIn 超时 | 网络问题或 API 限流 | 检查服务器能否访问 `api.textin.com`，查看 TextIn 控制台配额 |
+| `0 handwritten regions` | 页面手写内容少或 xParse 未检测到 | 正常情况，不影响 OCR；交叉验证降级为纯 VL/质心模式 |
+
+### 8.4 禁用 TextIn（回退到纯 VL）
+
+```bash
+# 取消环境变量即可，无需改代码
+unset TEXTIN_APP_ID
+unset TEXTIN_SECRET_CODE
+# 重启 preprocess-server
+bash /app/data/start-preprocess.sh
+```
+
+---
+
+## 9. 协同开发注意事项
 
 1. **修改前先对比生产目录**：`diff -rq ~/workspace/www/gaozhong.online/ /app/data/www/gaozhong.online/`
 2. **生产是权威**：如果生产版本比 workspace 新 → 先同步到 workspace 并 commit
 3. **不改环境配置**：openclaw.json、模型配置等未经用户同意不得修改
+4. **TextIn 模块同步**：`src/textin/` 目录修改后需一并复制到生产目录
+5. **评测铁律**：任何 scanner 改动必须跑 `node eval/evaluate.mjs` 对比效果
 4. **Scanner 动态 import**：`scanner-v3.mjs` 通过 `await import()` 加载，代码改动即时生效，无需重启 API Server
 5. **Prompt 改动慎重**：所有 prompt 文件经多轮迭代验证，改动需先出方案再确认
 6. **不要走 Gateway 做 VL**：图片识别必须直连模型 API（阿里云百炼 / 智谱）

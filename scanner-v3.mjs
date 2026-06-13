@@ -1,15 +1,26 @@
 /**
- * gaozhong.online — Scanner v4.2
- * 
+ * gaozhong.online — Scanner v4.5
+ *
+ * v4.5 变更: Phase 0.5 页面准备 (旋转+分页+排序)
+ *   - 新增 /prepare-pages 端点：自动旋转横拍照片 + 双页水平分割
+ *   - 手机拍两页 → 自动拆分为独立页面，按 R→L 排序
+ *
+ * v4.4 变更: TextIn OCR 集成
+ *   - 新增 TextIn xParse OCR 作为主引擎 (99.7%印刷体识别率)
+ *   - 11阶段题目解析 + 连续性推断 (97.9%检测率)
+ *   - 失败自动回退: TextIn → VL (智谱/Kimi) → Tencent
+ *   - 红笔分类和质心匹配保持不变 (VL 完成)
+ *
  * v4.2 变更: 去红处理 + OCR 输入优化
  *   - 新增 /de-red 预处理：OCR 前擦除红笔墨水（cv2.inpaint）
  *   - OCR 输入从原图变为去红图（避免红线穿字导致识别错误）
  *   - 预处理阶段并行运行 de-red（不增加端到端延迟）
- * 
+ *
  * Architecture:
- *   Primary:   VL OCR (Kimi k2.6) per-page parallel → question structure
+ *   Primary:   TextIn xParse → 11-phase regex parsing (v4.4)
+ *   Fallback:  VL OCR (Zhipu/Kimi) per-page parallel → question structure
  *   Red:       Preprocess v8.0 /red-regions → red centroid map
- *   Classify:  VL (Kimi k2.6) → classify red mark types (✗/✓/letter/etc.)
+ *   Classify:  VL → classify red mark types (✗/✓/letter/etc.)
  *   Fallback:  Tencent Cloud OCR → text blocks + rule engine
  *   All pages scanned in PARALLEL (per-page only, no multi-round)
  */
@@ -23,7 +34,7 @@ import http from 'http';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-export const SCANNER_VERSION = 'v4.3';
+export const SCANNER_VERSION = 'v4.5';
 const PREPROCESS_URL = process.env.PREPROCESS_URL || 'http://localhost:5002';
 const VL_CONCURRENCY = 2;  // Low to avoid Zhipu rate limit
 const PREPROCESS_CONCURRENCY = 4;
@@ -35,6 +46,10 @@ const ZHIPU_KEY = process.env.ZHIPU_API_KEY || '';
 const ZHIPU_BASE_URL = process.env.ZHIPU_BASE_URL || 'https://open.bigmodel.cn/api/coding/paas/v4';
 const MODEL_ZHIPU_VL = process.env.MODEL_ZHIPU_VL || 'glm-4.6v-flash';
 const USE_ZHIPU_VL = !!ZHIPU_KEY;  // Use Zhipu VL (endpoint fixed to /api/paas/v4)
+
+// TextIn OCR 配置 (v4.4) — 优于 VL 的专用 OCR 引擎
+const TEXTIN_ENABLED = !!(process.env.TEXTIN_APP_ID && process.env.TEXTIN_SECRET_CODE);
+const TEXTIN_TIMEOUT_MS = 120_000;  // TextIn API 调用超时（xParse 约 1-3s）
 
 // ═══════════════════════════════════════
 // Concurrency limiter
@@ -508,6 +523,46 @@ async function deRedImage(imageBase64) {
   return { cleanBase64: data.result.clean_image, redSignal: data.result.red_signal };
 }
 
+// ═══════════════════════════════════════
+// TextIn OCR (v4.4) — 通过 preprocess-server 代理调用 TextIn API
+// 替换 VL OCR 作为主引擎，提供 99.7% 印刷体识别率 + 11阶段题目解析
+// 失败时调用方自动回退到 extractQuestionsVL
+// ═══════════════════════════════════════
+
+async function extractQuestionsTextIn(pagePath, options = {}) {
+  const imageB64 = imgToBase64(pagePath);
+  const u = new URL(PREPROCESS_URL);
+  const host = u.hostname;
+  const port = parseInt(u.port) || 5002;
+
+  const data = await httpPostJson(host, port, '/textin/ocr', {
+    image: imageB64,
+    options: {
+      subject: options.subject || '自动',
+      erase_handwriting: false  // 暂不使用擦除（保留红笔供后续 VL 分类）
+    }
+  }, TEXTIN_TIMEOUT_MS);
+
+  if (data.status !== 'ok') {
+    throw new Error(`TextIn OCR failed: ${data.error}`);
+  }
+
+  const result = data.result;
+  if (!result.questions || result.questions.length === 0) {
+    throw new Error('TextIn returned 0 questions');
+  }
+
+  return {
+    status: 'ok',
+    totalQuestions: result.questions.length,
+    questions: result.questions,
+    passages: result.passages || [],
+    engine: result.engine || 'textin-xparse-v2',
+    imageSize: result.image_size || null,
+    handwrittenRegions: result.handwritten_regions || []  // v4.5: for Phase 2 cross-validation
+  };
+}
+
 async function extractQuestionsTencent(pagePath, tencentSecret) {
   const result = await runPython('ocr-tencent.py', [
     pagePath,
@@ -714,7 +769,7 @@ function centroidInBbox(centroid, bbox, marginPct = 0.1) {
  *   - ✓, underline, circle, annotation are NOT errors
  * Falls back to centroid-count threshold if VL classification unavailable.
  */
-function matchCentroidsToQuestions(questions, regions, pageStats, vlClassifiedMarks = null) {
+function matchCentroidsToQuestions(questions, regions, pageStats, vlClassifiedMarks = null, textinHWRegions = null) {
   const MIN_RED_ENERGY = Math.max(pageStats.median * 3, 100);
   const results = [];
   
@@ -747,7 +802,23 @@ function matchCentroidsToQuestions(questions, regions, pageStats, vlClassifiedMa
     
     const centroidCount = matched.length;
     
-    // v3.4: Use VL classification when available, fall back to centroid threshold
+    // v4.5: TextIn handwritten region cross-validation
+    // Red centroid + TextIn handwritten region overlap = strong correction signal
+    let textinOverlapCount = 0;
+    if (textinHWRegions && textinHWRegions.length > 0 && matched.length > 0) {
+      for (const reg of matched) {
+        if (!reg.centroid) continue;
+        for (const hw of textinHWRegions) {
+          if (!hw.bbox || !hw.bbox.w) continue;
+          if (centroidInBbox(reg.centroid, hw.bbox, 0.15)) {
+            textinOverlapCount++;
+            break;
+          }
+        }
+      }
+    }
+
+    // Use VL classification when available, fall back to centroid threshold
     let isError = false;
     let errorSource = null;
     let markTypes = [];
@@ -771,14 +842,23 @@ function matchCentroidsToQuestions(questions, regions, pageStats, vlClassifiedMa
         isError = qMarks.some(m => m.isError);
         errorSource = isError ? 'vl_classified' : 'vl_classified_non_error';
       } else if (centroidCount > 0) {
-        // Has red ink but VL didn't match to this question → use conservative centroid threshold
-        isError = centroidCount >= 3 || redEnergy >= MIN_RED_ENERGY * 2;
-        errorSource = isError ? 'centroid_fallback' : null;
+        // Has red ink but VL didn't match → use centroid threshold
+        // v4.5: TextIn overlap lowers the bar (1 centroid + textin overlap = likely error)
+        const baseThreshold = textinOverlapCount >= 1 ? 1 : 3;
+        const energyThreshold = textinOverlapCount >= 1 ? MIN_RED_ENERGY : MIN_RED_ENERGY * 2;
+        isError = centroidCount >= baseThreshold || redEnergy >= energyThreshold;
+        errorSource = isError ? (textinOverlapCount >= 1 ? 'centroid_textin_overlap' : 'centroid_fallback') : null;
       }
     } else {
       // No VL classification available → fall back to centroid threshold
-      isError = centroidCount >= 2 || redEnergy >= MIN_RED_ENERGY;
-      errorSource = isError ? 'red_centroids' : null;
+      // v4.5: TextIn overlap provides additional evidence
+      if (textinOverlapCount >= 1 && centroidCount >= 1) {
+        isError = true;
+        errorSource = 'textin_overlap';
+      } else {
+        isError = centroidCount >= 2 || redEnergy >= MIN_RED_ENERGY;
+        errorSource = isError ? 'red_centroids' : null;
+      }
     }
     
     results.push({
@@ -968,13 +1048,40 @@ async function splitColumns(imagePath) {
 
 export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 'red_pen', tencentSecret = null, subject = '自动', dualColumn = false }) {
   const totalStart = Date.now();
-  console.log(`[scanner v4.2] Scanning ${pagePaths.length} pages (VL=${VL_CONCURRENCY}, PP=${PREPROCESS_CONCURRENCY})`);
+  console.log(`[scanner v4.5] Scanning ${pagePaths.length} pages (TextIn=${TEXTIN_ENABLED}, VL=${VL_CONCURRENCY}, PP=${PREPROCESS_CONCURRENCY})`);
   
   // Preflight: check preprocess v8.0 is alive, restart if dead
   try { await detectPreflight(); } catch (e) {
     throw new Error(`预处理服务不可用 (port 5002): ${e.message}`);
   }
   
+  // ═══ v4.5: Phase 0.5 — 页面准备 (旋转+分页+排序) ═══
+  const prepareTempFiles = [];
+  {
+    console.log(`[scanner] Phase 0.5: preparing pages from ${pagePaths.length} photos...`);
+    const allB64 = pagePaths.map(pp => imgToBase64(pp));
+    const u = new URL(PREPROCESS_URL);
+    const host = u.hostname;
+    const port = parseInt(u.port) || 5002;
+
+    const prepData = await httpPostJson(host, port, '/prepare-pages', { images: allB64 }, 60_000);
+    if (prepData.status !== 'ok') throw new Error(`prepare-pages failed: ${prepData.error}`);
+
+    const newPagePaths = [];
+    for (const p of prepData.pages) {
+      const b64Data = p.image.includes(',') ? p.image.split(',')[1] : p.image;
+      const tmpPath = join(tmpdir(), `gaozhong-page-${p.index}-${Date.now()}.jpg`);
+      writeFileSync(tmpPath, Buffer.from(b64Data, 'base64'));
+      prepareTempFiles.push(tmpPath);
+      newPagePaths.push(tmpPath);
+    }
+
+    const { photos, pages, cropped, split, rotated } = prepData.stats || {};
+    console.log(`[scanner] Prepared: ${photos} photos → ${pages} pages (${cropped} cropped, ${split} split, ${rotated} rotated)`);
+
+    pagePaths = newPagePaths;  // 替换为准备好的独立页面序列
+  }
+
   // Preprocess + de-red + red centroids (local, fast)
   const ppGate = new ConcurrencyGate(PREPROCESS_CONCURRENCY);
   const preprocessJobs = pagePaths.map((pp, i) => 
@@ -1076,7 +1183,20 @@ export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 
         const isDeRed = job.imgPath !== pageImgPath && !job.subPage;
         if (isDeRed) console.log(`[scanner] ${label}: OCR using de-red image`);
         if (job.subPage) console.log(`[scanner] ${label}: OCR split ${job.subPage} half`);
-        
+
+        // v4.4: TextIn优先 — 专用OCR引擎 (99.7%准确率)
+        // 失败时自动回退到 VL → Tencent
+        if (TEXTIN_ENABLED) {
+          try {
+            console.log(`[scanner] ${label}: trying TextIn xParse...`);
+            const textinResult = await extractQuestionsTextIn(job.imgPath, { subject });
+            console.log(`[scanner] ${label}: TextIn ok — ${textinResult.totalQuestions} questions`);
+            return { ...job, result: textinResult, engine: 'textin', attempts: 1 };
+          } catch (textinErr) {
+            console.log(`[scanner] ${label}: TextIn failed (${textinErr.message}), falling back to VL`);
+          }
+        }
+
         for (let attempt = 0; attempt < VL_RETRIES; attempt++) {
           try {
             const result = await extractQuestionsVL(job.imgPath, apiKey, job.subPage, job.pageIndex, job.totalPages);
@@ -1137,10 +1257,17 @@ export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 
       }
       const engines = [...new Set(group.map(g => g.engine))];
       const totalAttempts = group.reduce((s, g) => s + (g.attempts || 1), 0);
-      console.log(`[scanner] Page ${i + 1}: merged ${group.length} split results → ${allQuestions.length} questions`);
+      // Merge handwrittenRegions from all sub-results
+      const allHWRegions = [];
+      for (const sub of group) {
+        if (sub.result?.handwrittenRegions) {
+          allHWRegions.push(...sub.result.handwrittenRegions);
+        }
+      }
+      console.log(`[scanner] Page ${i + 1}: merged ${group.length} split results → ${allQuestions.length} questions, ${allHWRegions.length} HW regions`);
       ocrResults.push({
         index: i,
-        result: { questions: allQuestions, imageSize: null },
+        result: { questions: allQuestions, imageSize: null, handwrittenRegions: allHWRegions },
         engine: engines.join('+'),
         attempts: totalAttempts
       });
@@ -1148,7 +1275,7 @@ export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 
   }
   
   // Clean up de-red and split temp files
-  for (const f of [...deRedTempFiles, ...splitTempFiles]) {
+  for (const f of [...deRedTempFiles, ...splitTempFiles, ...prepareTempFiles]) {
     try { unlinkSync(f); } catch (_) {}
   }
   
@@ -1165,6 +1292,8 @@ export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 
     const regions = pp.centroids.regions || [];
     const pageStats = pp.centroids.page_stats || { median: 0 };
     const redHighlightedPath = pp.images.red_highlighted;
+    // v4.5: TextIn handwritten regions for cross-validation
+    const textinHW = ocr.result.handwrittenRegions || null;
     
     // v3.4: VL classify red marks for this page
     let vlMarks = [];
@@ -1186,7 +1315,8 @@ export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 
       vlQuestions.map(q => ({ ...q, pageIndex: i + 1 })),
       regions,
       pageStats,
-      vlMarks
+      vlMarks,
+      textinHW
     );
     
     pageResults.push({
@@ -1217,7 +1347,7 @@ export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 
   const allQuestions = pageResults.flatMap(p => p.questions);
   const allErrors = pageResults.flatMap(p => p.errors);
   
-  console.log(`[scanner v4.2] Done: ${pageResults.length} pages, ${qCountFinal} questions, ${allErrors.length} errors in ${totalTime}s` +
+  console.log(`[scanner v4.5] Done: ${pageResults.length} pages, ${qCountFinal} questions, ${allErrors.length} errors in ${totalTime}s` +
     (skipCount ? ` (${skipCount} pages skipped)` : ''));
   
   return {

@@ -807,11 +807,11 @@ export function listErrorsByTime(userId, { period = 'month' } = {}) {
       COUNT(DISTINCT ep.subject) as subject_count,
       COUNT(DISTINCT ep.session_id) as paper_count
     FROM error_problems ep
-    WHERE ep.user_id = '${userId.replace(/'/g, "''")}'
+    WHERE ep.user_id = ?
     GROUP BY time_label
     ORDER BY start_ts DESC
     LIMIT 50
-  `);
+  `, [userId]);
   if (!rows[0]) return [];
   return rows[0].values.map(row => ({
     timeLabel: row[0], startTs: row[1], endTs: row[2],
@@ -827,10 +827,10 @@ export function listErrorsBySubject(userId) {
       COUNT(DISTINCT ep.session_id) as paper_count,
       GROUP_CONCAT(DISTINCT ep.error_type) as error_types
     FROM error_problems ep
-    WHERE ep.user_id = '${(userId || '').replace(/'/g, "''")}'
+    WHERE ep.user_id = ?
     GROUP BY ep.subject
     ORDER BY error_count DESC
-  `);
+  `, [userId || '']);
   if (!rows[0]) return [];
   return rows[0].values.map(row => ({
     subject: row[0], errorCount: row[1], paperCount: row[2],
