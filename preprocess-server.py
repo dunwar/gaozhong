@@ -299,12 +299,13 @@ def layout_detect():
         mid_start = int(w * 0.35)
         mid_end = int(w * 0.65)
         mid_region = v_proj[mid_start:mid_end]
-        v_mean = np.mean(v_proj) if v_proj.size > 0 else 1
-        mid_mean = np.mean(mid_region) if mid_region.size > 0 else v_mean
-        is_dual_column = mid_mean < v_mean * 0.3 and w > 600
+        v_mean = float(np.mean(v_proj)) if v_proj.size > 0 else 1.0
+        mid_mean = float(np.mean(mid_region)) if mid_region.size > 0 else v_mean
+        # 注意: 必须用 bool() 转换 numpy.bool_，否则 jsonify 会报错
+        is_dual_column = bool(mid_mean < v_mean * 0.3 and w > 600)
 
         # 构建粗略文本块（基于水平投影的行分组）
-        threshold = np.mean(h_proj) * 0.3 if h_proj.size > 0 else 1
+        threshold = float(np.mean(h_proj) * 0.3) if h_proj.size > 0 else 1.0
         rows = []
         in_row = False
         row_start = 0
@@ -531,16 +532,39 @@ def prepare_pages():
 # TextIn 集成端点 (v8.2) — 基于 Kimi 项目的 TextIn API 管线
 # ═══════════════════════════════════════════════════════════════
 
+def _get_textin_credentials():
+    """读取 TextIn 凭证：环境变量 → .env 文件回退"""
+    app_id = os.environ.get('TEXTIN_APP_ID', '')
+    secret = os.environ.get('TEXTIN_SECRET_CODE', '')
+    # 环境变量未设时，尝试读 .env 文件
+    if not (app_id and secret):
+        env_file = Path(__file__).resolve().parent / '.env'
+        if env_file.exists():
+            try:
+                for line in env_file.read_text(encoding='utf-8').splitlines():
+                    line = line.strip()
+                    if not line or line.startswith('#'):
+                        continue
+                    if line.startswith('TEXTIN_APP_ID='):
+                        app_id = app_id or line.split('=', 1)[1].strip().strip('"').strip("'")
+                    elif line.startswith('TEXTIN_SECRET_CODE='):
+                        secret = secret or line.split('=', 1)[1].strip().strip('"').strip("'")
+                if app_id and secret:
+                    print(f"TextIn: loaded credentials from .env (app_id={app_id[:8]}...)", flush=True)
+            except Exception as e:
+                print(f"TextIn: failed to read .env: {e}", flush=True)
+    return app_id, secret
+
 @app.route('/textin/ping', methods=['GET'])
 def textin_ping():
     """TextIn 服务状态检查"""
-    app_id = os.environ.get('TEXTIN_APP_ID', '')
-    secret = os.environ.get('TEXTIN_SECRET_CODE', '')
+    app_id, secret = _get_textin_credentials()
     configured = bool(app_id and secret)
     return jsonify({
         'status': 'ok' if configured else 'not_configured',
         'textin_configured': configured,
-        'app_id_prefix': app_id[:8] + '...' if configured else ''
+        'app_id_prefix': app_id[:8] + '...' if configured else '',
+        'credential_source': 'env' if os.environ.get('TEXTIN_APP_ID') else ('.env' if configured else 'none')
     })
 
 @app.route('/textin/erase', methods=['POST'])
@@ -554,10 +578,9 @@ def textin_erase():
         from src.textin.client import TextInClient
         import tempfile
 
-        app_id = os.environ.get('TEXTIN_APP_ID', '')
-        secret = os.environ.get('TEXTIN_SECRET_CODE', '')
+        app_id, secret = _get_textin_credentials()
         if not app_id or not secret:
-            return jsonify({'status': 'error', 'error': 'TextIn 未配置'}), 503
+            return jsonify({'status': 'error', 'error': 'TextIn 未配置（设置 TEXTIN_APP_ID / TEXTIN_SECRET_CODE 或 .env）'}), 503
 
         data = request.get_json(force=True)
         if not data or 'image' not in data:
@@ -612,10 +635,9 @@ def textin_ocr():
         from src.textin.parser import parse_xparse_result
         import tempfile
 
-        app_id = os.environ.get('TEXTIN_APP_ID', '')
-        secret = os.environ.get('TEXTIN_SECRET_CODE', '')
+        app_id, secret = _get_textin_credentials()
         if not app_id or not secret:
-            return jsonify({'status': 'error', 'error': 'TextIn 未配置'}), 503
+            return jsonify({"status": "error", "error": "TextIn 未配置（设置 TEXTIN_APP_ID / TEXTIN_SECRET_CODE 或 .env）"}), 503
 
         data = request.get_json(force=True)
         if not data or 'image' not in data:
