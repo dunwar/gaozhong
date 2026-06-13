@@ -259,6 +259,99 @@ def de_red():
 
 
 
+
+@app.route('/layout-detect', methods=['POST'])
+def layout_detect():
+    """
+    版面检测 — 基础单/双栏判断 + 文本块粗略定位（基于 OpenCV，无需 PaddleOCR）
+    输入: { file_path: "/path/to/image.jpg", options: { min_score: 0.4 } }
+    输出: { status, result: { blocks, total, label_counts, image_size } }
+    注意: 此端点兼容 scanner-v3.mjs 的 detectLayout() 调用，不依赖 PaddleOCR
+    """
+    import cv2
+    try:
+        data = request.get_json()
+        file_path = data.get('file_path', '') if data else ''
+        # 也支持 base64 image 输入
+        image_b64 = data.get('image', '') if data else ''
+
+        img = None
+        if file_path and Path(file_path).exists():
+            img = cv2.imread(file_path)
+        elif image_b64:
+            img = b64_to_cv2(image_b64)
+        else:
+            return jsonify({'status': 'error', 'error': '缺少 file_path 或 image'}), 400
+
+        if img is None or img.size == 0:
+            return jsonify({'status': 'error', 'error': '无法读取图片'}), 400
+
+        h, w = img.shape[:2]
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        # 二值化
+        _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+        # 水平投影 — 检测文本行
+        h_proj = np.sum(binary, axis=1)
+        # 垂直投影 — 检测列
+        v_proj = np.sum(binary, axis=0)
+
+        # 简单双栏检测：垂直投影中段是否有明显谷底
+        mid_start = int(w * 0.35)
+        mid_end = int(w * 0.65)
+        mid_region = v_proj[mid_start:mid_end]
+        v_mean = np.mean(v_proj) if v_proj.size > 0 else 1
+        mid_mean = np.mean(mid_region) if mid_region.size > 0 else v_mean
+        is_dual_column = mid_mean < v_mean * 0.3 and w > 600
+
+        # 构建粗略文本块（基于水平投影的行分组）
+        threshold = np.mean(h_proj) * 0.3 if h_proj.size > 0 else 1
+        rows = []
+        in_row = False
+        row_start = 0
+        for y in range(h):
+            if h_proj[y] > threshold and not in_row:
+                in_row = True
+                row_start = y
+            elif h_proj[y] <= threshold and in_row:
+                in_row = False
+                if y - row_start > 8:  # 最小行高
+                    rows.append((row_start, y))
+
+        blocks = []
+        for i, (y1, y2) in enumerate(rows[:50]):  # 最多50个块
+            col_w = w // 2 if is_dual_column else w
+            x1 = 0 if is_dual_column else 0
+            if is_dual_column:
+                # 粗略判断块在左栏还是右栏
+                row_center_x = np.argmax(v_proj[:col_w]) if col_w > 0 else 0
+            blocks.append({
+                'label': 'text',
+                'score': 0.8,
+                'x1': int(x1),
+                'y1': int(y1),
+                'x2': int(x1 + col_w),
+                'y2': int(y2),
+                'w': int(col_w),
+                'h': int(y2 - y1),
+            })
+
+        print(f"layout-detect: {w}x{h}, {len(blocks)} blocks, dual={is_dual_column}", flush=True)
+        return jsonify({
+            'status': 'ok',
+            'result': {
+                'blocks': blocks,
+                'total': len(blocks),
+                'label_counts': {'text': len(blocks)},
+                'image_size': {'width': w, 'height': h},
+                'is_dual_column': is_dual_column,
+                'predict_ms': 0,
+            }
+        })
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'status': 'error', 'error': str(e)}), 500
+
+
 # ═══════════════════════════════════════════════════════════════
 # 页面准备端点 (v8.3) — 自动旋转 + 双页照片分割 + 页面排序
 # ═══════════════════════════════════════════════════════════════

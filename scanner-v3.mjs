@@ -48,7 +48,8 @@ const MODEL_ZHIPU_VL = process.env.MODEL_ZHIPU_VL || 'glm-4.6v-flash';
 const USE_ZHIPU_VL = !!ZHIPU_KEY;  // Use Zhipu VL (endpoint fixed to /api/paas/v4)
 
 // TextIn OCR 配置 (v4.4) — 优于 VL 的专用 OCR 引擎
-const TEXTIN_ENABLED = !!(process.env.TEXTIN_APP_ID && process.env.TEXTIN_SECRET_CODE);
+// 注意: 运行时求值，不在模块加载时（此时 .env 可能未加载）
+const textinEnabled = () => !!(process.env.TEXTIN_APP_ID && process.env.TEXTIN_SECRET_CODE);
 const TEXTIN_TIMEOUT_MS = 120_000;  // TextIn API 调用超时（xParse 约 1-3s）
 
 // ═══════════════════════════════════════
@@ -226,6 +227,19 @@ async function detectPreflight() {
     await new Promise(r => setTimeout(r, waitMs));
   }
   throw new Error(`预处理服务 v8.0 不可用 (port ${port})，请稍后重试`);
+}
+
+// Fix escaped newlines and common JSON formatting issues from VL output
+function fixNewlinesInJSON(str) {
+  return str
+    .replace(/\\n/g, ' ')
+    .replace(/\\t/g, ' ')
+    .replace(/\\"/g, '"')
+    .replace(/\n/g, ' ')
+    .replace(/\r/g, '')
+    .replace(/\t/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 // Extract content from VL response (handles both content and reasoning_content)
@@ -1048,7 +1062,8 @@ async function splitColumns(imagePath) {
 
 export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 'red_pen', tencentSecret = null, subject = '自动', dualColumn = false }) {
   const totalStart = Date.now();
-  console.log(`[scanner v4.5] Scanning ${pagePaths.length} pages (TextIn=${TEXTIN_ENABLED}, VL=${VL_CONCURRENCY}, PP=${PREPROCESS_CONCURRENCY})`);
+  const useTextIn = textinEnabled();
+  console.log(`[scanner v4.5] Scanning ${pagePaths.length} pages (TextIn=${useTextIn}, VL=${VL_CONCURRENCY}, PP=${PREPROCESS_CONCURRENCY})`);
   
   // Preflight: check preprocess v8.0 is alive, restart if dead
   try { await detectPreflight(); } catch (e) {
@@ -1186,7 +1201,7 @@ export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 
 
         // v4.4: TextIn优先 — 专用OCR引擎 (99.7%准确率)
         // 失败时自动回退到 VL → Tencent
-        if (TEXTIN_ENABLED) {
+        if (useTextIn) {
           try {
             console.log(`[scanner] ${label}: trying TextIn xParse...`);
             const textinResult = await extractQuestionsTextIn(job.imgPath, { subject });
