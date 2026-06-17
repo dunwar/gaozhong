@@ -1,8 +1,14 @@
 #!/bin/bash
-# gaozhong.online — Preprocess v8.0 gunicorn launcher
+# gaozhong.online — Preprocess v8.3 gunicorn launcher
 # Managed by gunicorn: 2 workers, auto-restart, memory-safe
 
 cd /app/data/www/gaozhong.online
+
+# 加载环境变量（TextIn 凭证等）
+if [ -f .env ]; then
+    export $(grep -v '^#' .env | grep -v '^$' | xargs)
+    echo "✅ Loaded .env"
+fi
 
 PID_FILE=/tmp/preprocess-gunicorn.pid
 GUNICORN=/home/node/.local/bin/gunicorn
