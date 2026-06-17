@@ -7,7 +7,7 @@ Handles authentication, request building, and response parsing.
 API Endpoints:
     - POST /ai/service/v1/handwritten_erase  - Remove handwriting
     - POST /ai/service/v2/recognize          - OCR text recognition
-    - POST /ai/service/v1/xparse             - Document parsing with layout analysis
+    - POST /ai/service/v1/pdf_to_markdown     - Document parsing with layout analysis (v2)
 """
 
 import requests
@@ -28,7 +28,7 @@ TEXTIN_BASE_URL = "https://api.textin.com"
 # Endpoint paths
 ENDPOINT_ERASE = "/ai/service/v1/handwritten_erase"
 ENDPOINT_OCR = "/ai/service/v2/recognize"
-ENDPOINT_XPARSE = "/ai/service/v1/xparse"
+ENDPOINT_XPARSE = "/ai/service/v1/pdf_to_markdown"  # v2: xparse deprecated, replaced by pdf_to_markdown
 
 
 @dataclass
@@ -340,17 +340,18 @@ class TextInClient:
         """
         Parse document with layout analysis.
         
-        Uses TextIn xParse to:
-        1. Recognize all text elements
-        2. Classify element types (question number, text, option, mark)
-        3. Detect red pen marks separately
-        4. Output structured data with bounding boxes
+        Uses TextIn pdf_to_markdown API to:
+        1. Recognize all text elements with positions
+        2. Classify element types (text, table, image, etc.)
+        3. Output structured data with bounding boxes
+        
+        API docs: https://docs.textin.com/xparse/parse-quickstart
         
         Args:
             image_path: Path to document image
             markdown_details: 0=simple, 1=detailed with positions
-            equation: 0=skip equations, 1=recognize equations
-            table: 0=skip tables, 1=recognize tables
+            equation: (ignored by new API, kept for compat)
+            table: 0=html tables, 1=html tables (default)
         
         Returns:
             ParseResult with structured elements
@@ -358,9 +359,10 @@ class TextInClient:
         logger.info(f"Parsing document: {image_path}")
         
         params = {
+            'parse_mode': 'auto',
             'markdown_details': markdown_details,
-            'equation': equation,
-            'table': table,
+            'page_count': 1,
+            'table_flavor': 'html',
         }
         
         try:
