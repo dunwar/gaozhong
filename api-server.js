@@ -94,6 +94,9 @@ const MODEL_GRADING = process.env.MODEL_GRADING || 'deepseek-v4-pro';
 const ZHIPU_KEY = process.env.ZHIPU_API_KEY || '';
 const ZHIPU_BASE_URL = process.env.ZHIPU_BASE_URL || 'https://open.bigmodel.cn/api/coding/paas/v4';
 const MODEL_ZHIPU_VL = process.env.MODEL_ZHIPU_VL || 'glm-4.6v-flash';
+const TEXTIN_APP_ID = process.env.TEXTIN_APP_ID || '';
+const TEXTIN_SECRET_CODE = process.env.TEXTIN_SECRET_CODE || '';
+const TEXTIN_ENABLED = !!(TEXTIN_APP_ID && TEXTIN_SECRET_CODE);
 const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex');
 const JWT_EXPIRES_IN = '7d';
 const BCRYPT_ROUNDS = 10;
@@ -2454,37 +2457,6 @@ app.delete('/paper/:sessionId/review/:errorId', authMiddleware, (req, res) => {
   updatePaperSession(req.params.sessionId, { errorCount: updatedErrors.total });
 
   res.json({ success: true });
-});
-
-// ========== Test: Re-scan existing paper ==========
-app.post('/paper/test-scan', async (req, res) => {
-  const { sessionId, subject } = req.body;
-  if (!sessionId) return res.status(400).json({ error: '需要 sessionId' });
-
-  const sessionDir = path.join(PAPERS_DIR, sessionId);
-  if (!fs.existsSync(sessionDir)) return res.status(404).json({ error: 'Session不存在' });
-
-  const files = fs.readdirSync(sessionDir).filter(f => f.startsWith('page_'));
-  const pagePaths = files.sort((a, b) => {
-    const ma = a.match(/page_(\d+)/);
-    const mb = b.match(/page_(\d+)/);
-    return (ma ? +ma[1] : 0) - (mb ? +mb[1] : 0);
-  }).map(f => path.join(sessionDir, f));
-
-  if (pagePaths.length === 0) return res.status(400).json({ error: '无图片' });
-
-  try {
-    const scanner = await import('./scanner-v3.mjs');
-    const result = await scanner.scanPages(pagePaths, {
-      apiKey: KIMI_KEY,
-      outputDir: sessionDir,
-      markingMethod: 'red_pen',
-      subject: subject || '自动'
-    });
-    res.json(result);
-  } catch (e) {
-    res.status(500).json({ error: e.message, stack: e.stack?.split('\n').slice(0, 5) });
-  }
 });
 
 // ========== Test: Re-scan existing paper ==========

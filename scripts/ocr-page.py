@@ -9,23 +9,17 @@ from urllib.error import URLError
 
 API_KEY = os.environ.get("KIMI_API_KEY", "")
 API_URL = "https://api.moonshot.cn/v1/chat/completions"
-MODEL = "moonshot-v1-8k-vision-preview"
+MODEL = os.environ.get("MODEL_OCR", "moonshot-v1-8k-vision-preview")  # use kimi-k2.6 if configured
 API_TIMEOUT = 300  # per-call timeout (seconds) — kimi-k2.6 reasoning model needs more time
 MAX_RETRIES = 3
 RETRY_BACKOFF_BASE = 3  # seconds; actual = base * 2^attempt
 
 SINGLE_PAGE_SYSTEM = "你是一位上海高中英语老师。你仔细看试卷图片，逐题提取印刷文字。最终只输出JSON，不加任何解释。"
 
-SINGLE_PAGE_PROMPT = """请识别这张试卷页面上的所有题目，逐题提取印刷文字。
+SUB_PAGE_LAYOUT = "- 这张图是双栏试卷的{sub_side}半部分（已切图），直接按单栏从上到下读取，不要尝试找双栏"
+NORMAL_LAYOUT = "- 是单栏还是双栏？\n- 双栏的话，先读完左栏（从上到下），再读右栏（从上到下）"
 
-══════════════════════════════════
-【版面分析 — 先判断结构】
-══════════════════════════════════
-第1步：观察页面整体排版
-- 是单栏还是双栏？
-- 双栏的话，先读完左栏（从上到下），再读右栏（从上到下）
-- ⚠️ 严禁将左右两栏的文字混在一起当成一行！
-
+PROMPT_BODY = """
 ══════════════════════════════════
 【题目识别规则】
 ══════════════════════════════════
@@ -54,13 +48,25 @@ SINGLE_PAGE_PROMPT = """请识别这张试卷页面上的所有题目，逐题�
 - listening: 听力题
 
 【输出JSON格式 — 严格按此格式，不要增减字段】
-{"passages":[{"text":"阅读文章全文..."}],"questions":[
-  {"questionNumber":1,"questionType":"choice","questionText":"题干原文","options":{"A":"选项A","B":"选项B","C":"选项C","D":"选项D"},"passageText":"","passageRef":null,"bbox":{"x":0,"y":0,"w":0,"h":0}}
+""" + '{"passages":[{"text":"阅读文章全文..."}],"questions":[' + """
+  """ + '{"questionNumber":1,"questionType":"choice","questionText":"题干原文","options":{"A":"选项A","B":"选项B","C":"选项C","D":"选项D"},"passageText":"","passageRef":null,"bbox":{"x":0,"y":0,"w":0,"h":0}}' + """
 ]}
 
 只输出这个JSON对象，不要markdown代码块，不要"```json"，不要额外解释。
 
 ⚠️ bbox要求：每道题的bbox必须根据图片中的实际位置逐一计算，禁止所有题目使用相同的bbox值！"""
+
+
+def build_prompt(sub_page=None):
+    layout_instruction = SUB_PAGE_LAYOUT.format(sub_side="左" if sub_page == "left" else "右") if sub_page else NORMAL_LAYOUT
+    header = "请识别这张试卷页面上的所有题目，逐题提取印刷文字。\n\n"
+    header += "══════════════════════════════════\n"
+    header += "【版面分析 — 先判断结构】\n"
+    header += "══════════════════════════════════\n"
+    header += "第1步：观察页面整体排版\n"
+    header += layout_instruction + "\n"
+    header += "- ⚠️ 严禁将左右两栏的文字混在一起当成一行！\n\n"
+    return header + PROMPT_BODY
 
 
 def encode_image(path):
@@ -191,11 +197,12 @@ def build_image_content(image_path):
     }]
 
 
-def single_page_extract(image_path):
+def single_page_extract(image_path, sub_page=None):
     """Extract questions from one page with retry on failure."""
+    prompt_text = build_prompt(sub_page)
     messages = [
         {"role": "system", "content": SINGLE_PAGE_SYSTEM},
-        {"role": "user", "content": [{"type": "text", "text": SINGLE_PAGE_PROMPT}] + build_image_content(image_path)}
+        {"role": "user", "content": [{"type": "text", "text": prompt_text}] + build_image_content(image_path)}
     ]
     
     last_error = None
@@ -231,6 +238,7 @@ def main():
     parser.add_argument('images', nargs='+', help='Image path(s) — only first one used (per-page mode)')
     parser.add_argument('--api-key', help='Kimi API key (or set KIMI_API_KEY env)')
     parser.add_argument('--output', '-o', help='Output JSON file path')
+    parser.add_argument('--sub-page', choices=['left', 'right'], help='Sub-page half (for dual-column split)')
     args = parser.parse_args()
     
     global API_KEY
@@ -243,7 +251,7 @@ def main():
         sys.exit(1)
     
     try:
-        result = single_page_extract(image_path)
+        result = single_page_extract(image_path, sub_page=args.sub_page)
         
         if args.output:
             with open(args.output, 'w', encoding='utf-8') as f:

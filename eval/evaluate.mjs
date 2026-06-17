@@ -1,272 +1,379 @@
 #!/usr/bin/env node
 /**
- * gaozhong.online — Scanner 评测脚本
+ * gaozhong.online — Scanner Evaluation Tool
  * 
- * 用法:
- *   node eval/evaluate.mjs --session 3623c60f           # 评测单张试卷
- *   node eval/evaluate.mjs --all                        # 评测所有 ground-truth 试卷
- *   node eval/evaluate.mjs --compare cdf102b c4d3824    # 对比两个版本
- *   node eval/evaluate.mjs --version HEAD               # 指定版本标签
+ * Usage:
+ *   node eval/evaluate.mjs --paper <paperId>           # Run scanner + compare
+ *   node eval/evaluate.mjs --paper <paperId> --scan-only  # Only run scanner, save result
+ *   node eval/evaluate.mjs --paper <paperId> --compare-only # Compare saved scan vs ground truth
  * 
- * 输出: 量化评测报告（召回率、精确率、题型准确率、错题判定）
+ * Output: JSON metrics + human-readable summary
  */
 
-import { readFileSync, writeFileSync, existsSync, readdirSync, mkdirSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { execSync } from 'child_process';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = join(__dirname, '..');
-const PAPERS_DIR = '/app/data/papers';
-const API_URL = 'http://localhost:3001';
+const EVAL_DIR = __dirname;
+const GT_DIR = join(EVAL_DIR, 'ground-truth');
+const RESULTS_DIR = join(EVAL_DIR, 'results');
+
+// Parse args
+const args = process.argv.slice(2);
+function getArg(name) {
+  const idx = args.indexOf('--' + name);
+  return idx >= 0 && idx < args.length - 1 ? args[idx + 1] : null;
+}
+const hasFlag = (name) => args.includes('--' + name);
+
+const paperId = getArg('paper');
+if (!paperId) {
+  console.error('Usage: node eval/evaluate.mjs --paper <paperId> [--scan-only] [--compare-only] [--json]');
+  process.exit(1);
+}
+
+const scanOnly = hasFlag('scan-only');
+const compareOnly = hasFlag('compare-only');
+const jsonOutput = hasFlag('json');
 
 // ═══════════════════════════════════════
-// CLI 参数解析
+// Load ground truth
 // ═══════════════════════════════════════
 
-function parseArgs() {
-  const args = process.argv.slice(2);
-  const opts = { session: null, all: false, compare: null, version: 'HEAD', timeout: 600 };
-  for (let i = 0; i < args.length; i++) {
-    switch (args[i]) {
-      case '--session': opts.session = args[++i]; break;
-      case '--all': opts.all = true; break;
-      case '--compare': opts.compare = [args[++i], args[++i]]; break;
-      case '--version': opts.version = args[++i]; break;
-      case '--timeout': opts.timeout = parseInt(args[++i]); break;
-      case '--help':
-        console.log(`
-用法:
-  node eval/evaluate.mjs --session <id>     评测单张试卷
-  node eval/evaluate.mjs --all              评测所有标注试卷
-  node eval/evaluate.mjs --compare <a> <b>  对比两个 git commit
-  node eval/evaluate.mjs --version <tag>    指定版本标签
-`);
-        process.exit(0);
-    }
+function loadGroundTruth(paperId) {
+  const gtPath = join(GT_DIR, `${paperId}.json`);
+  if (!existsSync(gtPath)) {
+    console.error(`❌ Ground truth not found: ${gtPath}`);
+    console.error(`   Create one with: node eval/evaluate.mjs --paper ${paperId} --scan-only`);
+    process.exit(1);
   }
-  return opts;
+  const raw = JSON.parse(readFileSync(gtPath, 'utf-8'));
+  return raw;
 }
 
 // ═══════════════════════════════════════
-// 评测核心逻辑
+// Run scanner
 // ═══════════════════════════════════════
 
-/**
- * 计算单张试卷的评测指标
- */
-function evaluatePaper(scanResult, groundTruth) {
-  const gtQuestions = groundTruth.questions || [];
-  const scanQuestions = scanResult.questions || [];
+async function runScanner(paperId) {
+  const papersDir = process.env.PAPERS_DIR || '/app/data/papers';
+  const paperDir = join(papersDir, paperId);
   
-  // Build lookup by question number
-  const gtByNumber = new Map();
+  if (!existsSync(paperDir)) {
+    console.error(`❌ Paper images not found: ${paperDir}`);
+    process.exit(1);
+  }
+
+  // Collect page images
+  const pagePaths = [];
+  for (let i = 1; i <= 20; i++) {
+    const p = join(paperDir, `page_${i}.jpg`);
+    if (existsSync(p)) pagePaths.push(p);
+    else break;
+  }
+
+  if (pagePaths.length === 0) {
+    console.error(`❌ No page images found in ${paperDir}`);
+    process.exit(1);
+  }
+
+  console.log(`📄 Running scanner on ${pagePaths.length} pages for paper ${paperId}...`);
+
+  // Import scanner
+  process.chdir(PROJECT_ROOT);
+  const scanner = await import('../scanner-v3.mjs');
+
+  const startTime = Date.now();
+  const result = await scanner.scanPages(pagePaths, {
+    apiKey: process.env.KIMI_KEY || process.env.DASHSCOPE_API_KEY,
+    outputDir: paperDir,
+    markingMethod: 'red_pen',
+    subject: '英语',
+    dualColumn: true
+  });
+  const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+
+  console.log(`✅ Scanner completed in ${elapsed}s: ${result.totalQuestions} questions, ${result.totalErrors} errors`);
+
+  // Save raw result
+  if (!existsSync(RESULTS_DIR)) {
+    const { mkdirSync } = await import('fs');
+    mkdirSync(RESULTS_DIR, { recursive: true });
+  }
+
+  const resultPath = join(RESULTS_DIR, `${paperId}-scan.json`);
+  writeFileSync(resultPath, JSON.stringify(result, null, 2));
+  console.log(`💾 Saved scan result to ${resultPath}`);
+
+  return result;
+}
+
+// ═══════════════════════════════════════
+// Load saved scan result
+// ═══════════════════════════════════════
+
+function loadScanResult(paperId) {
+  const resultPath = join(RESULTS_DIR, `${paperId}-scan.json`);
+  if (!existsSync(resultPath)) {
+    console.error(`❌ Scan result not found: ${resultPath}`);
+    console.error(`   Run scanner first: node eval/evaluate.mjs --paper ${paperId}`);
+    process.exit(1);
+  }
+  return JSON.parse(readFileSync(resultPath, 'utf-8'));
+}
+
+// ═══════════════════════════════════════
+// Compare scan result vs ground truth
+// ═══════════════════════════════════════
+
+function compare(scanResult, groundTruth) {
+  const gtQuestions = groundTruth.questions;
+  
+  // Build lookup maps by question number
+  const gtMap = new Map();
   for (const q of gtQuestions) {
-    gtByNumber.set(q.questionNumber, q);
+    gtMap.set(q.questionNumber, q);
   }
-  
-  const scanByNumber = new Map();
+
+  const scanQuestions = scanResult.questions || [];
+  const scanErrors = new Set((scanResult.errors || []).map(q => q.questionNumber));
+  const scanMap = new Map();
   for (const q of scanQuestions) {
-    scanByNumber.set(q.questionNumber, q);
+    scanMap.set(q.questionNumber, q);
   }
+
+  // === Question Detection Metrics ===
+  let detected = 0;       // Question exists in both GT and scan
+  let missed = 0;         // In GT but not in scan
+  let hallucinated = 0;   // In scan but not in GT
   
-  // 1. Question recall: how many GT questions were found
-  let recallHits = 0;
-  let numberMatches = 0;
-  let typeMatches = 0;
-  
-  for (const [num, gtQ] of gtByNumber) {
-    if (scanByNumber.has(num)) {
-      recallHits++;
-      const scanQ = scanByNumber.get(num);
-      // Number match (exact)
-      if (scanQ.questionNumber === num) numberMatches++;
-      // Type match
-      if (scanQ.questionType === gtQ.questionType) typeMatches++;
+  const missedQuestions = [];
+  const hallucinatedQuestions = [];
+
+  for (const [qn, q] of gtMap) {
+    if (scanMap.has(qn)) {
+      detected++;
+    } else {
+      missed++;
+      missedQuestions.push(qn);
     }
   }
-  
-  const questionRecall = gtQuestions.length > 0 ? recallHits / gtQuestions.length : 0;
-  const numberPrecision = scanQuestions.length > 0 ? numberMatches / scanQuestions.length : 0;
-  const typeAccuracy = recallHits > 0 ? typeMatches / recallHits : 0;
-  
-  // 2. Error detection evaluation
-  const gtErrors = new Set(gtQuestions.filter(q => q.isError).map(q => q.questionNumber));
-  const scanErrors = new Set(scanQuestions.filter(q => q.isError).map(q => q.questionNumber));
-  
-  let errorRecallCount = 0;
-  for (const e of gtErrors) {
-    if (scanErrors.has(e)) errorRecallCount++;
-  }
-  
-  let falsePositives = 0;
-  for (const e of scanErrors) {
-    if (!gtErrors.has(e)) falsePositives++;
-  }
-  
-  const errorRecall = gtErrors.size > 0 ? errorRecallCount / gtErrors.size : (scanErrors.size === 0 ? 1 : 0);
-  const errorPrecision = scanErrors.size > 0 ? (scanErrors.size - falsePositives) / scanErrors.size : (gtErrors.size === 0 ? 1 : 0);
-  
-  return {
-    totalQuestions: gtQuestions.length,
-    foundQuestions: scanQuestions.length,
-    recallHits,
-    questionRecall: Math.round(questionRecall * 1000) / 10,
-    numberPrecision: Math.round(numberPrecision * 1000) / 10,
-    typeAccuracy: Math.round(typeAccuracy * 1000) / 10,
-    gtErrorCount: gtErrors.size,
-    foundErrorCount: scanErrors.size,
-    errorRecallCount,
-    falsePositives,
-    errorRecall: Math.round(errorRecall * 1000) / 10,
-    errorPrecision: Math.round(errorPrecision * 1000) / 10,
-    totalTime: scanResult.totalTime || scanResult.time || null
-  };
-}
 
-/**
- * 运行 scanner API 扫描
- */
-async function runScan(sessionId, timeout = 600) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeout * 1000);
-  
-  try {
-    const resp = await fetch(`${API_URL}/paper/test-scan`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sessionId }),
-      signal: controller.signal
-    });
-    clearTimeout(timer);
+  for (const [qn, q] of scanMap) {
+    if (!gtMap.has(qn)) {
+      hallucinated++;
+      hallucinatedQuestions.push(qn);
+    }
+  }
+
+  const questionRecall = gtQuestions.length > 0 ? detected / gtQuestions.length : 0;
+  const questionPrecision = scanQuestions.length > 0 ? detected / scanQuestions.length : 0;
+
+  // === Error Detection Metrics ===
+  // Only evaluate error detection for questions that were detected by both
+  let errorTP = 0;  // Both GT and scan say error
+  let errorFP = 0;  // GT says correct, scan says error
+  let errorFN = 0;  // GT says error, scan says correct
+  let errorTN = 0;  // Both say correct
+
+  const fpDetails = [];
+  const fnDetails = [];
+
+  for (const [qn, gtQ] of gtMap) {
+    if (!scanMap.has(qn)) continue; // Skip questions not detected
+    const scanIsError = scanErrors.has(qn);
+    const gtIsError = gtQ.isError;
+
+    if (gtIsError && scanIsError) errorTP++;
+    else if (!gtIsError && scanIsError) { errorFP++; fpDetails.push(qn); }
+    else if (gtIsError && !scanIsError) { errorFN++; fnDetails.push(qn); }
+    else errorTN++;
+  }
+
+  const errorPrecision = (errorTP + errorFP) > 0 ? errorTP / (errorTP + errorFP) : 1;
+  const errorRecall = (errorTP + errorFN) > 0 ? errorTP / (errorTP + errorFN) : 1;
+  const errorF1 = (errorPrecision + errorRecall) > 0 ? 2 * errorPrecision * errorRecall / (errorPrecision + errorRecall) : 0;
+
+  // === Question Type Accuracy ===
+  let typeMatch = 0;
+  let typeMismatch = 0;
+  const typeMismatches = [];
+
+  for (const [qn, gtQ] of gtMap) {
+    if (!scanMap.has(qn)) continue;
+    const scanQ = scanMap.get(qn);
+    if (gtQ.questionType === scanQ.questionType) {
+      typeMatch++;
+    } else {
+      typeMismatch++;
+      typeMismatches.push({ qn, gt: gtQ.questionType, scan: scanQ.questionType });
+    }
+  }
+
+  const typeAccuracy = (typeMatch + typeMismatch) > 0 ? typeMatch / (typeMatch + typeMismatch) : 0;
+
+  // === Page Assignment Accuracy ===
+  let pageMatch = 0;
+  let pageMismatch = 0;
+  for (const [qn, gtQ] of gtMap) {
+    if (!scanMap.has(qn)) continue;
+    const scanQ = scanMap.get(qn);
+    if (gtQ.pageIndex === scanQ.pageIndex) {
+      pageMatch++;
+    } else {
+      pageMismatch++;
+    }
+  }
+
+  const pageAccuracy = (pageMatch + pageMismatch) > 0 ? pageMatch / (pageMatch + pageMismatch) : 0;
+
+  // === Build result ===
+  const metrics = {
+    paperId: groundTruth.paperId,
+    subject: groundTruth.subject,
+    gtVerified: groundTruth.verified,
+    scannerVersion: scanResult.version,
     
-    if (!resp.ok) {
-      const text = await resp.text();
-      throw new Error(`API ${resp.status}: ${text.substring(0, 200)}`);
-    }
-    return await resp.json();
-  } catch (e) {
-    clearTimeout(timer);
-    if (e.name === 'AbortError') throw new Error(`Timeout after ${timeout}s`);
-    throw e;
-  }
-}
+    questionDetection: {
+      total: gtQuestions.length,
+      detected,
+      missed,
+      hallucinated,
+      recall: questionRecall,
+      precision: questionPrecision,
+      missedQuestions,
+      hallucinatedQuestions,
+    },
 
-/**
- * 格式化单个试卷评测结果
- */
-function formatPaperReport(sessionId, metrics, meta) {
-  const label = meta?.subject || '';
-  const pages = meta?.pages || '?';
-  const lines = [];
-  lines.push(`试卷 ${sessionId} (${pages}p${label ? ', ' + label : ''}):`);
-  lines.push(`  题目召回: ${metrics.recallHits}/${metrics.totalQuestions} (${metrics.questionRecall}%)`);
-  lines.push(`  题号精确: ${metrics.numberPrecision}%`);
-  lines.push(`  题型准确: ${metrics.typeAccuracy}%`);
-  lines.push(`  错题判定: ${metrics.errorRecallCount}/${metrics.gtErrorCount} 召回, ${metrics.falsePositives} 误报 (精确 ${metrics.errorPrecision}%)`);
-  if (metrics.totalTime) lines.push(`  耗时: ${metrics.totalTime}s`);
-  return lines.join('\n');
+    errorDetection: {
+      tp: errorTP,
+      fp: errorFP,
+      fn: errorFN,
+      tn: errorTN,
+      precision: errorPrecision,
+      recall: errorRecall,
+      f1: errorF1,
+      fpDetails,
+      fnDetails,
+    },
+
+    typeClassification: {
+      match: typeMatch,
+      mismatch: typeMismatch,
+      accuracy: typeAccuracy,
+      mismatches: typeMismatches,
+    },
+
+    pageAssignment: {
+      match: pageMatch,
+      mismatch: pageMismatch,
+      accuracy: pageAccuracy,
+    },
+
+    timing: {
+      scanTime: scanResult.totalTime,
+      pages: scanResult.pages,
+    }
+  };
+
+  return metrics;
 }
 
 // ═══════════════════════════════════════
-// 主流程
+// Format output
+// ═══════════════════════════════════════
+
+function printReport(metrics) {
+  const pct = (v) => (v * 100).toFixed(1) + '%';
+
+  if (jsonOutput) {
+    console.log(JSON.stringify(metrics, null, 2));
+    return;
+  }
+
+  console.log('\n' + '═'.repeat(60));
+  console.log(`  📊 EVAL REPORT — Paper ${metrics.paperId} (${metrics.subject})`);
+  console.log('═'.repeat(60));
+
+  if (!metrics.gtVerified) {
+    console.log('  ⚠️  Ground truth NOT verified — treat metrics as provisional');
+  }
+
+  console.log(`\n  🔍 Question Detection`);
+  console.log(`     Ground truth: ${metrics.questionDetection.total} questions`);
+  console.log(`     Detected:     ${metrics.questionDetection.detected}`);
+  console.log(`     Missed:       ${metrics.questionDetection.missed}${metrics.questionDetection.missedQuestions.length ? ' (' + metrics.questionDetection.missedQuestions.join(', ') + ')' : ''}`);
+  console.log(`     Hallucinated: ${metrics.questionDetection.hallucinated}${metrics.questionDetection.hallucinatedQuestions.length ? ' (' + metrics.questionDetection.hallucinatedQuestions.join(', ') + ')' : ''}`);
+  console.log(`     Recall:       ${pct(metrics.questionDetection.recall)}`);
+  console.log(`     Precision:    ${pct(metrics.questionDetection.precision)}`);
+
+  console.log(`\n  ❌ Error Detection (红笔判错)`);
+  console.log(`     TP: ${metrics.errorDetection.tp}  FP: ${metrics.errorDetection.fp}  FN: ${metrics.errorDetection.fn}  TN: ${metrics.errorDetection.tn}`);
+  if (metrics.errorDetection.fpDetails.length) {
+    console.log(`     False Positives (误判为错): Q${metrics.errorDetection.fpDetails.join(', Q')}`);
+  }
+  if (metrics.errorDetection.fnDetails.length) {
+    console.log(`     False Negatives (漏判): Q${metrics.errorDetection.fnDetails.join(', Q')}`);
+  }
+  console.log(`     Precision: ${pct(metrics.errorDetection.precision)}`);
+  console.log(`     Recall:    ${pct(metrics.errorDetection.recall)}`);
+  console.log(`     F1:        ${pct(metrics.errorDetection.f1)}`);
+
+  console.log(`\n  🏷️  Type Classification`);
+  console.log(`     Match: ${metrics.typeClassification.match}  Mismatch: ${metrics.typeClassification.mismatch}`);
+  console.log(`     Accuracy: ${pct(metrics.typeClassification.accuracy)}`);
+  if (metrics.typeClassification.mismatches.length) {
+    for (const m of metrics.typeClassification.mismatches) {
+      console.log(`     Q${m.qn}: GT=${m.gt} → Scan=${m.scan}`);
+    }
+  }
+
+  console.log(`\n  📍 Page Assignment`);
+  console.log(`     Accuracy: ${pct(metrics.pageAssignment.accuracy)} (${metrics.pageAssignment.match}/${metrics.pageAssignment.match + metrics.pageAssignment.mismatch})`);
+
+  console.log(`\n  ⏱️  Timing`);
+  console.log(`     ${metrics.timing.pages} pages in ${metrics.timing.scanTime}s`);
+
+  // Overall score
+  const overall = (metrics.questionDetection.recall + metrics.errorDetection.f1 + metrics.typeClassification.accuracy) / 3;
+  console.log(`\n  📈 Overall Score: ${pct(overall)}`);
+  console.log('═'.repeat(60) + '\n');
+}
+
+// ═══════════════════════════════════════
+// Main
 // ═══════════════════════════════════════
 
 async function main() {
-  const opts = parseArgs();
-  
-  // Determine which sessions to evaluate
-  let sessions = [];
-  if (opts.session) {
-    sessions = [opts.session];
-  } else if (opts.all) {
-    const gtDir = join(PROJECT_ROOT, 'eval', 'ground-truth');
-    sessions = readdirSync(gtDir).filter(d => {
-      return existsSync(join(gtDir, d, 'ground-truth.json'));
-    });
+  if (scanOnly) {
+    await runScanner(paperId);
+    return;
+  }
+
+  let scanResult;
+  if (compareOnly) {
+    scanResult = loadScanResult(paperId);
   } else {
-    console.log('请指定 --session <id> 或 --all');
-    console.log('用法: node eval/evaluate.mjs --help');
-    process.exit(1);
+    scanResult = await runScanner(paperId);
   }
-  
-  if (sessions.length === 0) {
-    console.log('❌ 没有找到可评测的试卷。');
-    console.log('请先创建 ground truth: eval/ground-truth/<session_id>/ground-truth.json');
-    process.exit(1);
+
+  const groundTruth = loadGroundTruth(paperId);
+  const metrics = compare(scanResult, groundTruth);
+  printReport(metrics);
+
+  // Save metrics
+  if (!existsSync(RESULTS_DIR)) {
+    const { mkdirSync } = await import('fs');
+    mkdirSync(RESULTS_DIR, { recursive: true });
   }
-  
-  // Get git version info
-  let gitHash = 'unknown';
-  let gitMsg = '';
-  try {
-    gitHash = execSync('git rev-parse --short HEAD', { cwd: PROJECT_ROOT }).toString().trim();
-    gitMsg = execSync('git log -1 --format="%s"', { cwd: PROJECT_ROOT }).toString().trim();
-  } catch {}
-  
-  console.log('═══════════════════════════════════════════');
-  console.log(`📊 Scanner 评测报告 — ${opts.version} (${gitHash})`);
-  console.log(`   ${gitMsg}`);
-  console.log('═══════════════════════════════════════════');
-  console.log('');
-  
-  const allMetrics = [];
-  
-  for (const sessionId of sessions) {
-    const gtPath = join(PROJECT_ROOT, 'eval', 'ground-truth', sessionId, 'ground-truth.json');
-    const metaPath = join(PROJECT_ROOT, 'eval', 'ground-truth', sessionId, 'meta.json');
-    
-    if (!existsSync(gtPath)) {
-      console.log(`⚠️ 跳过 ${sessionId}: 缺少 ground-truth.json`);
-      continue;
-    }
-    
-    const groundTruth = JSON.parse(readFileSync(gtPath, 'utf8'));
-    const meta = existsSync(metaPath) ? JSON.parse(readFileSync(metaPath, 'utf8')) : {};
-    
-    console.log(`🔍 扫描 ${sessionId} ...`);
-    try {
-      const scanResult = await runScan(sessionId, opts.timeout);
-      const metrics = evaluatePaper(scanResult, groundTruth);
-      
-      console.log(formatPaperReport(sessionId, metrics, meta));
-      console.log('');
-      
-      allMetrics.push({ sessionId, metrics, meta });
-      
-      // Save raw result
-      const resultPath = join(PROJECT_ROOT, 'eval', 'results', `${new Date().toISOString().replace(/[:.]/g, '-')}_${gitHash}_${sessionId}.json`);
-      writeFileSync(resultPath, JSON.stringify({ gitHash, version: opts.version, sessionId, scanResult, metrics }, null, 2));
-      
-    } catch (e) {
-      console.log(`❌ ${sessionId}: ${e.message}`);
-      console.log('');
-    }
-  }
-  
-  // Summary
-  if (allMetrics.length > 1) {
-    const totalGT = allMetrics.reduce((s, m) => s + m.metrics.totalQuestions, 0);
-    const totalRecall = allMetrics.reduce((s, m) => s + m.metrics.recallHits, 0);
-    const totalGTErrors = allMetrics.reduce((s, m) => s + m.metrics.gtErrorCount, 0);
-    const totalErrorRecall = allMetrics.reduce((s, m) => s + m.metrics.errorRecallCount, 0);
-    const totalFP = allMetrics.reduce((s, m) => s + m.metrics.falsePositives, 0);
-    
-    console.log('───────────────────────────────────────────');
-    console.log(`汇总 (${allMetrics.length} 张试卷):`);
-    console.log(`  总题目召回: ${totalRecall}/${totalGT} (${Math.round(totalRecall/totalGT*1000)/10}%)`);
-    console.log(`  总错题判定: ${totalErrorRecall}/${totalGTErrors} 召回, ${totalFP} 误报`);
-    console.log('═══════════════════════════════════════════');
-  }
-  
-  // Save summary as baseline if requested
-  const summaryPath = join(PROJECT_ROOT, 'eval', 'results', `${new Date().toISOString().replace(/[:.]/g, '-')}_${gitHash}_summary.json`);
-  writeFileSync(summaryPath, JSON.stringify({ gitHash, version: opts.version, timestamp: new Date().toISOString(), papers: allMetrics }, null, 2));
-  console.log(`\n📁 结果已保存: ${summaryPath}`);
+  const metricsPath = join(RESULTS_DIR, `${paperId}-metrics.json`);
+  writeFileSync(metricsPath, JSON.stringify(metrics, null, 2));
+  console.log(`💾 Metrics saved to ${metricsPath}`);
 }
 
-main().catch(e => {
-  console.error('Fatal:', e);
+main().catch(err => {
+  console.error('❌ Evaluation failed:', err.message);
   process.exit(1);
 });
