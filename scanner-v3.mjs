@@ -1209,20 +1209,13 @@ export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 
         if (job.subPage) console.log(`[scanner] ${label}: OCR split ${job.subPage} half`);
 
         // v4.6: TextIn优先 — 专用OCR引擎
-        // 失败或低召回（detail items < 50）时自动回退到 VL → Tencent
-        const TEXTIN_MIN_DETAIL_ITEMS = 50;  // below this → fallback to VL
+        // 失败时自动回退到 VL → Tencent
         if (useTextIn) {
           try {
             console.log(`[scanner] ${label}: trying TextIn pdf_to_markdown (original image)...`);
             const textinImgPath = job.originalPath || pagePaths[job.pageIndex];
             const textinResult = await extractQuestionsTextIn(textinImgPath, { subject });
-            const detailCount = textinResult.detailCount || 0;
-            console.log(`[scanner] ${label}: TextIn ok — ${textinResult.totalQuestions} questions, ${detailCount} detail items`);
-            // v4.6: Low-recall guard — too few detail items means TextIn missed content
-            if (detailCount > 0 && detailCount < TEXTIN_MIN_DETAIL_ITEMS) {
-              console.log(`[scanner] ${label}: TextIn detail items ${detailCount} < ${TEXTIN_MIN_DETAIL_ITEMS}, falling back to VL`);
-              throw new Error(`Low recall: ${detailCount} detail items < ${TEXTIN_MIN_DETAIL_ITEMS}`);
-            }
+            console.log(`[scanner] ${label}: TextIn ok — ${textinResult.totalQuestions} questions`);
             if (textinResult.totalQuestions === 0) {
               console.log(`[scanner] ${label}: TextIn returned 0 questions, falling back to VL`);
               throw new Error('TextIn returned 0 questions');
