@@ -1,5 +1,10 @@
 /**
- * gaozhong.online — Scanner v4.5
+ * gaozhong.online — Scanner v4.6
+ *
+ * v4.6 变更: TextIn OCR 改用原图 (修复)
+ *   - TextIn 作为专业 OCR 引擎能自行处理红笔干扰
+ *   - de-red 预处理反而损害 TextIn 识别率（原图 ~90 题 → de-red 仅 51 题）
+ *   - 修复: TextIn 使用 pagePaths 原图，VL 继续使用 de-red 图
  *
  * v4.5 变更: Phase 0.5 页面准备 (旋转+分页+排序)
  *   - 新增 /prepare-pages 端点：自动旋转横拍照片 + 双页水平分割
@@ -17,8 +22,9 @@
  *   - 预处理阶段并行运行 de-red（不增加端到端延迟）
  *
  * Architecture:
- *   Primary:   TextIn xParse → 11-phase regex parsing (v4.4)
- *   Fallback:  VL OCR (Zhipu/Kimi) per-page parallel → question structure
+ *   Primary:   TextIn pdf_to_markdown → 8-phase conservative parser (v4.6)
+ *              TextIn uses ORIGINAL image (de-red damages its recognition)
+ *   Fallback:  VL OCR (Zhipu/Kimi) per-page parallel → uses de-red image
  *   Red:       Preprocess v8.0 /red-regions → red centroid map
  *   Classify:  VL → classify red mark types (✗/✓/letter/etc.)
  *   Fallback:  Tencent Cloud OCR → text blocks + rule engine
@@ -34,7 +40,7 @@ import http from 'http';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-export const SCANNER_VERSION = 'v4.5';
+export const SCANNER_VERSION = 'v4.6';
 const PREPROCESS_URL = process.env.PREPROCESS_URL || 'http://localhost:5002';
 const VL_CONCURRENCY = 2;  // Low to avoid Zhipu rate limit
 const PREPROCESS_CONCURRENCY = 4;
@@ -50,7 +56,7 @@ const USE_ZHIPU_VL = !!ZHIPU_KEY;  // Use Zhipu VL (endpoint fixed to /api/paas/
 // TextIn OCR 配置 (v4.4) — 优于 VL 的专用 OCR 引擎
 // 注意: 运行时求值，不在模块加载时（此时 .env 可能未加载）
 const textinEnabled = () => !!(process.env.TEXTIN_APP_ID && process.env.TEXTIN_SECRET_CODE);
-const TEXTIN_TIMEOUT_MS = 120_000;  // TextIn API 调用超时（xParse 约 1-3s）
+const TEXTIN_TIMEOUT_MS = 120_000;  // TextIn API 调用超时（pdf_to_markdown 约 1-3s）
 
 // ═══════════════════════════════════════
 // Concurrency limiter
@@ -1063,7 +1069,7 @@ async function splitColumns(imagePath) {
 export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 'red_pen', tencentSecret = null, subject = '自动', dualColumn = false }) {
   const totalStart = Date.now();
   const useTextIn = textinEnabled();
-  console.log(`[scanner v4.5] Scanning ${pagePaths.length} pages (TextIn=${useTextIn}, VL=${VL_CONCURRENCY}, PP=${PREPROCESS_CONCURRENCY})`);
+  console.log(`[scanner v4.6] Scanning ${pagePaths.length} pages (TextIn=${useTextIn}, VL=${VL_CONCURRENCY}, PP=${PREPROCESS_CONCURRENCY})`);
   
   // Preflight: check preprocess v8.0 is alive, restart if dead
   try { await detectPreflight(); } catch (e) {
@@ -1167,22 +1173,24 @@ export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 
     }
   }
   
-  // Phase 2: VL OCR — per-page parallel with retry (uses de-red images)
+  // Phase 2: OCR — per-page parallel with retry (TextIn uses original, VL uses de-red)
   // For dual-column pages, OCR left half and right half separately, then merge results
   const ocrGate = new ConcurrencyGate(VL_CONCURRENCY);
   
   const totalPages = ocrImagePaths.length;
   
-  // v4.3: Build OCR job list — split pages produce 2 jobs (left + right)
+  // v4.6: Build OCR job list — split pages produce 2 jobs (left + right)
+  // TextIn uses ORIGINAL image (de-red preprocessing damages TextIn's recognition)
+  // VL continues to use de-red image for better red-pen visibility
   const ocrJobs = [];
   for (let i = 0; i < ocrImagePaths.length; i++) {
     const split = pageSplitMap[i];
     if (split && split.isDual) {
       // Dual-column page: create separate left/right OCR jobs
-      ocrJobs.push({ pageIndex: i, subPage: 'left', imgPath: split.leftPath, totalPages });
-      ocrJobs.push({ pageIndex: i, subPage: 'right', imgPath: split.rightPath, totalPages });
+      ocrJobs.push({ pageIndex: i, subPage: 'left', imgPath: split.leftPath, originalPath: pagePaths[i], totalPages });
+      ocrJobs.push({ pageIndex: i, subPage: 'right', imgPath: split.rightPath, originalPath: pagePaths[i], totalPages });
     } else {
-      ocrJobs.push({ pageIndex: i, subPage: null, imgPath: ocrImagePaths[i], totalPages });
+      ocrJobs.push({ pageIndex: i, subPage: null, imgPath: ocrImagePaths[i], originalPath: pagePaths[i], totalPages });
     }
   }
   
@@ -1196,15 +1204,17 @@ export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 
           : `Page ${job.pageIndex + 1}`;
         const pageImgPath = pagePaths[job.pageIndex];
         const isDeRed = job.imgPath !== pageImgPath && !job.subPage;
-        if (isDeRed) console.log(`[scanner] ${label}: OCR using de-red image`);
+        if (isDeRed) console.log(`[scanner] ${label}: VL using de-red image (TextIn uses original)`);
         if (job.subPage) console.log(`[scanner] ${label}: OCR split ${job.subPage} half`);
 
         // v4.4: TextIn优先 — 专用OCR引擎 (99.7%准确率)
         // 失败时自动回退到 VL → Tencent
         if (useTextIn) {
           try {
-            console.log(`[scanner] ${label}: trying TextIn xParse...`);
-            const textinResult = await extractQuestionsTextIn(job.imgPath, { subject });
+            console.log(`[scanner] ${label}: trying TextIn pdf_to_markdown (original image)...`);
+            // v4.6: TextIn uses ORIGINAL image (de-red damages TextIn recognition rate)
+            const textinImgPath = job.originalPath || pagePaths[job.pageIndex];
+            const textinResult = await extractQuestionsTextIn(textinImgPath, { subject });
             console.log(`[scanner] ${label}: TextIn ok — ${textinResult.totalQuestions} questions`);
             return { ...job, result: textinResult, engine: 'textin', attempts: 1 };
           } catch (textinErr) {

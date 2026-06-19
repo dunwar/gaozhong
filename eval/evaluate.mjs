@@ -1,17 +1,19 @@
 #!/usr/bin/env node
 /**
  * gaozhong.online — Scanner Evaluation Tool
- * 
+ *
  * Usage:
- *   node eval/evaluate.mjs --paper <paperId>           # Run scanner + compare
+ *   node eval/evaluate.mjs --paper <paperId>              # Evaluate single paper
  *   node eval/evaluate.mjs --paper <paperId> --scan-only  # Only run scanner, save result
  *   node eval/evaluate.mjs --paper <paperId> --compare-only # Compare saved scan vs ground truth
- * 
+ *   node eval/evaluate.mjs --all                          # Evaluate all ground-truth papers
+ *   node eval/evaluate.mjs --all --compare-only           # Compare all (skip scanning)
+ *
  * Output: JSON metrics + human-readable summary
  */
 
-import { readFileSync, writeFileSync, existsSync } from 'fs';
-import { join, dirname } from 'path';
+import { readFileSync, writeFileSync, existsSync, readdirSync, mkdirSync } from 'fs';
+import { join, dirname, basename } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -29,8 +31,11 @@ function getArg(name) {
 const hasFlag = (name) => args.includes('--' + name);
 
 const paperId = getArg('paper');
-if (!paperId) {
+const allMode = hasFlag('all');
+
+if (!paperId && !allMode) {
   console.error('Usage: node eval/evaluate.mjs --paper <paperId> [--scan-only] [--compare-only] [--json]');
+  console.error('       node eval/evaluate.mjs --all [--compare-only] [--json]');
   process.exit(1);
 }
 
@@ -41,6 +46,13 @@ const jsonOutput = hasFlag('json');
 // ═══════════════════════════════════════
 // Load ground truth
 // ═══════════════════════════════════════
+
+function getAllPaperIds() {
+  if (!existsSync(GT_DIR)) return [];
+  return readdirSync(GT_DIR)
+    .filter(f => f.endsWith('.json'))
+    .map(f => basename(f, '.json'));
+}
 
 function loadGroundTruth(paperId) {
   const gtPath = join(GT_DIR, `${paperId}.json`);
@@ -99,7 +111,6 @@ async function runScanner(paperId) {
 
   // Save raw result
   if (!existsSync(RESULTS_DIR)) {
-    const { mkdirSync } = await import('fs');
     mkdirSync(RESULTS_DIR, { recursive: true });
   }
 
@@ -343,13 +354,60 @@ function printReport(metrics) {
 }
 
 // ═══════════════════════════════════════
+// Batch summary
+// ═══════════════════════════════════════
+
+function printBatchSummary(allMetrics) {
+  const pct = (v) => (v * 100).toFixed(1) + '%';
+
+  console.log('\n' + '═'.repeat(60));
+  console.log('  📊 BATCH SUMMARY');
+  console.log('═'.repeat(60));
+
+  // Averages
+  const n = allMetrics.length;
+  const avgRecall = allMetrics.reduce((s, m) => s + m.questionDetection.recall, 0) / n;
+  const avgPrecision = allMetrics.reduce((s, m) => s + m.questionDetection.precision, 0) / n;
+  const avgErrorF1 = allMetrics.reduce((s, m) => s + m.errorDetection.f1, 0) / n;
+  const avgTypeAcc = allMetrics.reduce((s, m) => s + m.typeClassification.accuracy, 0) / n;
+  const avgPageAcc = allMetrics.reduce((s, m) => s + m.pageAssignment.accuracy, 0) / n;
+  const avgOverall = (avgRecall + avgErrorF1 + avgTypeAcc) / 3;
+
+  console.log(`  Papers evaluated: ${n}`);
+  console.log(`  Avg Question Recall:    ${pct(avgRecall)}`);
+  console.log(`  Avg Question Precision: ${pct(avgPrecision)}`);
+  console.log(`  Avg Error Detection F1: ${pct(avgErrorF1)}`);
+  console.log(`  Avg Type Accuracy:      ${pct(avgTypeAcc)}`);
+  console.log(`  Avg Page Accuracy:      ${pct(avgPageAcc)}`);
+  console.log(`  ─────────────────────────`);
+  console.log(`  📈 Overall Score:       ${pct(avgOverall)}`);
+  console.log('═'.repeat(60));
+
+  // Per-paper table
+  console.log('\n  Per-Paper Breakdown:');
+  console.log('  paperId          Recall   Prec    ErrF1   Type    Page    Overall');
+  console.log('  ' + '─'.repeat(66));
+  for (const m of allMetrics) {
+    const r = pct(m.questionDetection.recall);
+    const p = pct(m.questionDetection.precision);
+    const ef = pct(m.errorDetection.f1);
+    const ta = pct(m.typeClassification.accuracy);
+    const pa = pct(m.pageAssignment.accuracy);
+    const ov = pct((m.questionDetection.recall + m.errorDetection.f1 + m.typeClassification.accuracy) / 3);
+    const id = m.paperId.padEnd(16);
+    console.log(`  ${id} ${r.padStart(7)} ${p.padStart(7)} ${ef.padStart(7)} ${ta.padStart(7)} ${pa.padStart(7)} ${ov.padStart(7)}`);
+  }
+  console.log('═'.repeat(60) + '\n');
+}
+
+// ═══════════════════════════════════════
 // Main
 // ═══════════════════════════════════════
 
-async function main() {
+async function evaluateOne(paperId) {
   if (scanOnly) {
     await runScanner(paperId);
-    return;
+    return null;
   }
 
   let scanResult;
@@ -365,12 +423,57 @@ async function main() {
 
   // Save metrics
   if (!existsSync(RESULTS_DIR)) {
-    const { mkdirSync } = await import('fs');
     mkdirSync(RESULTS_DIR, { recursive: true });
   }
   const metricsPath = join(RESULTS_DIR, `${paperId}-metrics.json`);
   writeFileSync(metricsPath, JSON.stringify(metrics, null, 2));
   console.log(`💾 Metrics saved to ${metricsPath}`);
+
+  return metrics;
+}
+
+async function main() {
+  if (allMode) {
+    // Batch mode: evaluate all ground-truth papers
+    const paperIds = getAllPaperIds();
+    if (paperIds.length === 0) {
+      console.error('❌ No ground-truth JSON files found in', GT_DIR);
+      console.error('   Create one with: node eval/evaluate.mjs --paper <paperId> --scan-only');
+      process.exit(1);
+    }
+
+    console.log(`📊 Batch evaluation: ${paperIds.length} papers found`);
+    console.log(`   ${paperIds.join(', ')}\n`);
+
+    const allMetrics = [];
+    for (const pid of paperIds) {
+      try {
+        const metrics = await evaluateOne(pid);
+        if (metrics) allMetrics.push(metrics);
+      } catch (e) {
+        console.error(`❌ ${pid}: ${e.message}\n`);
+      }
+    }
+
+    if (allMetrics.length > 0) {
+      printBatchSummary(allMetrics);
+
+      // Save batch summary
+      if (!existsSync(RESULTS_DIR)) {
+        mkdirSync(RESULTS_DIR, { recursive: true });
+      }
+      const batchPath = join(RESULTS_DIR, `batch-summary-${new Date().toISOString().replace(/[:.]/g, '-')}.json`);
+      writeFileSync(batchPath, JSON.stringify({
+        timestamp: new Date().toISOString(),
+        paperCount: allMetrics.length,
+        papers: allMetrics
+      }, null, 2));
+      console.log(`💾 Batch summary saved to ${batchPath}`);
+    }
+  } else {
+    // Single paper mode
+    await evaluateOne(paperId);
+  }
 }
 
 main().catch(err => {

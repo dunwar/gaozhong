@@ -7,7 +7,12 @@ Key design:
 - TextIn returns rich structured data (position, type, sub_type)
 - Phase 1: Extract questions from line-start patterns (most reliable)
 - Phase 2: Merge option lines into their parent question
-- Phase 3: Conservative gap-filling (only small gaps, no bulk range inference)
+- Phase 3: Grammar blanks with hint words
+- Phase 4: Option-group detection for listening questions
+- Phase 5: Cloze embedded question numbers
+- Phase 6: Conservative gap-filling (only small gaps, no bulk range inference)
+- Phase 7: Handwritten region extraction
+- Phase 8: Translation questions (Q21-25)
 - NO bulk continuity inference — that was causing massive false positives
 """
 
@@ -37,6 +42,12 @@ SECTION_PATTERN = re.compile(
 
 # Option line: "A.something" "B) something"
 OPTION_PATTERN = re.compile(r'^[A-D][\.\)]\s*(.+)')
+
+# Translation question: "21. 翻译内容..." or "21．翻译内容..."
+TRANSLATION_PATTERN = re.compile(r'(2[1-5])[\.．]\s*(.+?)(?=\n|$)')
+
+# Handwritten question number: "A25." "B12)" etc.
+HANDWRITTEN_Q_PATTERN = re.compile(r'[A-D](\d{1,2})[\.\)\s]')
 
 
 @dataclass
@@ -284,7 +295,53 @@ class TextInQuestionParser:
                             source='small_gap',
                         )
 
+        # Phase 7: Handwritten region extraction
+        # Extract question numbers from TextIn-detected handwritten areas
+        for region in handwritten_texts:
+            q_nums = self._extract_all_q_numbers(region['text'])
+            for q in q_nums:
+                if q not in questions_dict and 1 <= q <= 100:
+                    questions_dict[q] = ParsedQuestion(
+                        number=q,
+                        text=f"[HW] {region['text'][:80]}",
+                        bbox=region['bbox'],
+                        source='handwritten',
+                    )
+
+        # Phase 8: Translation questions (Q21-25)
+        # Shanghai English exams: translation questions appear at Q21-25
+        # with Chinese prompts followed by a numbered line
+        full_text = '\n'.join(l['text'] for l in ocr_lines)
+        for m in TRANSLATION_PATTERN.finditer(full_text):
+            q, text = int(m.group(1)), m.group(2)
+            if 21 <= q <= 25 and q not in questions_dict:
+                questions_dict[q] = ParsedQuestion(
+                    number=q,
+                    text=f"[翻译] {text[:100]}",
+                    source='translation',
+                    section='Translation',
+                )
+
         return sorted(questions_dict.values(), key=lambda q: q.number)
+
+    def _extract_all_q_numbers(self, text: str) -> List[int]:
+        """Extract all possible question numbers from handwritten text."""
+        numbers: Set[int] = set()
+        patterns = [
+            HANDWRITTEN_Q_PATTERN,
+            QUESTION_PATTERN,
+            GRAMMAR_BLANK_PATTERN,
+        ]
+        for pattern in patterns:
+            for m in pattern.finditer(text):
+                for gi in range(1, m.re.groups + 1):
+                    try:
+                        q = int(m.group(gi))
+                        if 1 <= q <= 100:
+                            numbers.add(q)
+                    except (ValueError, IndexError):
+                        continue
+        return sorted(numbers)
 
 
 def parse_xparse_result(xparse_detail: List[Dict],
