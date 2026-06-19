@@ -1066,7 +1066,7 @@ async function splitColumns(imagePath) {
 // MULTI-PAGE PARALLEL SCAN (v3.3)
 // ═══════════════════════════════════════
 
-export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 'red_pen', tencentSecret = null, subject = '自动', dualColumn = true }) {
+export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 'red_pen', tencentSecret = null, subject = '自动', dualColumn = false }) {
   const totalStart = Date.now();
   const useTextIn = textinEnabled();
   console.log(`[scanner v4.6] Scanning ${pagePaths.length} pages (TextIn=${useTextIn}, VL=${VL_CONCURRENCY}, PP=${PREPROCESS_CONCURRENCY})`);
@@ -1743,16 +1743,31 @@ function validateQuestionNumbers(pageResults) {
     }
   }
   
-  // Check for duplicates
+  // Check for duplicates — PER PAGE only (not cross-page)
+  // English exams reuse question numbers across sections:
+  //   Listening Q1 (P1) ≠ Grammar Q1 (P3) ≠ Reading Q1 (P4)
+  // Only dedupe when the same number appears twice on the SAME page
   for (const [qn, locations] of seen) {
     if (locations.length > 1) {
-      const pages = locations.map(l => `P${l.page}`).join(', ');
-      console.log(`[scanner] ⚠️ Duplicate question ${qn} found on ${pages} — keeping first occurrence`);
-      // Remove duplicates (keep first occurrence)
-      const first = locations[0];
-      for (let i = 1; i < locations.length; i++) {
-        const p = pageResults.find(pr => pr.pageIndex === locations[i].page);
-        if (p) p.questions[locations[i].idx] = null; // mark for removal
+      // Group by page
+      const byPage = {};
+      for (const loc of locations) {
+        if (!byPage[loc.page]) byPage[loc.page] = [];
+        byPage[loc.page].push(loc);
+      }
+      // Only dedupe within same page
+      for (const [pageIdx, pageLocs] of Object.entries(byPage)) {
+        if (pageLocs.length > 1) {
+          console.log(`[scanner] Duplicate Q${qn} on same page P${pageIdx} — keeping first`);
+          for (let i = 1; i < pageLocs.length; i++) {
+            const p = pageResults.find(pr => pr.pageIndex === pageLocs[i].page);
+            if (p) p.questions[pageLocs[i].idx] = null;
+          }
+        } else if (Object.keys(byPage).length > 1) {
+          // Log cross-page same-number (normal for multi-section exams)
+          const pages = Object.keys(byPage).map(p => `P${p}`).join(', ');
+          console.log(`[scanner] Q${qn} appears on ${pages} — keeping all (different sections)`);
+        }
       }
     }
   }
