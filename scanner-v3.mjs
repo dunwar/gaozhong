@@ -1304,7 +1304,7 @@ export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 
     pageGroups[key].push(r);
   }
   
-  for (let i = 0; i < ocrImagePaths.length; i++) {
+  for (let i = 0; i < pagePaths.length; i++) {
     const group = pageGroups[i] || [];
     if (group.length === 0) {
       ocrResults.push({ index: i, result: { questions: [], imageSize: null }, engine: 'failed', skipped: true, attempts: 0 });
