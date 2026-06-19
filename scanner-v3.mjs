@@ -1067,7 +1067,7 @@ async function splitColumns(imagePath) {
 // MULTI-PAGE PARALLEL SCAN (v3.3)
 // ═══════════════════════════════════════
 
-export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 'red_pen', tencentSecret = null, subject = '自动', dualColumn = false }) {
+export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 'red_pen', tencentSecret = null, subject = '自动', dualColumn = true }) {
   const totalStart = Date.now();
   const useTextIn = textinEnabled();
   console.log(`[scanner v4.6] Scanning ${pagePaths.length} pages (TextIn=${useTextIn}, VL=${VL_CONCURRENCY}, PP=${PREPROCESS_CONCURRENCY})`);

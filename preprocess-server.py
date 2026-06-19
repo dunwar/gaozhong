@@ -354,6 +354,108 @@ def layout_detect():
 
 
 # ═══════════════════════════════════════════════════════════════
+# 双栏切分端点 (v4.6) — 检测并切分双栏试卷页面
+# ═══════════════════════════════════════════════════════════════
+
+@app.route('/split-columns', methods=['POST'])
+def split_columns():
+    """
+    双栏页面切分：检测双栏 → 找到中线 → 切分为左右半页
+    输入: {"image": "base64...", "options": {}}
+    输出: {
+        "status":"ok",
+        "result": {
+            "is_dual_column": true/false,
+            "midline_x": 650,
+            "left_image": "base64...",
+            "right_image": "base64...",
+            "left_size": {"width":650,"height":1700},
+            "right_size": {"width":630,"height":1700}
+        }
+    }
+    """
+    import cv2
+    import base64 as b64
+    try:
+        data = request.get_json(force=True)
+        if not data or 'image' not in data:
+            return jsonify({'status': 'error', 'error': '缺少image'}), 400
+
+        img = b64_to_cv2(data['image'])
+        if img is None or img.size == 0:
+            return jsonify({'status': 'error', 'error': '无法解码图片'}), 400
+
+        h, w = img.shape[:2]
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+        # 二值化
+        _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+
+        # 垂直投影 — 找双栏中线（谷底）
+        v_proj = np.sum(binary, axis=0).astype(float)
+
+        # 在中段 30%-70% 范围找最小值位置作为中线
+        mid_start = int(w * 0.30)
+        mid_end = int(w * 0.70)
+        if mid_end <= mid_start:
+            return jsonify({
+                'status': 'ok',
+                'result': {'is_dual_column': False, 'midline_x': w // 2,
+                           'left_image': None, 'right_image': None,
+                           'left_size': None, 'right_size': None}
+            })
+
+        mid_region = v_proj[mid_start:mid_end]
+        v_mean = float(np.mean(v_proj))
+        mid_min_val = float(np.min(mid_region))
+        mid_min_idx = int(np.argmin(mid_region)) + mid_start
+
+        # 判断是否双栏：中段最小值低于平均值 30%
+        is_dual = bool(mid_min_val < v_mean * 0.3 and w > 600)
+
+        if not is_dual:
+            print(f"split-columns: {w}x{h}, single-column (mid_min={mid_min_val:.0f}, v_mean={v_mean:.0f})", flush=True)
+            return jsonify({
+                'status': 'ok',
+                'result': {'is_dual_column': False, 'midline_x': int(mid_min_idx),
+                           'left_image': None, 'right_image': None,
+                           'left_size': None, 'right_size': None}
+            })
+
+        # 以中线为界，左右各留 5px 缓冲（避免切到文字）
+        midline = mid_min_idx
+        buffer = 5
+        left_img = img[:, :midline - buffer] if midline - buffer > 0 else img[:, :midline]
+        right_img = img[:, midline + buffer:] if midline + buffer < w else img[:, midline:]
+
+        lh, lw = left_img.shape[:2]
+        rh, rw = right_img.shape[:2]
+
+        # 编码为 base64
+        def img_to_base64(cv_img):
+            _, buf = cv2.imencode('.jpg', cv_img, [cv2.IMWRITE_JPEG_QUALITY, 92])
+            return 'data:image/jpeg;base64,' + b64.b64encode(buf).decode('utf-8')
+
+        print(f"split-columns: {w}x{h}, dual-column, midline={midline}, "
+              f"left={lw}x{lh}, right={rw}x{rh}", flush=True)
+
+        return jsonify({
+            'status': 'ok',
+            'result': {
+                'is_dual_column': True,
+                'midline_x': int(midline),
+                'left_image': img_to_base64(left_img),
+                'right_image': img_to_base64(right_img),
+                'left_size': {'width': lw, 'height': lh},
+                'right_size': {'width': rw, 'height': rh},
+            }
+        })
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'status': 'error', 'error': str(e)}), 500
+
+
+# ═══════════════════════════════════════════════════════════════
 # 页面准备端点 (v8.3) — 自动旋转 + 双页照片分割 + 页面排序
 # ═══════════════════════════════════════════════════════════════
 
