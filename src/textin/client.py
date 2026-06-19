@@ -339,30 +339,35 @@ class TextInClient:
                        table: int = 1) -> ParseResult:
         """
         Parse document with layout analysis.
-        
+
         Uses TextIn pdf_to_markdown API to:
         1. Recognize all text elements with positions
         2. Classify element types (text, table, image, etc.)
-        3. Output structured data with bounding boxes
-        
+        3. Build document title hierarchy tree
+        4. Output structured data with bounding boxes
+
         API docs: https://docs.textin.com/xparse/parse-quickstart
-        
+
         Args:
             image_path: Path to document image
             markdown_details: 0=simple, 1=detailed with positions
             equation: (ignored by new API, kept for compat)
             table: 0=html tables, 1=html tables (default)
-        
+
         Returns:
             ParseResult with structured elements
         """
         logger.info(f"Parsing document: {image_path}")
-        
+
         params = {
-            'parse_mode': 'auto',
+            'parse_mode': 'scan',              # 扫描件模式（试卷多为扫描/拍照）
+            'dpi': 144,                        # 显式设置 DPI（144 平衡速度与精度）
             'markdown_details': markdown_details,
+            'page_details': 1,                 # 获取页面布局信息（双栏检测用）
+            'apply_document_tree': 1,          # 标题层级树（Section 识别用）
             'page_count': 1,
             'table_flavor': 'html',
+            'crop_enhance': 1,                 # 切边矫正（拍照歪斜场景）
         }
         
         try:

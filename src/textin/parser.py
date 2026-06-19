@@ -137,6 +137,8 @@ class TextInQuestionParser:
                 'tags': tags,
                 'type': item.get('type', ''),
                 'sub_type': item.get('sub_type', ''),
+                'outline_level': item.get('outline_level', -1),
+                'content': item.get('content', 0),
             })
 
             if 'handwritten' in tags:
@@ -169,14 +171,26 @@ class TextInQuestionParser:
         # Phase 1: Line-start question numbers (reliable)
         # TextIn usually returns each question as a separate paragraph
         # starting with "25." or "25)"
+        # Use TextIn's outline_level for title/section detection
         current_q_num = None
         for line_info in ocr_lines:
             text = line_info['text'].strip()
             if not text:
                 continue
 
-            # Track section
-            if SECTION_PATTERN.search(text) and len(text) < 80:
+            # Skip headers/footers/sidebars (TextIn marks these as content=1)
+            if line_info.get('content') == 1:
+                continue
+
+            # Track section: use TextIn's outline_level first (reliable),
+            # fall back to SECTION_PATTERN regex
+            outline = line_info.get('outline_level', -1)
+            if outline >= 0:
+                # TextIn confirmed title (0=H1, 1=H2, ...)
+                current_section = text
+                continue
+            elif outline == -1 and SECTION_PATTERN.search(text) and len(text) < 80:
+                # Regex fallback for titles TextIn didn't classify
                 current_section = text
                 continue
 
