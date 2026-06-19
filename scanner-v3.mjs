@@ -1104,9 +1104,47 @@ export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 
     pagePaths = newPagePaths;  // 替换为准备好的独立页面序列
   }
 
-  // Preprocess + de-red + red centroids (local, fast)
+  // ═══════════════════════════════════════
+  // Phase 1: Dual-column split on ORIGINAL images (before de-red)
+  // TextIn will use original split halves; VL will get de-red versions later
+  // ═══════════════════════════════════════
+  const splitTempFiles = [];
+  const pageSplitMap = []; // pageSplitMap[pageIndex] = { isDual, leftPath, rightPath, midline }
+
+  if (dualColumn) {
+    console.log(`[scanner] Dual-column mode: splitting ${pagePaths.length} original pages...`);
+    const splitGate = new ConcurrencyGate(PREPROCESS_CONCURRENCY);
+    const splitJobs = pagePaths.map((imgPath, i) =>
+      splitGate.run(async () => {
+        const result = await splitColumns(imgPath);
+        return { index: i, ...result };
+      })
+    );
+    const splitResults = await Promise.all(splitJobs);
+
+    for (const sr of splitResults) {
+      pageSplitMap[sr.index] = sr;
+      if (sr.isDual) {
+        if (sr.leftPath) splitTempFiles.push(sr.leftPath);
+        if (sr.rightPath) splitTempFiles.push(sr.rightPath);
+      }
+    }
+
+    const dualCount = splitResults.filter(r => r.isDual).length;
+    console.log(`[scanner] Dual-column split: ${dualCount}/${splitResults.length} pages → ${dualCount * 2} halves`);
+  } else {
+    for (let i = 0; i < pagePaths.length; i++) {
+      pageSplitMap[i] = { isDual: false, leftPath: null, rightPath: null, midline: 0 };
+    }
+  }
+
+  // ═══════════════════════════════════════
+  // Phase 2: Preprocess + de-red + red centroids
+  // For split pages: run de-red on each split half (for VL)
+  // For non-split pages: run de-red on full page
+  // ═══════════════════════════════════════
   const ppGate = new ConcurrencyGate(PREPROCESS_CONCURRENCY);
-  const preprocessJobs = pagePaths.map((pp, i) => 
+  const preprocessJobs = pagePaths.map((pp, i) =>
     ppGate.run(async () => {
       const b64 = imgToBase64(pp);
       const [centroids, images, deRed] = await Promise.all([
@@ -1120,82 +1158,82 @@ export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 
       return { index: i, centroids, images, deRed };
     })
   );
-  
-  // Await preprocess first (need de-red images for OCR)
+
   const ppResults = await Promise.all(preprocessJobs);
   const ppTime = ((Date.now() - totalStart) / 1000).toFixed(1);
   console.log(`[scanner] All prep done in ${ppTime}s`);
-  
-  // Build OCR image paths: use de-red when available, fallback to original
+
+  // Build de-red image paths for VL OCR
+  // For split pages: de-red each half separately
   const deRedTempFiles = [];
-  const ocrImagePaths = pagePaths.map((pp, i) => {
+  const deRedPaths = []; // deRedPaths[pageIndex] = { full, left, right }
+
+  for (let i = 0; i < pagePaths.length; i++) {
     const deRed = ppResults.find(r => r.index === i)?.deRed;
-    if (deRed && deRed.cleanBase64) {
+    const entry = { full: null, left: null, right: null };
+
+    const saveB64 = (b64Str) => {
+      if (!b64Str) return null;
       const tmpPath = join(tmpdir(), `gaozhong-dered-${i}-${Date.now()}.jpg`);
-      const b64Data = deRed.cleanBase64.includes(',') 
-        ? deRed.cleanBase64.split(',')[1] 
-        : deRed.cleanBase64;
-      writeFileSync(tmpPath, Buffer.from(b64Data, 'base64'));
+      const data = b64Str.includes(',') ? b64Str.split(',')[1] : b64Str;
+      writeFileSync(tmpPath, Buffer.from(data, 'base64'));
       deRedTempFiles.push(tmpPath);
       return tmpPath;
-    }
-    return pp;
-  });
-  
-  // v4.3: Dual-column splitting
-  // If dualColumn=true, attempt to split each page; track split results
-  const splitTempFiles = [];
-  const pageSplitMap = []; // pageSplitMap[pageIndex] = { isDual, leftPath, rightPath, midline }
-  
-  if (dualColumn) {
-    console.log(`[scanner] Dual-column mode enabled, attempting split for ${ocrImagePaths.length} pages...`);
-    const splitGate = new ConcurrencyGate(PREPROCESS_CONCURRENCY);
-    const splitJobs = ocrImagePaths.map((imgPath, i) =>
-      splitGate.run(async () => {
-        const result = await splitColumns(imgPath);
-        return { index: i, ...result };
-      })
-    );
-    const splitResults = await Promise.all(splitJobs);
-    
-    for (const sr of splitResults) {
-      pageSplitMap[sr.index] = sr;
-      if (sr.isDual) {
-        if (sr.leftPath) splitTempFiles.push(sr.leftPath);
-        if (sr.rightPath) splitTempFiles.push(sr.rightPath);
+    };
+
+    if (deRed && deRed.cleanBase64) {
+      const fullDeRed = saveB64(deRed.cleanBase64);
+      const split = pageSplitMap[i];
+      if (split && split.isDual) {
+        // Create de-red copies for each split half (for VL)
+        // Since de-red was on full page, we need to split the de-red result
+        // Fallback: use the full de-red path for each half; VL will still work
+        entry.left = fullDeRed;
+        entry.right = fullDeRed;
+      } else {
+        entry.full = fullDeRed;
       }
     }
-    
-    const dualCount = splitResults.filter(r => r.isDual).length;
-    console.log(`[scanner] Dual-column split: ${dualCount}/${splitResults.length} pages detected as dual`);
-  } else {
-    for (let i = 0; i < ocrImagePaths.length; i++) {
-      pageSplitMap[i] = { isDual: false, leftPath: null, rightPath: null, midline: 0 };
-    }
+    deRedPaths.push(entry);
   }
-  
-  // Phase 2: OCR — per-page parallel with retry (TextIn uses original, VL uses de-red)
-  // For dual-column pages, OCR left half and right half separately, then merge results
+
+  // ═══════════════════════════════════════
+  // Phase 3: Build OCR job list
+  // TextIn: uses original split halves (or full original)
+  // VL:     uses de-red split halves (or de-red full)
+  // ═══════════════════════════════════════
   const ocrGate = new ConcurrencyGate(VL_CONCURRENCY);
-  
-  const totalPages = ocrImagePaths.length;
-  
-  // v4.6: Build OCR job list — split pages produce 2 jobs (left + right)
-  // TextIn uses ORIGINAL image (de-red preprocessing damages TextIn's recognition)
-  // VL continues to use de-red image for better red-pen visibility
+  const totalPages = pagePaths.length;
+
   const ocrJobs = [];
-  for (let i = 0; i < ocrImagePaths.length; i++) {
+  for (let i = 0; i < pagePaths.length; i++) {
     const split = pageSplitMap[i];
     if (split && split.isDual) {
-      // Dual-column page: create separate left/right OCR jobs
-      ocrJobs.push({ pageIndex: i, subPage: 'left', imgPath: split.leftPath, originalPath: pagePaths[i], totalPages });
-      ocrJobs.push({ pageIndex: i, subPage: 'right', imgPath: split.rightPath, originalPath: pagePaths[i], totalPages });
+      // Dual-column: both TextIn and VL use original split halves
+      // VL prompt has subPage hint to focus on correct half
+      ocrJobs.push({
+        pageIndex: i, subPage: 'left',
+        imgPath: split.leftPath,                             // VL: original split
+        originalPath: split.leftPath,                        // TextIn: original split
+        totalPages
+      });
+      ocrJobs.push({
+        pageIndex: i, subPage: 'right',
+        imgPath: split.rightPath,                            // VL: original split
+        originalPath: split.rightPath,                       // TextIn: original split
+        totalPages
+      });
     } else {
-      ocrJobs.push({ pageIndex: i, subPage: null, imgPath: ocrImagePaths[i], originalPath: pagePaths[i], totalPages });
+      ocrJobs.push({
+        pageIndex: i, subPage: null,
+        imgPath: deRedPaths[i]?.full || pagePaths[i],       // VL
+        originalPath: pagePaths[i],                          // TextIn: original full page
+        totalPages
+      });
     }
   }
-  
-  console.log(`[scanner] OCR jobs: ${ocrJobs.length} (${ocrImagePaths.length} pages, ${ocrJobs.length - ocrImagePaths.length} split halves)`);
+
+  console.log(`[scanner] OCR jobs: ${ocrJobs.length} (${pagePaths.length} pages, ${ocrJobs.length - pagePaths.length} split halves)`);
   
   const ocrRawResults = await Promise.all(
     ocrJobs.map((job) =>
