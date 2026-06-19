@@ -709,6 +709,7 @@ def textin_ocr():
                         })
 
             result['handwritten_regions'] = handwritten_regions
+            result['detail_count'] = len(detail_items)
             print(f"TextIn: {len(handwritten_regions)} handwritten regions detected", flush=True)
 
             return jsonify({

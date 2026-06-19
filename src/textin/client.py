@@ -361,7 +361,7 @@ class TextInClient:
 
         params = {
             'parse_mode': 'scan',              # 扫描件模式（试卷多为扫描/拍照）
-            'dpi': 144,                        # 显式设置 DPI（144 平衡速度与精度）
+            'dpi': 200,                        # 显式设置 DPI（200 平衡精度与速度，密集文本试卷需要更高精度）
             'markdown_details': markdown_details,
             'page_details': 1,                 # 获取页面布局信息（双栏检测用）
             'apply_document_tree': 1,          # 标题层级树（Section 识别用）

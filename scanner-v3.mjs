@@ -577,9 +577,10 @@ async function extractQuestionsTextIn(pagePath, options = {}) {
     totalQuestions: result.questions.length,
     questions: result.questions,
     passages: result.passages || [],
-    engine: result.engine || 'textin-xparse-v2',
+    engine: result.engine || 'textin-pdf_to_markdown-v2',
     imageSize: result.image_size || null,
-    handwrittenRegions: result.handwritten_regions || []  // v4.5: for Phase 2 cross-validation
+    detailCount: result.detail_count || 0,   // v4.6: for low-recall fallback threshold
+    handwrittenRegions: result.handwritten_regions || []
   };
 }
 
@@ -1207,15 +1208,25 @@ export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 
         if (isDeRed) console.log(`[scanner] ${label}: VL using de-red image (TextIn uses original)`);
         if (job.subPage) console.log(`[scanner] ${label}: OCR split ${job.subPage} half`);
 
-        // v4.4: TextIn优先 — 专用OCR引擎 (99.7%准确率)
-        // 失败时自动回退到 VL → Tencent
+        // v4.6: TextIn优先 — 专用OCR引擎
+        // 失败或低召回（detail items < 50）时自动回退到 VL → Tencent
+        const TEXTIN_MIN_DETAIL_ITEMS = 50;  // below this → fallback to VL
         if (useTextIn) {
           try {
             console.log(`[scanner] ${label}: trying TextIn pdf_to_markdown (original image)...`);
-            // v4.6: TextIn uses ORIGINAL image (de-red damages TextIn recognition rate)
             const textinImgPath = job.originalPath || pagePaths[job.pageIndex];
             const textinResult = await extractQuestionsTextIn(textinImgPath, { subject });
-            console.log(`[scanner] ${label}: TextIn ok — ${textinResult.totalQuestions} questions`);
+            const detailCount = textinResult.detailCount || 0;
+            console.log(`[scanner] ${label}: TextIn ok — ${textinResult.totalQuestions} questions, ${detailCount} detail items`);
+            // v4.6: Low-recall guard — too few detail items means TextIn missed content
+            if (detailCount > 0 && detailCount < TEXTIN_MIN_DETAIL_ITEMS) {
+              console.log(`[scanner] ${label}: TextIn detail items ${detailCount} < ${TEXTIN_MIN_DETAIL_ITEMS}, falling back to VL`);
+              throw new Error(`Low recall: ${detailCount} detail items < ${TEXTIN_MIN_DETAIL_ITEMS}`);
+            }
+            if (textinResult.totalQuestions === 0) {
+              console.log(`[scanner] ${label}: TextIn returned 0 questions, falling back to VL`);
+              throw new Error('TextIn returned 0 questions');
+            }
             return { ...job, result: textinResult, engine: 'textin', attempts: 1 };
           } catch (textinErr) {
             console.log(`[scanner] ${label}: TextIn failed (${textinErr.message}), falling back to VL`);
