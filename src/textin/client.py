@@ -360,14 +360,14 @@ class TextInClient:
         logger.info(f"Parsing document: {image_path}")
 
         params = {
-            'parse_mode': 'scan',              # 扫描件模式（试卷多为扫描/拍照）
-            'dpi': 200,                        # 显式设置 DPI（200 平衡精度与速度，密集文本试卷需要更高精度）
+            'parse_mode': 'auto',              # auto: TextIn 内部版面分析处理双栏
+            'dpi': 216,                        # 最高精度（密集小字需要 216）
             'markdown_details': markdown_details,
-            'page_details': 1,                 # 获取页面布局信息（双栏检测用）
-            'apply_document_tree': 1,          # 标题层级树（Section 识别用）
+            'page_details': 1,                 # 页面布局（含 structured 坐标）
+            'apply_document_tree': 1,          # 标题层级树
             'page_count': 1,
             'table_flavor': 'html',
-            'crop_enhance': 1,                 # 切边矫正（拍照歪斜场景）
+            'crop_enhance': 1,                 # 切边矫正
         }
         
         try:

@@ -1,10 +1,13 @@
 /**
  * gaozhong.online — Scanner v4.6
  *
+ * v4.7 变更: TextIn 用整页不切分 + parse_mode=auto + DPI 216
+ *   - TextIn 有内置版面分析，切分会破坏其双栏处理能力
+ *   - 新管线: TextIn(整页) → 成功则用，失败 → VL(切分半页)
+ *   - parse_mode: scan→auto, DPI: 200→216
+ *
  * v4.6 变更: TextIn OCR 改用原图 (修复)
- *   - TextIn 作为专业 OCR 引擎能自行处理红笔干扰
- *   - de-red 预处理反而损害 TextIn 识别率（原图 ~90 题 → de-red 仅 51 题）
- *   - 修复: TextIn 使用 pagePaths 原图，VL 继续使用 de-red 图
+ *   - de-red 预处理损害 TextIn 识别率
  *
  * v4.5 变更: Phase 0.5 页面准备 (旋转+分页+排序)
  *   - 新增 /prepare-pages 端点：自动旋转横拍照片 + 双页水平分割
@@ -22,13 +25,14 @@
  *   - 预处理阶段并行运行 de-red（不增加端到端延迟）
  *
  * Architecture:
- *   Primary:   TextIn pdf_to_markdown → 8-phase conservative parser (v4.6)
- *              TextIn uses ORIGINAL image (de-red damages its recognition)
- *   Fallback:  VL OCR (Zhipu/Kimi) per-page parallel → uses de-red image
- *   Red:       Preprocess v8.0 /red-regions → red centroid map
- *   Classify:  VL → classify red mark types (✗/✓/letter/etc.)
- *   Fallback:  Tencent Cloud OCR → text blocks + rule engine
- *   All pages scanned in PARALLEL (per-page only, no multi-round)
+ *   Phase 1:  Split ORIGINAL pages (for VL fallback)
+ *   Phase 2:  De-red + red centroids (VL only)
+ *   Phase 3:  TextIn on FULL pages (parse_mode=auto, DPI=216)
+ *             TextIn has built-in layout analysis — never pre-split
+ *   Fallback: VL OCR on split halves (TextIn failed pages only)
+ *   Red:      Preprocess v8.0 /red-regions → red centroid map
+ *   Classify: VL → classify red mark types (✗/✓/letter/etc.)
+ *   Fallback: Tencent Cloud OCR → text blocks + rule engine
  */
 
 import { readFileSync, writeFileSync, unlinkSync } from 'fs';
@@ -40,7 +44,7 @@ import http from 'http';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-export const SCANNER_VERSION = 'v4.6';
+export const SCANNER_VERSION = 'v4.7';
 const PREPROCESS_URL = process.env.PREPROCESS_URL || 'http://localhost:5002';
 const VL_CONCURRENCY = 2;  // Low to avoid Zhipu rate limit
 const PREPROCESS_CONCURRENCY = 4;
@@ -1198,77 +1202,64 @@ export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 
   }
 
   // ═══════════════════════════════════════
-  // Phase 3: Build OCR job list
-  // TextIn: uses original split halves (or full original)
-  // VL:     uses de-red split halves (or de-red full)
+  // Phase 3: OCR — TextIn first (full page), VL fallback (split if dual)
+  // TextIn has built-in layout analysis — send FULL pages, never pre-split
+  // VL benefits from split halves (smaller images, focused prompt)
   // ═══════════════════════════════════════
   const ocrGate = new ConcurrencyGate(VL_CONCURRENCY);
   const totalPages = pagePaths.length;
 
-  const ocrJobs = [];
-  for (let i = 0; i < pagePaths.length; i++) {
-    const split = pageSplitMap[i];
-    if (split && split.isDual) {
-      // Dual-column: both TextIn and VL use original split halves
-      // VL prompt has subPage hint to focus on correct half
-      ocrJobs.push({
-        pageIndex: i, subPage: 'left',
-        imgPath: split.leftPath,                             // VL: original split
-        originalPath: split.leftPath,                        // TextIn: original split
-        totalPages
-      });
-      ocrJobs.push({
-        pageIndex: i, subPage: 'right',
-        imgPath: split.rightPath,                            // VL: original split
-        originalPath: split.rightPath,                       // TextIn: original split
-        totalPages
-      });
-    } else {
-      ocrJobs.push({
-        pageIndex: i, subPage: null,
-        imgPath: deRedPaths[i]?.full || pagePaths[i],       // VL
-        originalPath: pagePaths[i],                          // TextIn: original full page
-        totalPages
-      });
+  // --- Pass 1: TextIn on FULL original pages (1 job per page) ---
+  const textInResults = []; // textInResults[pageIndex] = result or null
+  if (useTextIn) {
+    const textInJobs = pagePaths.map((imgPath, i) =>
+      ocrGate.run(async () => {
+        const label = `Page ${i + 1}`;
+        try {
+          console.log(`[scanner] ${label}: TextIn on full page...`);
+          const result = await extractQuestionsTextIn(imgPath, { subject });
+          console.log(`[scanner] ${label}: TextIn ok — ${result.totalQuestions} questions`);
+          return { pageIndex: i, result, engine: 'textin', attempts: 1, success: true };
+        } catch (err) {
+          console.log(`[scanner] ${label}: TextIn failed (${err.message})`);
+          return { pageIndex: i, result: null, engine: null, attempts: 0, success: false };
+        }
+      })
+    );
+    const tiResults = await Promise.all(textInJobs);
+    for (const r of tiResults) {
+      textInResults[r.pageIndex] = r.success ? r : null;
     }
   }
 
-  console.log(`[scanner] OCR jobs: ${ocrJobs.length} (${pagePaths.length} pages, ${ocrJobs.length - pagePaths.length} split halves)`);
-  
-  const ocrRawResults = await Promise.all(
-    ocrJobs.map((job) =>
-      ocrGate.run(async () => {
-        const label = job.subPage 
-          ? `Page ${job.pageIndex + 1}.${job.subPage}` 
-          : `Page ${job.pageIndex + 1}`;
-        const pageImgPath = pagePaths[job.pageIndex];
-        const isDeRed = job.imgPath !== pageImgPath && !job.subPage;
-        if (isDeRed) console.log(`[scanner] ${label}: VL using de-red image (TextIn uses original)`);
-        if (job.subPage) console.log(`[scanner] ${label}: OCR split ${job.subPage} half`);
+  // --- Pass 2: VL fallback for pages where TextIn failed ---
+  const vlJobs = [];
+  for (let i = 0; i < pagePaths.length; i++) {
+    if (textInResults[i]) continue; // TextIn succeeded, skip VL
 
-        // v4.6: TextIn优先 — 专用OCR引擎
-        // 失败时自动回退到 VL → Tencent
-        if (useTextIn) {
-          try {
-            console.log(`[scanner] ${label}: trying TextIn pdf_to_markdown (original image)...`);
-            const textinImgPath = job.originalPath || pagePaths[job.pageIndex];
-            const textinResult = await extractQuestionsTextIn(textinImgPath, { subject });
-            console.log(`[scanner] ${label}: TextIn ok — ${textinResult.totalQuestions} questions`);
-            if (textinResult.totalQuestions === 0) {
-              console.log(`[scanner] ${label}: TextIn returned 0 questions, falling back to VL`);
-              throw new Error('TextIn returned 0 questions');
-            }
-            return { ...job, result: textinResult, engine: 'textin', attempts: 1 };
-          } catch (textinErr) {
-            console.log(`[scanner] ${label}: TextIn failed (${textinErr.message}), falling back to VL`);
-          }
-        }
+    const split = pageSplitMap[i];
+    if (split && split.isDual) {
+      vlJobs.push({ pageIndex: i, subPage: 'left',  imgPath: split.leftPath,  totalPages });
+      vlJobs.push({ pageIndex: i, subPage: 'right', imgPath: split.rightPath, totalPages });
+    } else {
+      vlJobs.push({ pageIndex: i, subPage: null, imgPath: deRedPaths[i]?.full || pagePaths[i], totalPages });
+    }
+  }
+
+  const vlGate = new ConcurrencyGate(VL_CONCURRENCY);
+  const vlRawResults = vlJobs.length > 0 ? await Promise.all(
+    vlJobs.map((job) =>
+      vlGate.run(async () => {
+        const label = job.subPage
+          ? `Page ${job.pageIndex + 1}.${job.subPage}`
+          : `Page ${job.pageIndex + 1}`;
+        console.log(`[scanner] ${label}: VL fallback OCR...`);
 
         for (let attempt = 0; attempt < VL_RETRIES; attempt++) {
           try {
             const result = await extractQuestionsVL(job.imgPath, apiKey, job.subPage, job.pageIndex, job.totalPages);
             if (attempt > 0) console.log(`[scanner] ${label}: VL ok on retry ${attempt}`);
-            return { ...job, result, engine: 'vl', attempts: attempt + 1 };
+            return { ...job, result, engine: 'vl', attempts: attempt + 1, success: true };
           } catch (vlErr) {
             const retryLeft = VL_RETRIES - attempt - 1;
             if (retryLeft > 0) {
@@ -1280,20 +1271,41 @@ export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 
               if (tencentSecret) {
                 try {
                   const result = await extractQuestionsTencent(job.imgPath, tencentSecret);
-                  return { ...job, result, engine: 'tencent', attempts: VL_RETRIES + 1 };
+                  return { ...job, result, engine: 'tencent', attempts: VL_RETRIES + 1, success: true };
                 } catch (tcErr) {
                   console.log(`[scanner] ${label}: Tencent also failed (${tcErr.message}), skipped`);
-                  return { ...job, result: { questions: [], imageSize: null }, engine: 'failed', skipped: true, attempts: VL_RETRIES + 1 };
                 }
               }
-              return { ...job, result: { questions: [], imageSize: null }, engine: 'failed', skipped: true, attempts: VL_RETRIES };
+              return { ...job, result: { questions: [], imageSize: null }, engine: 'failed', success: false };
             }
           }
         }
-        return { ...job, result: { questions: [], imageSize: null }, engine: 'failed', skipped: true, attempts: VL_RETRIES };
+        return { ...job, result: { questions: [], imageSize: null }, engine: 'failed', success: false };
       })
     )
-  );
+  ) : [];
+
+  // Combine results: TextIn successes + VL results
+  const vlByPage = {};
+  for (const r of vlRawResults) {
+    if (!vlByPage[r.pageIndex]) vlByPage[r.pageIndex] = [];
+    vlByPage[r.pageIndex].push(r);
+  }
+
+  const ocrRawResults = [];
+  for (let i = 0; i < pagePaths.length; i++) {
+    if (textInResults[i]) {
+      ocrRawResults.push({ pageIndex: i, subPage: null, ...textInResults[i] });
+    } else {
+      const vlGroup = vlByPage[i] || [];
+      for (const r of vlGroup) {
+        ocrRawResults.push(r);
+      }
+      if (vlGroup.length === 0) {
+        ocrRawResults.push({ pageIndex: i, subPage: null, result: { questions: [], imageSize: null }, engine: 'failed', success: false, attempts: 0 });
+      }
+    }
+  }
   
   // Merge split sub-page results back into per-page results
   const ocrResults = [];
