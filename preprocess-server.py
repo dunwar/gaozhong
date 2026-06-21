@@ -735,6 +735,7 @@ def textin_ocr():
     try:
         from src.textin.client import TextInClient
         from src.textin.parser import parse_xparse_result
+        from src.textin.llm_parser import parse_with_llm_fallback
         import tempfile
 
         app_id, secret = _get_textin_credentials()
@@ -780,10 +781,10 @@ def textin_ocr():
                         detail_items = parse_result.raw_json[key]
                         break
 
-            print(f"TextIn OCR: {len(detail_items)} detail items from xParse", flush=True)
+            print(f"TextIn OCR: {len(detail_items)} detail items", flush=True)
 
-            # 11阶段题目解析
-            result = parse_xparse_result(
+            # LLM 题目解析 (v4.7) — LLM 优先, regex 回退
+            result = parse_with_llm_fallback(
                 detail_items,
                 image_size={'width': img_w, 'height': img_h},
                 subject=subject
