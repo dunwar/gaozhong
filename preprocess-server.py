@@ -8,6 +8,29 @@ v8.1: 新增 /de-red 端点 — 用红笔 mask 擦除原图红笔墨水，输出
 """
 import base64, traceback, json, os, sys, numpy as np
 from pathlib import Path
+
+# ═══════════════════════════════════════════════════════════════
+# 加载 .env 文件到 os.environ (启动时执行一次)
+# ═══════════════════════════════════════════════════════════════
+def _load_dotenv():
+    """从 .env 文件加载环境变量（不覆盖已有的）"""
+    env_file = Path(__file__).resolve().parent / '.env'
+    if not env_file.exists():
+        return
+    try:
+        for line in env_file.read_text(encoding='utf-8').splitlines():
+            line = line.strip()
+            if not line or line.startswith('#') or '=' not in line:
+                continue
+            key, _, val = line.partition('=')
+            key = key.strip()
+            val = val.strip().strip('"').strip("'")
+            if key and not os.environ.get(key):  # 不覆盖已有环境变量
+                os.environ[key] = val
+    except Exception as e:
+        print(f"preprocess-server: failed to load .env: {e}", flush=True)
+
+_load_dotenv()
 from flask import Flask, request, jsonify
 
 # Ensure project root is on path so `from src.textin import ...` works

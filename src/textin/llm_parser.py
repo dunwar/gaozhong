@@ -248,12 +248,18 @@ def parse_with_llm_fallback(detail_items: List[Dict],
     """
     # Try LLM parser first
     if DEEPSEEK_API_KEY:
+        key_preview = DEEPSEEK_API_KEY[:8] + '...' if len(DEEPSEEK_API_KEY) > 8 else '(empty)'
+        print(f"TextIn Parser: trying LLM parser (model={LLM_MODEL}, key={key_preview})", flush=True)
         result = parse_with_llm(detail_items, image_size, subject)
         if result and result.get('questions'):
+            print(f"TextIn Parser: LLM extracted {result['raw_count']} questions", flush=True)
             return result
-        logger.info("LLM parser failed or returned 0 questions, falling back to regex parser")
+        print("TextIn Parser: LLM failed, falling back to regex parser", flush=True)
+    else:
+        print("TextIn Parser: DEEPSEEK_API_KEY not set, using regex parser", flush=True)
 
     # Fall back to regex parser
     from src.textin.parser import parse_xparse_result
-    logger.info("Using regex parser (fallback)")
-    return parse_xparse_result(detail_items, image_size, subject)
+    result = parse_xparse_result(detail_items, image_size, subject)
+    print(f"TextIn Parser: regex extracted {result.get('raw_count', len(result.get('questions',[])))} questions", flush=True)
+    return result
