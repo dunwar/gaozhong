@@ -745,15 +745,111 @@ def textin_erase():
         traceback.print_exc()
         return jsonify({'status': 'error', 'error': str(e)}), 500
 
+@app.route('/textin/ocr-merged', methods=['POST'])
+def textin_ocr_merged():
+    """
+    TextIn OCR (逐页) + LLM 全试卷合并解析
+    输入: {"images": ["base64...", ...], "options": {"subject": "英语"}}
+    输出: {"status":"ok", "result": {"questions":[...], "engine":"textin-llm-merged"}}
+
+    流程: 逐页 TextIn OCR → 合并所有 detail items → LLM 全试卷解析
+    """
+    try:
+        from src.textin.client import TextInClient
+        from src.textin.llm_parser import parse_all_pages_llm
+        import cv2, tempfile
+
+        app_id, secret = _get_textin_credentials()
+        if not app_id or not secret:
+            return jsonify({"status": "error", "error": "TextIn 未配置"}), 503
+
+        data = request.get_json(force=True)
+        if not data or 'images' not in data:
+            return jsonify({'status': 'error', 'error': '缺少images数组'}), 400
+
+        images_b64 = data['images']
+        if not isinstance(images_b64, list) or len(images_b64) == 0:
+            return jsonify({'status': 'error', 'error': 'images必须是数组'}), 400
+
+        options = data.get('options', {})
+        subject = options.get('subject', '英语')
+
+        client = TextInClient(app_id, secret, timeout=60)
+        all_detail_items = []
+        temp_files = []
+
+        # Phase 1: TextIn OCR per page (parallelizable, sequential for now)
+        for pi, img_b64 in enumerate(images_b64):
+            img = b64_to_cv2(img_b64)
+            if img is None or img.size == 0:
+                return jsonify({'status': 'error', 'error': f'Page {pi+1} 无法解码'}), 400
+
+            with tempfile.NamedTemporaryFile(suffix='.jpg', delete=False) as tmp:
+                cv2.imwrite(tmp.name, img)
+                tmp_path = tmp.name
+                temp_files.append(tmp_path)
+
+            parse_result = client.parse_document(tmp_path)
+            if not parse_result.success:
+                return jsonify({'status': 'error', 'error': f'Page {pi+1} TextIn失败: {parse_result.message}'}), 500
+
+            detail_items = parse_result.raw_json.get('detail', [])
+            if not detail_items:
+                for key in ['elements', 'lines', 'text_blocks']:
+                    if key in parse_result.raw_json:
+                        detail_items = parse_result.raw_json[key]
+                        break
+
+            all_detail_items.append(detail_items)
+            print(f"TextIn OCR-merged P{pi+1}: {len(detail_items)} detail items", flush=True)
+
+        # Clean up temp files
+        for tmp_path in temp_files:
+            Path(tmp_path).unlink(missing_ok=True)
+
+        if not all_detail_items or all(len(d) == 0 for d in all_detail_items):
+            return jsonify({'status': 'error', 'error': '所有页面均无 detail items'}), 500
+
+        total_items = sum(len(d) for d in all_detail_items)
+        print(f"TextIn OCR-merged: {len(all_detail_items)} pages, {total_items} total items, starting LLM...", flush=True)
+
+        # Phase 2: LLM merged parsing
+        result = parse_all_pages_llm(all_detail_items, subject=subject)
+
+        if not result:
+            # Fallback: per-page regex parsing
+            print("TextIn OCR-merged: LLM failed, falling back to per-page regex", flush=True)
+            from src.textin.parser import parse_xparse_result
+            all_questions = []
+            for pi, items in enumerate(all_detail_items):
+                page_result = parse_xparse_result(items, subject=subject)
+                all_questions.extend(page_result.get('questions', []))
+            result = {
+                'questions': all_questions,
+                'passages': [],
+                'engine': 'textin-regex-fallback',
+                'image_size': {},
+                'raw_count': len(all_questions),
+            }
+
+        return jsonify({
+            'status': 'ok',
+            'result': result
+        })
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'status': 'error', 'error': str(e)}), 500
+
+
 @app.route('/textin/ocr', methods=['POST'])
 def textin_ocr():
     """
-    TextIn OCR + 题目解析 — 完整管线
+    TextIn OCR + 题目解析 — 单页管线（向后兼容）
     输入: {"image": "base64...", "options": {"subject": "英语"}}
-    输出: {"status":"ok", "result": {"questions":[...], "passages":[...], "engine":"textin-xparse-v2"}}
+    输出: {"status":"ok", "result": {"questions":[...], "passages":[...], "engine":"..."}}
 
-    流程: 加载图片 → TextIn xParse 识别 → 11阶段题目解析 → 输出 gaozhong 兼容格式
-    失败自动回退 (由调用方 scanner-v3.mjs 处理)
+    流程: 加载图片 → TextIn 识别 → LLM/regex 题目解析
     """
     try:
         from src.textin.client import TextInClient

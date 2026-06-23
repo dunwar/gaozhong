@@ -563,7 +563,7 @@ async function extractQuestionsTextIn(pagePath, options = {}) {
     image: imageB64,
     options: {
       subject: options.subject || '自动',
-      erase_handwriting: false  // 暂不使用擦除（保留红笔供后续 VL 分类）
+      erase_handwriting: false
     }
   }, TEXTIN_TIMEOUT_MS);
 
@@ -583,7 +583,43 @@ async function extractQuestionsTextIn(pagePath, options = {}) {
     passages: result.passages || [],
     engine: result.engine || 'textin-pdf_to_markdown-v2',
     imageSize: result.image_size || null,
-    detailCount: result.detail_count || 0,   // v4.6: for low-recall fallback threshold
+    detailCount: result.detail_count || 0,
+    handwrittenRegions: result.handwritten_regions || []
+  };
+}
+
+// v4.7: Merged TextIn OCR + LLM parse — all pages in one call
+async function extractQuestionsTextInMerged(pagePaths, options = {}) {
+  const u = new URL(PREPROCESS_URL);
+  const host = u.hostname;
+  const port = parseInt(u.port) || 5002;
+
+  const imagesB64 = pagePaths.map(p => imgToBase64(p));
+
+  const data = await httpPostJson(host, port, '/textin/ocr-merged', {
+    images: imagesB64,
+    options: {
+      subject: options.subject || '自动',
+    }
+  }, 600_000);  // 10min timeout for full exam
+
+  if (data.status !== 'ok') {
+    throw new Error(`TextIn merged failed: ${data.error}`);
+  }
+
+  const result = data.result;
+  if (!result.questions || result.questions.length === 0) {
+    throw new Error('TextIn merged returned 0 questions');
+  }
+
+  return {
+    status: 'ok',
+    totalQuestions: result.questions.length,
+    questions: result.questions,
+    passages: result.passages || [],
+    engine: result.engine || 'textin-llm-merged',
+    imageSize: result.image_size || null,
+    detailCount: result.detail_count || 0,
     handwrittenRegions: result.handwritten_regions || []
   };
 }
@@ -1209,26 +1245,46 @@ export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 
   const ocrGate = new ConcurrencyGate(VL_CONCURRENCY);
   const totalPages = pagePaths.length;
 
-  // --- Pass 1: TextIn on FULL original pages (1 job per page) ---
+  // --- Pass 1: TextIn OCR (per-page) + LLM merged parsing ---
   const textInResults = []; // textInResults[pageIndex] = result or null
   if (useTextIn) {
-    const textInJobs = pagePaths.map((imgPath, i) =>
-      ocrGate.run(async () => {
-        const label = `Page ${i + 1}`;
-        try {
-          console.log(`[scanner] ${label}: TextIn on full page...`);
-          const result = await extractQuestionsTextIn(imgPath, { subject });
-          console.log(`[scanner] ${label}: TextIn ok — ${result.totalQuestions} questions`);
-          return { pageIndex: i, result, engine: 'textin', attempts: 1, success: true };
-        } catch (err) {
-          console.log(`[scanner] ${label}: TextIn failed (${err.message})`);
-          return { pageIndex: i, result: null, engine: null, attempts: 0, success: false };
-        }
-      })
-    );
-    const tiResults = await Promise.all(textInJobs);
-    for (const r of tiResults) {
-      textInResults[r.pageIndex] = r.success ? r : null;
+    try {
+      console.log(`[scanner] TextIn merged: OCR ${pagePaths.length} pages + LLM parsing...`);
+      const mergedResult = await extractQuestionsTextInMerged(pagePaths, { subject });
+      console.log(`[scanner] TextIn merged: ${mergedResult.totalQuestions} questions total`);
+
+      // Split merged result back to per-page for downstream processing
+      // Assign all questions to pageIndex 0 (will be redistributed by page assignment logic)
+      textInResults[0] = {
+        pageIndex: 0, result: mergedResult, engine: mergedResult.engine || 'textin-llm-merged',
+        attempts: 1, success: true
+      };
+      // Mark other pages as "covered" by the merged result
+      for (let i = 1; i < pagePaths.length; i++) {
+        textInResults[i] = {
+          pageIndex: i, result: { questions: [], imageSize: null },
+          engine: 'textin-merged-cover', attempts: 0, success: true
+        };
+      }
+    } catch (err) {
+      console.log(`[scanner] TextIn merged failed (${err.message}), falling back to per-page`);
+      // Fallback: per-page TextIn + regex
+      const textInJobs = pagePaths.map((imgPath, i) =>
+        ocrGate.run(async () => {
+          try {
+            const result = await extractQuestionsTextIn(imgPath, { subject });
+            console.log(`[scanner] Page ${i+1}: TextIn ok — ${result.totalQuestions} questions`);
+            return { pageIndex: i, result, engine: 'textin', attempts: 1, success: true };
+          } catch (err2) {
+            console.log(`[scanner] Page ${i+1}: TextIn failed (${err2.message})`);
+            return { pageIndex: i, result: null, engine: null, attempts: 0, success: false };
+          }
+        })
+      );
+      const tiResults = await Promise.all(textInJobs);
+      for (const r of tiResults) {
+        textInResults[r.pageIndex] = r.success ? r : null;
+      }
     }
   }
 
