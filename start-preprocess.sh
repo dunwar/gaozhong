@@ -23,10 +23,10 @@ fi
 rm -f "$PID_FILE"
 
 $GUNICORN \
-    -w 2 \
-    --timeout 120 \
-    --max-requests 100 \
-    --max-requests-jitter 20 \
+    -w 4 \
+    --timeout 300 \
+    --max-requests 200 \
+    --max-requests-jitter 30 \
     --bind 0.0.0.0:5002 \
     --access-logfile /tmp/preprocess-gunicorn.log \
     --error-logfile /tmp/preprocess-gunicorn-err.log \

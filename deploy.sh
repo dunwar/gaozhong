@@ -53,8 +53,9 @@ cp "$DEV_DIR/db.js" "$PROD_DIR/"
 cp "$DEV_DIR/scanner-v3.mjs" "$PROD_DIR/"
 cp -r "$DEV_DIR/prompts" "$PROD_DIR/"
 
-# Preprocess Server + TextIn module
+# Preprocess Server + TextIn module + launcher
 cp "$DEV_DIR/preprocess-server.py" "$PROD_DIR/"
+cp "$DEV_DIR/start-preprocess.sh" "$PROD_DIR/"
 mkdir -p "$PROD_DIR/src/textin"
 cp -r "$DEV_DIR/src/textin/"*.py "$PROD_DIR/src/textin/" 2>/dev/null || true
 cp -r "$DEV_DIR/src/textin/__pycache__" "$PROD_DIR/src/textin/" 2>/dev/null || true
