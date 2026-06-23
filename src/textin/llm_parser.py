@@ -33,46 +33,62 @@ LLM_TIMEOUT = int(os.environ.get('LLM_PARSE_TIMEOUT', '90'))
 
 
 def _format_items(items: List[Dict]) -> str:
-    """Format TextIn detail items into a structured text for LLM input.
+    """Format TextIn detail items into structured text for LLM input.
 
-    Groups items by approximate y-position, uses outline_level for section markers.
+    Preserves TextIn's reading order. Handles paragraphs, tables, images.
+    Uses outline_level for section markers. Filters headers/footers.
     """
     lines = []
     for item in items:
-        text = item.get('text', '').strip()
-        if not text:
+        item_type = item.get('type', 'paragraph')
+        content_type = item.get('content', 0)
+
+        # Skip headers, footers, sidebars
+        if content_type == 1:
             continue
 
         ol = item.get('outline_level', -1)
-        content_type = item.get('content', 0)
-        pos = item.get('position', [])
+        text = item.get('text', '').strip()
 
-        # Calculate y-center for ordering
-        if pos and len(pos) >= 8:
-            y_center = int(sum(pos[i] for i in range(1, len(pos), 2)) / (len(pos) // 2))
-        else:
-            y_center = 0
+        # Handle tables — extract cell text row by row
+        if item_type == 'table':
+            cells = item.get('cells', [])
+            if cells:
+                table_lines = ['[表格开始]']
+                # Group cells by row
+                rows = {}
+                for cell in cells:
+                    r = cell.get('row', 0)
+                    if r not in rows:
+                        rows[r] = []
+                    rows[r].append(cell.get('text', '').strip())
+                for r in sorted(rows.keys()):
+                    table_lines.append(' | '.join(rows[r]))
+                table_lines.append('[表格结束]')
+                lines.append('\n'.join(table_lines))
+            continue
 
-        # Build annotation prefix
+        # Handle images
+        if item_type == 'image':
+            lines.append('[图片]')
+            continue
+
+        # Skip empty paragraphs
+        if not text:
+            continue
+
+        # Build annotation prefix for titles
         prefix = ''
-        if content_type == 1:
-            prefix = '[页眉页脚] '
-        elif ol == 0:
-            prefix = '# '  # H1 title
+        if ol == 0:
+            prefix = '# '
         elif ol == 1:
-            prefix = '## '  # H2 section
+            prefix = '## '
         elif ol >= 2:
-            prefix = '### '  # H3+ subsection
+            prefix = '### '
 
-        lines.append({
-            'text': prefix + text,
-            'y': y_center,
-            'ol': ol,
-        })
+        lines.append(prefix + text)
 
-    # Sort by y position (top to bottom, left to right implied by TextIn order)
-    # TextIn already returns items in reading order, so we keep original order
-    return '\n'.join(l['text'] for l in lines)
+    return '\n'.join(lines)
 
 
 def _build_prompt(formatted_text: str, image_size: Dict) -> str:
