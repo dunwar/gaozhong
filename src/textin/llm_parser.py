@@ -105,8 +105,11 @@ def _build_prompt(formatted_text: str, image_size: Dict) -> str:
 3. 完形填空: 题号可能嵌入选项行如"73.A.humanity"→题号=73
 4. 语法填空: 正文中含 ___(题号) 标记或 "1.A.xxx B.xxx" 格式
 5. 阅读理解: passageText 提取文章全文, passageRef 指向文章编号
-6. 翻译题(Q21-25): "21．中文句子（提示词）", 全角句号开头, type=translation, options={{}}
-7. 题型: choice/cloze/reading/grammar/translation/listening/vocabulary
+6. 翻译题(translation): "21．中文句子（提示词）", 全角句号, 含中文+英文提示词, options={{}}
+7. 选句填空(sentence_gap): 短文4空, 表格6句(A-F)选4填入
+8. 语法填空(grammar_fill): 短文含 ___() 无选项, 填单词正确形式
+9. 写作(writing): 英文提示+要求, 无选项, 通常最后一页
+10. 题型: listening/grammar/vocabulary/cloze/reading/sentence_gap/translation/grammar_fill/writing
 8. bbox: 设为 {{"x":0,"y":0,"w":0,"h":0}}
 9. 只输出题目JSON, 不要"```json", 不要解释
 
@@ -374,9 +377,11 @@ def parse_all_pages_llm(all_detail_items: List[List[Dict]],
 3. 完形填空: 题号嵌入选项行如"73.A.humanity"→题号=73
 4. 语法/选词填空: 正文中含 ___(题号) 或 "F52" "54E" 等嵌入格式,从词框表格中匹配选项
 5. 阅读理解: passageText 提取文章全文
-6. 翻译题(Q21-25): 题目以"21．"或"22．"开头，含中文句子+括号内英文提示词(如target v./dedicate/keep/arm v.)，type=translation，questionText保留完整中英文，options为空{{}}
-7. 选句填空: 段落中的空白 __(1)__ 需要从选项框中选句填入
-8. 题型: choice/cloze/reading/grammar/translation/listening/vocabulary
+6. 翻译题(translation): "21．中文（提示词）" 全角句号, 含中文+英文提示词, options={{}}
+7. 选句填空(sentence_gap): 短文4空, 表格6句(A-F)选4填入
+8. 语法填空(grammar_fill): 短文含 ___() 无选项, 填单词正确形式
+9. 写作(writing): 英文提示+要求, 无选项, 通常最后一页
+10. 题型: listening/grammar/vocabulary/cloze/reading/sentence_gap/translation/grammar_fill/writing
 9. 只输出JSON, 不要```json```, 不要解释
 10. ⚠️ 提取试卷中的每一道题! 不要遗漏!
 
