@@ -33,13 +33,13 @@ LLM_TIMEOUT = int(os.environ.get('LLM_PARSE_TIMEOUT', '90'))
 
 
 def _format_items(items: List[Dict]) -> str:
-    """Format TextIn detail items into structured text for LLM input.
+    """Format TextIn detail items into indexed text for LLM input.
 
-    Preserves TextIn's reading order. Handles paragraphs, tables, images.
-    Uses outline_level for section markers. Filters headers/footers.
+    Each item gets an [idx=N] marker so the LLM can reference which items
+    belong to each question. We can then recover real positions from TextIn data.
     """
     lines = []
-    for item in items:
+    for idx, item in enumerate(items):
         item_type = item.get('type', 'paragraph')
         content_type = item.get('content', 0)
 
@@ -54,8 +54,7 @@ def _format_items(items: List[Dict]) -> str:
         if item_type == 'table':
             cells = item.get('cells', [])
             if cells:
-                table_lines = ['[表格开始]']
-                # Group cells by row
+                table_lines = [f'[idx={idx}] [表格开始]']
                 rows = {}
                 for cell in cells:
                     r = cell.get('row', 0)
@@ -63,21 +62,21 @@ def _format_items(items: List[Dict]) -> str:
                         rows[r] = []
                     rows[r].append(cell.get('text', '').strip())
                 for r in sorted(rows.keys()):
-                    table_lines.append(' | '.join(rows[r]))
-                table_lines.append('[表格结束]')
+                    table_lines.append(f'[idx={idx}] | ' + ' | '.join(rows[r]))
+                table_lines.append(f'[idx={idx}] [表格结束]')
                 lines.append('\n'.join(table_lines))
             continue
 
         # Handle images
         if item_type == 'image':
-            lines.append('[图片]')
+            lines.append(f'[idx={idx}] [图片]')
             continue
 
         # Skip empty paragraphs
         if not text:
             continue
 
-        # Build annotation prefix for titles
+        # Build annotation prefix
         prefix = ''
         if ol == 0:
             prefix = '# '
@@ -86,7 +85,7 @@ def _format_items(items: List[Dict]) -> str:
         elif ol >= 2:
             prefix = '### '
 
-        lines.append(prefix + text)
+        lines.append(f'[idx={idx}] {prefix}{text}')
 
     return '\n'.join(lines)
 
@@ -113,11 +112,37 @@ def _build_prompt(formatted_text: str, image_size: Dict) -> str:
 
 【输出格式】
 {{"questions":[
-  {{"questionNumber":1,"questionType":"listening","questionText":"(听力题)","options":{{"A":"...","B":"...","C":"...","D":"..."}},"passageText":"","passageRef":null,"bbox":{{"x":0,"y":0,"w":0,"h":0}}}},
-  {{"questionNumber":21,"questionType":"grammar","questionText":"题干文本","options":{{"A":"...","B":"...","C":"...","D":"..."}},"passageText":"","passageRef":null,"bbox":{{"x":0,"y":0,"w":0,"h":0}}}}
+  {{"questionNumber":1,"pageIndex":1,"questionType":"listening","questionText":"(听力题)","options":{{"A":"...","B":"...","C":"...","D":"..."}},"itemIndices":[5,6,7,8],"passageText":"","passageRef":null}},
+  {{"questionNumber":21,"pageIndex":1,"questionType":"grammar","questionText":"题干文本","options":{{"A":"...","B":"...","C":"...","D":"..."}},"itemIndices":[105,106,107,108,109],"passageText":"","passageRef":null}}
 ]}}
 
-⚠️ 输出完整的JSON数组，包含页面上的每一道题！"""
+⚠️ pageIndex 和 itemIndices 是关键字段！
+- pageIndex: 题目所在页码(1-6)
+- itemIndices: 该题覆盖的所有 [idx=N] 编号（同一页内的编号）"""
+
+
+def _compute_bbox(item_indices: List[int], detail_items: List[Dict]) -> Dict:
+    """Compute the bounding box from a set of TextIn detail item indices."""
+    if not item_indices or not detail_items:
+        return {'x': 0, 'y': 0, 'w': 0, 'h': 0}
+
+    xs, ys = [], []
+    for idx in item_indices:
+        if 0 <= idx < len(detail_items):
+            pos = detail_items[idx].get('position', [])
+            if pos and len(pos) >= 8:
+                xs.extend([pos[i] for i in range(0, len(pos), 2)])
+                ys.extend([pos[i] for i in range(1, len(pos), 2)])
+
+    if not xs or not ys:
+        return {'x': 0, 'y': 0, 'w': 0, 'h': 0}
+
+    return {
+        'x': int(min(xs)),
+        'y': int(min(ys)),
+        'w': int(max(xs) - min(xs)),
+        'h': int(max(ys) - min(ys)),
+    }
 
 
 def _call_llm(prompt: str) -> Optional[Dict]:
@@ -208,8 +233,14 @@ def _parse_llm_response(content: str) -> Optional[Dict]:
     return None
 
 
-def _llm_result_to_gaozhong(llm_result: Dict, image_size: Dict) -> Dict:
-    """Convert LLM parsed result to gaozhong-compatible format."""
+def _llm_result_to_gaozhong(llm_result: Dict, image_size: Dict,
+                            detail_items: List[Dict] = None,
+                            all_page_items: List[List[Dict]] = None) -> Dict:
+    """Convert LLM parsed result to gaozhong-compatible format.
+
+    Uses itemIndices + pageIndex from LLM output to compute real bbox
+    from TextIn position data. Falls back to all-zero bbox if no indices.
+    """
     questions = llm_result.get('questions', [])
     gaozhong_questions = []
 
@@ -220,15 +251,29 @@ def _llm_result_to_gaozhong(llm_result: Dict, image_size: Dict) -> Dict:
 
         options = q.get('options', {})
         if isinstance(options, list):
-            # Convert list format to dict
             options = {chr(65+i): v for i, v in enumerate(options)}
+
+        # Compute real bbox from item indices
+        item_indices = q.get('itemIndices', [])
+        page_idx = q.get('pageIndex', 0) - 1  # 1-based → 0-based
+
+        # Select correct detail items for this question's page
+        if all_page_items and 0 <= page_idx < len(all_page_items):
+            page_items = all_page_items[page_idx]
+        elif detail_items:
+            page_items = detail_items
+        else:
+            page_items = []
+
+        bbox = _compute_bbox(item_indices, page_items)
 
         gaozhong_questions.append({
             'questionNumber': qn,
             'questionType': q.get('questionType', 'choice'),
             'questionText': (q.get('questionText', '') or '')[:300],
             'options': options,
-            'bbox': q.get('bbox', {'x': 0, 'y': 0, 'w': 0, 'h': 0}),
+            'bbox': bbox,
+            'pageIndex': page_idx + 1 if all_page_items else (q.get('pageIndex', 1)),
             'passageRef': q.get('passageRef'),
             'passageText': q.get('passageText', '') or '',
         })
@@ -279,8 +324,8 @@ def parse_with_llm(detail_items: List[Dict],
     if not llm_result:
         return None
 
-    # Convert to gaozhong format
-    result = _llm_result_to_gaozhong(llm_result, image_size or {})
+    # Convert to gaozhong format with real bbox from TextIn positions
+    result = _llm_result_to_gaozhong(llm_result, image_size or {}, detail_items)
     logger.info(f"LLM parser: extracted {result['raw_count']} questions")
 
     return result
@@ -307,7 +352,7 @@ def parse_all_pages_llm(all_detail_items: List[List[Dict]],
     total_items = sum(len(items) for items in all_detail_items)
     logger.info(f"LLM all-pages: {len(all_detail_items)} pages, {total_items} total items")
 
-    # Format each page with separator
+    # Format each page with separator (per-page [idx=N] markers)
     all_formatted = []
     for pi, items in enumerate(all_detail_items):
         page_text = _format_items(items)
@@ -369,7 +414,8 @@ def parse_all_pages_llm(all_detail_items: List[List[Dict]],
     if not llm_result:
         return None
 
-    result = _llm_result_to_gaozhong(llm_result, image_size or {})
+    result = _llm_result_to_gaozhong(llm_result, image_size or {},
+                                      all_page_items=all_detail_items)
     logger.info(f"LLM all-pages: extracted {result['raw_count']} questions total")
     return result
 
