@@ -29,7 +29,7 @@ DEEPSEEK_API_KEY = os.environ.get('DEEPSEEK_API_KEY', '')
 DEEPSEEK_API_URL = os.environ.get('DEEPSEEK_API_URL',
     'https://api.deepseek.com/v1/chat/completions')
 LLM_MODEL = os.environ.get('MODEL_PARSER', 'deepseek-v4-pro')
-LLM_TIMEOUT = int(os.environ.get('LLM_PARSE_TIMEOUT', '30'))
+LLM_TIMEOUT = int(os.environ.get('LLM_PARSE_TIMEOUT', '90'))
 
 
 def _format_items(items: List[Dict]) -> str:
@@ -117,7 +117,7 @@ def _call_llm(prompt: str) -> Optional[Dict]:
         'model': LLM_MODEL,
         'messages': [{'role': 'user', 'content': prompt}],
         'temperature': 0.05,
-        'max_tokens': 4096,
+        'max_tokens': 16384,
     }).encode('utf-8')
 
     req = urllib.request.Request(DEEPSEEK_API_URL, data=body, headers={
@@ -139,7 +139,7 @@ def _call_llm(prompt: str) -> Optional[Dict]:
 
 
 def _parse_llm_response(content: str) -> Optional[Dict]:
-    """Parse LLM JSON response, handling common formatting issues."""
+    """Parse LLM JSON response, handling truncation and formatting issues."""
     # Try direct JSON parse
     try:
         return json.loads(content)
@@ -154,6 +154,33 @@ def _parse_llm_response(content: str) -> Optional[Dict]:
                 return json.loads(m.group(1) if m.lastindex else m.group(0))
             except json.JSONDecodeError:
                 continue
+
+    # Try recovering truncated JSON (close unclosed brackets)
+    for attempt in range(1, 5):
+        fixed = content.rstrip()
+        if fixed.endswith(','):
+            fixed = fixed[:-1] + '}]}]}'
+        else:
+            fixed += '}]}]}'
+        try:
+            result = json.loads(fixed)
+            logger.warning(f"Recovered truncated JSON with {attempt} bracket patches")
+            return result
+        except json.JSONDecodeError:
+            continue
+
+    # Last resort: try to extract individual question objects
+    q_objs = re.findall(r'\{\s*"questionNumber"[^}]*\}', content)
+    if q_objs:
+        questions = []
+        for q_str in q_objs:
+            try:
+                questions.append(json.loads(q_str))
+            except json.JSONDecodeError:
+                continue
+        if questions:
+            logger.warning(f"Extracted {len(questions)} questions from truncated JSON")
+            return {'questions': questions}
 
     logger.error(f"Could not parse LLM response: {content[:300]}")
     return None
