@@ -133,7 +133,7 @@ def _call_llm(prompt: str) -> Optional[Dict]:
         'model': LLM_MODEL,
         'messages': [{'role': 'user', 'content': prompt}],
         'temperature': 0.05,
-        'max_tokens': 16384,
+        'max_tokens': 32768,
     }).encode('utf-8')
 
     req = urllib.request.Request(DEEPSEEK_API_URL, data=body, headers={
@@ -171,19 +171,25 @@ def _parse_llm_response(content: str) -> Optional[Dict]:
             except json.JSONDecodeError:
                 continue
 
-    # Try recovering truncated JSON (close unclosed brackets)
-    for attempt in range(1, 5):
-        fixed = content.rstrip()
-        if fixed.endswith(','):
-            fixed = fixed[:-1] + '}]}]}'
-        else:
-            fixed += '}]}]}'
-        try:
-            result = json.loads(fixed)
-            logger.warning(f"Recovered truncated JSON with {attempt} bracket patches")
-            return result
-        except json.JSONDecodeError:
-            continue
+    # Try recovering truncated JSON (close unclosed brackets/strings)
+    # Remove trailing incomplete content
+    fixed = content.rstrip()
+    # If ends mid-string-value, close the string
+    if fixed.rfind('\"') < fixed.rfind(':') or fixed.endswith('\"'):
+        pass  # string might be complete
+    fixed = re.sub(r':\s*"[^"]*$', ': ""', fixed)  # close broken string values
+    fixed = re.sub(r':\s*[\[{][^}\]]*$', ': null', fixed)  # close broken arrays/objects
+    fixed = re.sub(r',\s*$', '', fixed)  # remove trailing comma
+    # Close unclosed structures
+    open_braces = fixed.count('{') - fixed.count('}')
+    open_brackets = fixed.count('[') - fixed.count(']')
+    fixed += '}' * max(0, open_braces) + ']' * max(0, open_brackets)
+    try:
+        result = json.loads(fixed)
+        logger.warning(f"Recovered truncated JSON")
+        return result
+    except json.JSONDecodeError:
+        pass
 
     # Last resort: try to extract individual question objects
     q_objs = re.findall(r'\{\s*"questionNumber"[^}]*\}', content)
@@ -277,6 +283,94 @@ def parse_with_llm(detail_items: List[Dict],
     result = _llm_result_to_gaozhong(llm_result, image_size or {})
     logger.info(f"LLM parser: extracted {result['raw_count']} questions")
 
+    return result
+
+
+def parse_all_pages_llm(all_detail_items: List[List[Dict]],
+                        image_size: Optional[Dict] = None,
+                        subject: str = "英语") -> Optional[Dict]:
+    """
+    Parse ALL pages at once with a single LLM call.
+    Merges all pages' text → LLM sees the complete exam paper.
+
+    Args:
+        all_detail_items: List of per-page detail item lists
+        image_size: Optional {width, height}
+        subject: Subject name
+
+    Returns:
+        Dict with gaozhong-compatible format, or None if LLM unavailable/failed
+    """
+    if not DEEPSEEK_API_KEY:
+        return None
+
+    total_items = sum(len(items) for items in all_detail_items)
+    logger.info(f"LLM all-pages: {len(all_detail_items)} pages, {total_items} total items")
+
+    # Format each page with separator
+    all_formatted = []
+    for pi, items in enumerate(all_detail_items):
+        page_text = _format_items(items)
+        all_formatted.append(f"══════ 第 {pi+1} 页 ══════\n{page_text}")
+
+    full_text = '\n\n'.join(all_formatted)
+    logger.info(f"LLM all-pages: formatted {len(full_text)} chars")
+
+    # Build prompt for full exam
+    prompt = f"""你是上海高中英语教研专家。下面是 TextIn OCR 从一套完整英语试卷识别出的所有文字,按页组织。
+
+请逐题提取这套试卷的全部题目,输出 JSON。注意题号是试卷原始编号,跨页连续。
+
+{full_text}
+
+【提取规则】
+1. 题号: 试卷上印刷的数字编号。听力题无显式题号 → 按选项组编号(第1组=Q1,第2组=Q2...)
+2. 听力题(Section A): 连续4个A/B/C/D选项 = 1道听力题。questionText填"(听力题)", type=listening
+3. 完形填空: 题号嵌入选项行如"73.A.humanity"→题号=73
+4. 语法/选词填空: 正文中含 ___(题号) 或 "F52" "54E" 等嵌入格式,从词框表格中匹配选项
+5. 阅读理解: passageText 提取文章全文
+6. 翻译题(Q21-25): 含中文的题目, type=translation
+7. 选句填空: 段落中的空白 __(1)__ 需要从选项框中选句填入
+8. 题型: choice/cloze/reading/grammar/translation/listening/vocabulary
+9. 只输出JSON, 不要```json```, 不要解释
+10. ⚠️ 提取试卷中的每一道题! 不要遗漏!
+
+【输出格式】
+{{"questions":[
+  {{"questionNumber":1,"questionType":"listening","questionText":"(听力题)","options":{{"A":"...","B":"...","C":"...","D":"..."}},"passageText":"","passageRef":null,"bbox":{{"x":0,"y":0,"w":0,"h":0}}}}
+]}}"""
+
+    # Call LLM with large limits for full exam
+    import urllib.request
+    import urllib.error
+
+    body = json.dumps({
+        'model': LLM_MODEL,
+        'messages': [{'role': 'user', 'content': prompt}],
+        'temperature': 0.05,
+        'max_tokens': 65536,
+    }).encode('utf-8')
+
+    req = urllib.request.Request(DEEPSEEK_API_URL, data=body, headers={
+        'Content-Type': 'application/json',
+        'Authorization': f'Bearer {DEEPSEEK_API_KEY}',
+    })
+
+    timeout = int(os.environ.get('LLM_PARSE_TIMEOUT_BIG', '300'))
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            data = json.loads(resp.read().decode('utf-8'))
+            content = data['choices'][0]['message']['content']
+            llm_result = _parse_llm_response(content)
+    except Exception as e:
+        logger.error(f"LLM all-pages error: {e}")
+        return None
+
+    if not llm_result:
+        return None
+
+    result = _llm_result_to_gaozhong(llm_result, image_size or {})
+    logger.info(f"LLM all-pages: extracted {result['raw_count']} questions total")
     return result
 
 
