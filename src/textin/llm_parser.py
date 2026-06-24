@@ -110,8 +110,9 @@ def _build_prompt(formatted_text: str, image_size: Dict) -> str:
 8. 语法填空(grammar_fill): 短文含 ___() 无选项, 填单词正确形式
 9. 写作(writing): 英文提示+要求, 无选项, 通常最后一页
 10. 题型: listening/grammar/vocabulary/cloze/reading/sentence_gap/translation/grammar_fill/writing
-8. bbox: 设为 {{"x":0,"y":0,"w":0,"h":0}}
-9. 只输出题目JSON, 不要"```json", 不要解释
+11. ⚠️ 不同Section可有相同题号! 如Listening Q1≠Grammar Q1≠Cloze Q1, 全部保留不合并
+12. bbox: 设为 {{"x":0,"y":0,"w":0,"h":0}}
+13. 只输出题目JSON, 不要"```json", 不要解释
 
 【输出格式】
 {{"questions":[
@@ -277,6 +278,7 @@ def _llm_result_to_gaozhong(llm_result: Dict, image_size: Dict,
             'options': options,
             'bbox': bbox,
             'pageIndex': page_idx + 1 if all_page_items else (q.get('pageIndex', 1)),
+            'section': q.get('section', ''),  # Section context for disambiguation
             'passageRef': q.get('passageRef'),
             'passageText': q.get('passageText', '') or '',
         })
@@ -382,8 +384,8 @@ def parse_all_pages_llm(all_detail_items: List[List[Dict]],
 8. 语法填空(grammar_fill): 短文含 ___() 无选项, 填单词正确形式
 9. 写作(writing): 英文提示+要求, 无选项, 通常最后一页
 10. 题型: listening/grammar/vocabulary/cloze/reading/sentence_gap/translation/grammar_fill/writing
-9. 只输出JSON, 不要```json```, 不要解释
-10. ⚠️ 提取试卷中的每一道题! 不要遗漏!
+11. ⚠️ 不同Section可有相同题号! 如Listening Q1≠Grammar Q1≠Cloze Q1, 全部保留不合并
+12. 只输出JSON, 不要```json```, 不要解释
 
 【输出格式】
 {{"questions":[

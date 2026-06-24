@@ -1288,16 +1288,69 @@ export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 
     }
   }
 
-  // --- Pass 2: TextIn failed pages are skipped (VL fallback disabled) ---
-  // VL quality was poor (47% accuracy), retries waste gunicorn workers.
-  // With merged LLM approach, TextIn success rate should be near 100%.
+  // --- Pass 2: VL fallback for pages with poor TextIn coverage ---
+  // Trigger VL only when TextIn detail_items < 30 (indicates OCR missed large areas)
+  // VL quality is mediocre but better than losing the entire page
+  const VL_MIN_THRESHOLD = 30;
+  const vlJobs = [];
+  for (let i = 0; i < pagePaths.length; i++) {
+    if (textInResults[i]) {
+      const detailCount = textInResults[i].result?.detailCount || 0;
+      if (detailCount > 0 && detailCount < VL_MIN_THRESHOLD) {
+        console.log(`[scanner] Page ${i+1}: TextIn low coverage (${detailCount} items < ${VL_MIN_THRESHOLD}), will VL fallback`);
+        textInResults[i] = null; // Force VL fallback for this page
+      }
+    }
+    if (textInResults[i]) continue;
+
+    const split = pageSplitMap[i];
+    if (split && split.isDual) {
+      vlJobs.push({ pageIndex: i, subPage: 'left',  imgPath: split.leftPath,  totalPages });
+      vlJobs.push({ pageIndex: i, subPage: 'right', imgPath: split.rightPath, totalPages });
+    } else {
+      vlJobs.push({ pageIndex: i, subPage: null, imgPath: deRedPaths[i]?.full || pagePaths[i], totalPages });
+    }
+  }
+
+  const vlGate = new ConcurrencyGate(VL_CONCURRENCY);
+  const vlRawResults = vlJobs.length > 0 ? await Promise.all(
+    vlJobs.map((job) =>
+      vlGate.run(async () => {
+        const label = job.subPage
+          ? `Page ${job.pageIndex + 1}.${job.subPage}`
+          : `Page ${job.pageIndex + 1}`;
+        console.log(`[scanner] ${label}: VL fallback OCR...`);
+        try {
+          const result = await extractQuestionsVL(job.imgPath, apiKey, job.subPage, job.pageIndex, job.totalPages);
+          return { ...job, result, engine: 'vl', attempts: 1, success: true };
+        } catch (vlErr) {
+          console.log(`[scanner] ${label}: VL failed (${vlErr.message}), skipped`);
+          return { ...job, result: { questions: [], imageSize: null }, engine: 'failed', success: false };
+        }
+      })
+    )
+  ) : [];
+
+  // Combine results
+  const vlByPage = {};
+  for (const r of vlRawResults) {
+    if (!vlByPage[r.pageIndex]) vlByPage[r.pageIndex] = [];
+    vlByPage[r.pageIndex].push(r);
+  }
+
   const ocrRawResults = [];
   for (let i = 0; i < pagePaths.length; i++) {
     if (textInResults[i]) {
       ocrRawResults.push({ pageIndex: i, subPage: null, ...textInResults[i] });
     } else {
-      console.log(`[scanner] Page ${i+1}: TextIn failed, skipped (no VL fallback)`);
-      ocrRawResults.push({ pageIndex: i, subPage: null, result: { questions: [], imageSize: null }, engine: 'failed', success: false, attempts: 0 });
+      const vlGroup = vlByPage[i] || [];
+      for (const r of vlGroup) {
+        ocrRawResults.push(r);
+      }
+      if (vlGroup.length === 0) {
+        console.log(`[scanner] Page ${i+1}: no OCR result, skipped`);
+        ocrRawResults.push({ pageIndex: i, subPage: null, result: { questions: [], imageSize: null }, engine: 'failed', success: false, attempts: 0 });
+      }
     }
   }
   
