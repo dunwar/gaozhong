@@ -60,7 +60,7 @@ const USE_ZHIPU_VL = !!ZHIPU_KEY;  // Use Zhipu VL (endpoint fixed to /api/paas/
 // TextIn OCR 配置 (v4.4) — 优于 VL 的专用 OCR 引擎
 // 注意: 运行时求值，不在模块加载时（此时 .env 可能未加载）
 const textinEnabled = () => !!(process.env.TEXTIN_APP_ID && process.env.TEXTIN_SECRET_CODE);
-const TEXTIN_TIMEOUT_MS = 120_000;  // TextIn API 调用超时（pdf_to_markdown 约 1-3s）
+const TEXTIN_TIMEOUT_MS = 300_000;  // TextIn API + LLM parser 超时
 
 // ═══════════════════════════════════════
 // Concurrency limiter
@@ -1288,78 +1288,16 @@ export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 
     }
   }
 
-  // --- Pass 2: VL fallback for pages where TextIn failed ---
-  const vlJobs = [];
-  for (let i = 0; i < pagePaths.length; i++) {
-    if (textInResults[i]) continue; // TextIn succeeded, skip VL
-
-    const split = pageSplitMap[i];
-    if (split && split.isDual) {
-      vlJobs.push({ pageIndex: i, subPage: 'left',  imgPath: split.leftPath,  totalPages });
-      vlJobs.push({ pageIndex: i, subPage: 'right', imgPath: split.rightPath, totalPages });
-    } else {
-      vlJobs.push({ pageIndex: i, subPage: null, imgPath: deRedPaths[i]?.full || pagePaths[i], totalPages });
-    }
-  }
-
-  const vlGate = new ConcurrencyGate(VL_CONCURRENCY);
-  const vlRawResults = vlJobs.length > 0 ? await Promise.all(
-    vlJobs.map((job) =>
-      vlGate.run(async () => {
-        const label = job.subPage
-          ? `Page ${job.pageIndex + 1}.${job.subPage}`
-          : `Page ${job.pageIndex + 1}`;
-        console.log(`[scanner] ${label}: VL fallback OCR...`);
-
-        for (let attempt = 0; attempt < VL_RETRIES; attempt++) {
-          try {
-            const result = await extractQuestionsVL(job.imgPath, apiKey, job.subPage, job.pageIndex, job.totalPages);
-            if (attempt > 0) console.log(`[scanner] ${label}: VL ok on retry ${attempt}`);
-            return { ...job, result, engine: 'vl', attempts: attempt + 1, success: true };
-          } catch (vlErr) {
-            const retryLeft = VL_RETRIES - attempt - 1;
-            if (retryLeft > 0) {
-              const wait = VL_RETRY_BACKOFF_MS * Math.pow(2, attempt);
-              console.log(`[scanner] ${label}: VL attempt ${attempt + 1}/${VL_RETRIES} failed (${vlErr.message}), retry in ${wait}ms`);
-              await new Promise(r => setTimeout(r, wait));
-            } else {
-              console.log(`[scanner] ${label}: VL all ${VL_RETRIES} retries exhausted`);
-              if (tencentSecret) {
-                try {
-                  const result = await extractQuestionsTencent(job.imgPath, tencentSecret);
-                  return { ...job, result, engine: 'tencent', attempts: VL_RETRIES + 1, success: true };
-                } catch (tcErr) {
-                  console.log(`[scanner] ${label}: Tencent also failed (${tcErr.message}), skipped`);
-                }
-              }
-              return { ...job, result: { questions: [], imageSize: null }, engine: 'failed', success: false };
-            }
-          }
-        }
-        return { ...job, result: { questions: [], imageSize: null }, engine: 'failed', success: false };
-      })
-    )
-  ) : [];
-
-  // Combine results: TextIn successes + VL results
-  const vlByPage = {};
-  for (const r of vlRawResults) {
-    if (!vlByPage[r.pageIndex]) vlByPage[r.pageIndex] = [];
-    vlByPage[r.pageIndex].push(r);
-  }
-
+  // --- Pass 2: TextIn failed pages are skipped (VL fallback disabled) ---
+  // VL quality was poor (47% accuracy), retries waste gunicorn workers.
+  // With merged LLM approach, TextIn success rate should be near 100%.
   const ocrRawResults = [];
   for (let i = 0; i < pagePaths.length; i++) {
     if (textInResults[i]) {
       ocrRawResults.push({ pageIndex: i, subPage: null, ...textInResults[i] });
     } else {
-      const vlGroup = vlByPage[i] || [];
-      for (const r of vlGroup) {
-        ocrRawResults.push(r);
-      }
-      if (vlGroup.length === 0) {
-        ocrRawResults.push({ pageIndex: i, subPage: null, result: { questions: [], imageSize: null }, engine: 'failed', success: false, attempts: 0 });
-      }
+      console.log(`[scanner] Page ${i+1}: TextIn failed, skipped (no VL fallback)`);
+      ocrRawResults.push({ pageIndex: i, subPage: null, result: { questions: [], imageSize: null }, engine: 'failed', success: false, attempts: 0 });
     }
   }
   
