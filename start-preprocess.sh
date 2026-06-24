@@ -24,7 +24,7 @@ rm -f "$PID_FILE"
 
 $GUNICORN \
     -w 4 \
-    --timeout 300 \
+    --timeout 600 \
     --max-requests 200 \
     --max-requests-jitter 30 \
     --bind 0.0.0.0:5002 \

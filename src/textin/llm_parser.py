@@ -406,7 +406,7 @@ def parse_all_pages_llm(all_detail_items: List[List[Dict]],
         'Authorization': f'Bearer {DEEPSEEK_API_KEY}',
     })
 
-    timeout = int(os.environ.get('LLM_PARSE_TIMEOUT_BIG', '300'))
+    timeout = int(os.environ.get('LLM_PARSE_TIMEOUT_BIG', '480'))
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             data = json.loads(resp.read().decode('utf-8'))
