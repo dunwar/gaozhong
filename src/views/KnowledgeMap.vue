@@ -134,7 +134,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { authStore } from '../utils/authStore.js'
+import { authStore, authFetch } from '../utils/authStore.js'
 
 const searchQuery = ref('')
 const searchResults = ref([])
@@ -171,9 +171,7 @@ const maxErrors = computed(() => {
 async function doSearch() {
   if (!searchQuery.value.trim()) return
   try {
-    const r = await fetch(`/api/knowledge/search?q=${encodeURIComponent(searchQuery.value)}`, {
-      headers: { 'Authorization': `Bearer ${authStore.token}` }
-    })
+    const r = await authFetch(`/api/knowledge/search?q=${encodeURIComponent(searchQuery.value)}`)
     const data = await r.json()
     searchResults.value = data.results || data.stats || []
   } catch (e) { console.error(e) }
@@ -186,9 +184,7 @@ async function drillKp(kp) {
   drillItems.value = []
   try {
     // Search for errors by knowledge point name
-    const r = await fetch(`/api/knowledge/errors?kpId=${encodeURIComponent(kp.id)}`, {
-      headers: { 'Authorization': `Bearer ${authStore.token}` }
-    })
+    const r = await authFetch(`/api/knowledge/errors?kpId=${encodeURIComponent(kp.id)}`)
     const data = await r.json()
     drillItems.value = data.errors || data.records || data.results || []
   } catch (e) { console.error(e) }
@@ -198,12 +194,12 @@ async function drillKp(kp) {
 onMounted(async () => {
   try {
     // Fetch tagged knowledge points
-    const kpR = await fetch('/api/knowledge/stats', { headers: { 'Authorization': `Bearer ${authStore.token}` } })
+    const kpR = await authFetch('/api/knowledge/stats')
     const kpData = await kpR.json()
     const taggedKPs = kpData.stats || kpData.results || []
 
     // Fetch error stats as fallback (byErrorType)
-    const errR = await fetch('/api/error/stats', { headers: { 'Authorization': `Bearer ${authStore.token}` } })
+    const errR = await authFetch('/api/error/stats')
     const errData = await errR.json()
 
     if (taggedKPs.length >= 5) {

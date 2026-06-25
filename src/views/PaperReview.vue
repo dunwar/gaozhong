@@ -670,7 +670,7 @@ async function submitReviews() {
     const data = await res.json()
 
     alert(`复核提交成功！\n确认 ${data.results?.confirmed || 0} · 误判 ${data.results?.rejected || 0} · 新增 ${data.results?.added || 0}`)
-    router.push('/errors')
+    router.push('/error/list')
   } catch (err) {
     alert('提交失败: ' + err.message)
   } finally {

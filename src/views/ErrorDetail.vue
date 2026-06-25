@@ -8,7 +8,7 @@
     <div v-else-if="!record" class="text-center py-16">
       <div class="text-5xl mb-4">🔍</div>
       <p class="text-gray-500 mb-4">错题记录不存在或无权查看</p>
-      <router-link to="/errors" class="text-blue-600 hover:text-blue-700 font-medium text-sm">← 返回错题本</router-link>
+      <router-link to="/error/list" class="text-blue-600 hover:text-blue-700 font-medium text-sm">← 返回错题本</router-link>
     </div>
 
     <template v-else>
@@ -125,10 +125,10 @@
       </div>
 
       <div class="flex flex-wrap items-center justify-between mt-6">
-        <router-link to="/error-upload" class="flex items-center gap-1.5 bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium">
+        <router-link to="/paper/upload" class="flex items-center gap-1.5 bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium">
           + 上传试卷
         </router-link>
-        <router-link to="/errors" class="text-gray-500 hover:text-blue-600 transition-colors text-sm">返回错题本 →</router-link>
+        <router-link to="/error/list" class="text-gray-500 hover:text-blue-600 transition-colors text-sm">返回错题本 →</router-link>
       </div>
     </template>
   </div>
@@ -212,7 +212,7 @@ function fmtFullDate(ts) {
   return `${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`
 }
 
-function goBack() { router.push('/errors') }
+function goBack() { router.push('/error/list') }
 
 async function loadDetail() {
   loading.value = true

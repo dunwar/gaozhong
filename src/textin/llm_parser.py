@@ -77,6 +77,9 @@ def _format_items(items: List[Dict]) -> str:
             continue
 
         # Build annotation prefix
+        # # = outline_level 0 (top-level Section)
+        # ## = outline_level 1 (sub-section)
+        # ### = outline_level 2+ (sub-sub-section)
         prefix = ''
         if ol == 0:
             prefix = '# '
@@ -99,20 +102,29 @@ def _build_prompt(formatted_text: str, image_size: Dict) -> str:
 【识别文字 — 按版面从上到下】
 {formatted_text}
 
+【标题识别 — 必须跳过！】
+⚠️ 文字中以 # / ## / ### 开头的是 Section 标题（如 "# Listening Comprehension"、"## Grammar and Vocabulary"、"### Section B"），这是试卷的大题分区标记，不是题目！即使标题行包含数字编号（如 "Section 3"），也必须跳过，不计入题号列表。
+
 【提取规则】
-1. 题号: 试卷上印刷的数字编号。听力题可能没有显式题号 → 按选项组编号(第1组=Q1,第2组=Q2...)
-2. 听力题(Section A Short Conversations): 连续4个A/B/C/D选项 = 1道听力题。questionText填"(听力题)"
-3. 完形填空: 题号可能嵌入选项行如"73.A.humanity"→题号=73
-4. 语法填空: 正文中含 ___(题号) 标记或 "1.A.xxx B.xxx" 格式
-5. 阅读理解: passageText 提取文章全文, passageRef 指向文章编号
-6. 翻译题(translation): "21．中文句子（提示词）", 全角句号, 含中文+英文提示词, options={{}}
-7. 选句填空(sentence_gap): 短文4空, 表格6句(A-F)选4填入
-8. 语法填空(grammar_fill): 短文含 ___() 无选项, 填单词正确形式
-9. 写作(writing): 英文提示+要求, 无选项, 通常最后一页
-10. 题型: listening/grammar/vocabulary/cloze/reading/sentence_gap/translation/grammar_fill/writing
-11. ⚠️ 不同Section可有相同题号! 如Listening Q1≠Grammar Q1≠Cloze Q1, 全部保留不合并
-12. bbox: 设为 {{"x":0,"y":0,"w":0,"h":0}}
-13. 只输出题目JSON, 不要"```json", 不要解释
+1. 题号: 试卷上印刷的数字编号。题号可能出现在段落中间，不是每道题都独立成行。例如阅读理解 passage 后面紧跟 "46. What is the main idea..."，46 就是题目。提取时必须扫描全文每一个带数字编号的行，不要漏掉段落中嵌入的题号！
+2. 🚫 铁律：题号必须与试卷上印刷的数字完全一致。绝不允许"补号"或"重新编号"。如果某题试卷上印的是52，就输出52，不能因为前面漏了一题而输出51。
+3. 听力题(Section A Short Conversations): 连续4个A/B/C/D选项 = 1道听力题。questionText填"(听力题)"
+4. 完形填空: 题号可能嵌入选项行如"73.A.humanity"→题号=73
+5. 语法填空: 正文中含 ___(题号) 标记或 "1.A.xxx B.xxx" 格式
+6. 阅读理解: passageText 提取文章全文, passageRef 指向文章编号
+7. 翻译题(translation): "21．中文句子（提示词）", 全角句号, 含中文+英文提示词, options={{}}
+8. 选句填空(sentence_gap): 短文4空, 表格6句(A-F)选4填入
+9. 语法填空(grammar_fill): 短文含 ___() 无选项, 填单词正确形式
+10. 写作(writing): 英文提示+要求, 无选项, 通常最后一页
+11. 题型: listening/grammar/vocabulary/cloze/reading/sentence_gap/translation/grammar_fill/writing
+12. ⚠️ 不同Section可有相同题号! 如Listening Q1≠Grammar Q1≠Cloze Q1, 全部保留不合并
+13. bbox: 设为 {{"x":0,"y":0,"w":0,"h":0}}
+14. 只输出题目JSON, 不要"```json", 不要解释
+
+【自检规则 — 输出前必须执行】
+✅ 检查1: 逐行扫描输出结果，确认没有任何 # / ## / ### 标题行被当成题目。
+✅ 检查2: 每个 Section 内题号是否连续？如果发现 45→47 缺了46，说明有遗漏，必须回到 [idx] 列表中 45 和 47 之间的所有行重新查找。
+✅ 检查3: 每道题的 questionNumber 是否与试卷上印刷的数字完全一致？如有"补号"或偏移，立即修正。
 
 【输出格式】
 {{"questions":[
@@ -373,19 +385,28 @@ def parse_all_pages_llm(all_detail_items: List[List[Dict]],
 
 {full_text}
 
+【标题识别 — 必须跳过！】
+⚠️ 文字中以 # / ## / ### 开头的是 Section 标题（如 "# Listening Comprehension"、"## Grammar and Vocabulary"、"### Section B"），这是试卷的大题分区标记，不是题目！即使标题行包含数字编号（如 "Section 3"），也必须跳过，不计入题号列表。
+
 【提取规则】
-1. 题号: 试卷上印刷的数字编号。听力题无显式题号 → 按选项组编号(第1组=Q1,第2组=Q2...)
-2. 听力题(Section A): 连续4个A/B/C/D选项 = 1道听力题。questionText填"(听力题)", type=listening
-3. 完形填空: 题号嵌入选项行如"73.A.humanity"→题号=73
-4. 语法/选词填空: 正文中含 ___(题号) 或 "F52" "54E" 等嵌入格式,从词框表格中匹配选项
-5. 阅读理解: passageText 提取文章全文
-6. 翻译题(translation): "21．中文（提示词）" 全角句号, 含中文+英文提示词, options={{}}
-7. 选句填空(sentence_gap): 短文4空, 表格6句(A-F)选4填入
-8. 语法填空(grammar_fill): 短文含 ___() 无选项, 填单词正确形式
-9. 写作(writing): 英文提示+要求, 无选项, 通常最后一页
-10. 题型: listening/grammar/vocabulary/cloze/reading/sentence_gap/translation/grammar_fill/writing
-11. ⚠️ 不同Section可有相同题号! 如Listening Q1≠Grammar Q1≠Cloze Q1, 全部保留不合并
-12. 只输出JSON, 不要```json```, 不要解释
+1. 题号: 试卷上印刷的数字编号。题号可能出现在段落中间，不是每道题都独立成行。例如阅读理解 passage 后面紧跟 "46. What is the main idea..."，46 就是题目。提取时必须扫描全文每一个带数字编号的行，不要漏掉段落中嵌入的题号！
+2. 🚫 铁律：题号必须与试卷上印刷的数字完全一致。绝不允许"补号"或"重新编号"。如果某题试卷上印的是52，就输出52，不能因为前面漏了一题而输出51。
+3. 听力题(Section A): 连续4个A/B/C/D选项 = 1道听力题。questionText填"(听力题)", type=listening
+4. 完形填空: 题号嵌入选项行如"73.A.humanity"→题号=73
+5. 语法/选词填空: 正文中含 ___(题号) 或 "F52" "54E" 等嵌入格式,从词框表格中匹配选项
+6. 阅读理解: passageText 提取文章全文
+7. 翻译题(translation): "21．中文（提示词）" 全角句号, 含中文+英文提示词, options={{}}
+8. 选句填空(sentence_gap): 短文4空, 表格6句(A-F)选4填入
+9. 语法填空(grammar_fill): 短文含 ___() 无选项, 填单词正确形式
+10. 写作(writing): 英文提示+要求, 无选项, 通常最后一页
+11. 题型: listening/grammar/vocabulary/cloze/reading/sentence_gap/translation/grammar_fill/writing
+12. ⚠️ 不同Section可有相同题号! 如Listening Q1≠Grammar Q1≠Cloze Q1, 全部保留不合并
+13. 只输出JSON, 不要```json```, 不要解释
+
+【自检规则 — 输出前必须执行】
+✅ 检查1: 逐行扫描输出结果，确认没有任何 # / ## / ### 标题行被当成题目。
+✅ 检查2: 每个 Section 内题号是否连续？如果发现 45→47 缺了46，说明有遗漏，必须回到 [idx] 列表中 45 和 47 之间的所有行重新查找。
+✅ 检查3: 每道题的 questionNumber 是否与试卷上印刷的数字完全一致？如有"补号"或偏移，立即修正。
 
 【输出格式】
 {{"questions":[

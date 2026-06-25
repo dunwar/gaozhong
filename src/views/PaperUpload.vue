@@ -16,7 +16,7 @@
             <span class="ml-0.5 opacity-60">({{ t.count }})</span>
           </button>
         </div>
-        <router-link to="/errors" class="text-xs text-blue-600 hover:text-blue-700">错题本 →</router-link>
+        <router-link to="/error/list" class="text-xs text-blue-600 hover:text-blue-700">错题本 →</router-link>
       </div>
 
       <div class="space-y-2">

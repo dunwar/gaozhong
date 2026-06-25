@@ -1,0 +1,7489 @@
+{
+  "pages": [
+    {
+      "content": [
+        {
+          "pos": [
+            60,
+            62,
+            88,
+            62,
+            88,
+            91,
+            60,
+            91
+          ],
+          "score": 0.8939999938011169,
+          "sub_type": "handwriting",
+          "text": "F",
+          "type": "line",
+          "angle": 0,
+          "id": 0,
+          "origin_position": [
+            1129,
+            195,
+            1129,
+            223,
+            1102,
+            222,
+            1101,
+            194
+          ]
+        },
+        {
+          "type": "line",
+          "angle": 0,
+          "id": 1,
+          "origin_position": [
+            1128,
+            218,
+            1129,
+            247,
+            1103,
+            246,
+            1102,
+            217
+          ],
+          "pos": [
+            83,
+            63,
+            112,
+            63,
+            112,
+            90,
+            83,
+            90
+          ],
+          "score": 0.9829999804496765,
+          "text": "52"
+        },
+        {
+          "type": "line",
+          "angle": 0,
+          "id": 2,
+          "origin_position": [
+            1127,
+            270,
+            1127,
+            853,
+            1104,
+            853,
+            1103,
+            270
+          ],
+          "pos": [
+            136,
+            65,
+            730,
+            65,
+            730,
+            90,
+            136,
+            90
+          ],
+          "score": 0.9800000190734863,
+          "text": "by a later study devoting nearly 400 pages to the language of time in Hopi,which included"
+        },
+        {
+          "score": 0.9570000171661377,
+          "text": "concepts such as\"today\",\"January\"and so on.",
+          "type": "line",
+          "angle": 0,
+          "id": 3,
+          "origin_position": [
+            1104,
+            186,
+            1105,
+            499,
+            1083,
+            499,
+            1082,
+            185
+          ],
+          "pos": [
+            51,
+            88,
+            367,
+            88,
+            367,
+            111,
+            51,
+            111
+          ]
+        },
+        {
+          "text": "了（5",
+          "type": "line",
+          "angle": 0,
+          "id": 4,
+          "origin_position": [
+            1101,
+            772,
+            1104,
+            823,
+            1064,
+            826,
+            1061,
+            775
+          ],
+          "pos": [
+            646,
+            93,
+            699,
+            90,
+            702,
+            132,
+            649,
+            135
+          ],
+          "score": 0.492000013589859,
+          "sub_type": "handwriting"
+        },
+        {
+          "angle": 0,
+          "id": 5,
+          "origin_position": [
+            1082,
+            220,
+            1085,
+            771,
+            1062,
+            771,
+            1058,
+            220
+          ],
+          "pos": [
+            86,
+            111,
+            645,
+            109,
+            645,
+            134,
+            86,
+            136
+          ],
+          "score": 0.9739999771118164,
+          "text": "There is truth in both perspectives. At least some aspects of human languages must be",
+          "type": "line"
+        },
+        {
+          "angle": 0,
+          "id": 6,
+          "origin_position": [
+            1060,
+            186,
+            1064,
+            854,
+            1041,
+            854,
+            1036,
+            185
+          ],
+          "pos": [
+            52,
+            134,
+            731,
+            132,
+            731,
+            156,
+            52,
+            159
+          ],
+          "score": 0.9829999804496765,
+          "text": "or nearly so, since they are all used by members of the same human species,with the same sorts of",
+          "type": "line"
+        },
+        {
+          "angle": 0,
+          "id": 7,
+          "origin_position": [
+            1038,
+            186,
+            1042,
+            853,
+            1019,
+            854,
+            1014,
+            186
+          ],
+          "pos": [
+            52,
+            157,
+            730,
+            155,
+            730,
+            179,
+            53,
+            181
+          ],
+          "score": 0.9909999966621399,
+          "text": "brains and patterns of communication. Yet recent increases in understanding of the",
+          "type": "line"
+        },
+        {
+          "type": "line",
+          "angle": 0,
+          "id": 8,
+          "origin_position": [
+            1014,
+            187,
+            1019,
+            854,
+            996,
+            854,
+            991,
+            187
+          ],
+          "pos": [
+            54,
+            181,
+            730,
+            179,
+            730,
+            203,
+            54,
+            205
+          ],
+          "score": 0.9860000014305115,
+          "text": "world's Indigenous（本土的）languages have taught us two important additional lessons.First,there is"
+        },
+        {
+          "pos": [
+            55,
+            206,
+            132,
+            206,
+            132,
+            228,
+            55,
+            228
+          ],
+          "score": 0.9990000128746033,
+          "text": "far more",
+          "type": "line",
+          "angle": 0,
+          "id": 9,
+          "origin_position": [
+            990,
+            188,
+            990,
+            265,
+            969,
+            265,
+            969,
+            187
+          ]
+        },
+        {
+          "text": "54",
+          "type": "line",
+          "angle": 0,
+          "id": 10,
+          "origin_position": [
+            990,
+            281,
+            990,
+            309,
+            972,
+            308,
+            972,
+            281
+          ],
+          "pos": [
+            148,
+            207,
+            176,
+            207,
+            176,
+            225,
+            148,
+            225
+          ],
+          "score": 0.953000009059906
+        },
+        {
+          "origin_position": [
+            992,
+            303,
+            992,
+            331,
+            967,
+            330,
+            967,
+            302
+          ],
+          "pos": [
+            170,
+            205,
+            198,
+            205,
+            198,
+            230,
+            170,
+            230
+          ],
+          "score": 0.859000027179718,
+          "sub_type": "handwriting",
+          "text": "E",
+          "type": "line",
+          "angle": 0,
+          "id": 11
+        },
+        {
+          "angle": 0,
+          "id": 12,
+          "origin_position": [
+            991,
+            331,
+            996,
+            854,
+            973,
+            854,
+            967,
+            330
+          ],
+          "pos": [
+            198,
+            206,
+            730,
+            203,
+            730,
+            227,
+            198,
+            230
+          ],
+          "score": 0.9869999885559082,
+          "text": "among the world's languages than previously believed.Second,differences are",
+          "type": "line"
+        },
+        {
+          "text": "often related to the patterns of culture and environment in which languages are 55",
+          "type": "line",
+          "angle": 0,
+          "id": 13,
+          "origin_position": [
+            972,
+            187,
+            974,
+            756,
+            945,
+            757,
+            941,
+            186
+          ],
+          "pos": [
+            54,
+            225,
+            630,
+            225,
+            630,
+            256,
+            54,
+            256
+          ],
+          "score": 0.9819999933242798
+        },
+        {
+          "angle": 0,
+          "id": 14,
+          "origin_position": [
+            973,
+            779,
+            973,
+            837,
+            951,
+            838,
+            951,
+            779
+          ],
+          "pos": [
+            653,
+            227,
+            713,
+            227,
+            713,
+            250,
+            653,
+            250
+          ],
+          "score": 0.996999979019165,
+          "text": "spoken.",
+          "type": "line"
+        },
+        {
+          "origin_position": [
+            947,
+            218,
+            951,
+            858,
+            929,
+            858,
+            925,
+            218
+          ],
+          "pos": [
+            86,
+            250,
+            734,
+            250,
+            734,
+            273,
+            86,
+            273
+          ],
+          "score": 0.9739999771118164,
+          "text": "For example,in many Himalayan languages,an expression like \"that house\"comes in three flavors:",
+          "type": "line",
+          "angle": 0,
+          "id": 15
+        },
+        {
+          "score": 0.9769999980926514,
+          "text": "\"that-house-upward\",\"that-house-downward\"and\"that-house-on-the-same-level\"-a reflection of the",
+          "type": "line",
+          "angle": 0,
+          "id": 16,
+          "origin_position": [
+            923,
+            186,
+            927,
+            854,
+            905,
+            854,
+            900,
+            185
+          ],
+          "pos": [
+            54,
+            275,
+            730,
+            275,
+            730,
+            298,
+            54,
+            298
+          ]
+        },
+        {
+          "id": 17,
+          "origin_position": [
+            899,
+            185,
+            904,
+            854,
+            880,
+            855,
+            875,
+            185
+          ],
+          "pos": [
+            54,
+            299,
+            730,
+            299,
+            730,
+            324,
+            54,
+            324
+          ],
+          "score": 0.9879999756813049,
+          "text": "mountainous area where these speakers live in. When their speakers migrate to lower-elevation regions,",
+          "type": "line",
+          "angle": 0
+        },
+        {
+          "angle": 0,
+          "id": 18,
+          "origin_position": [
+            876,
+            185,
+            879,
+            660,
+            857,
+            660,
+            853,
+            185
+          ],
+          "pos": [
+            54,
+            323,
+            531,
+            323,
+            531,
+            346,
+            54,
+            346
+          ],
+          "score": 0.9610000252723694,
+          "text": "the system may shift from \"upward/downward\" to \"upriver/downriver”.",
+          "type": "line"
+        },
+        {
+          "pos": [
+            380,
+            369,
+            406,
+            369,
+            406,
+            387,
+            380,
+            387
+          ],
+          "score": 0.9990000128746033,
+          "text": "(B)",
+          "type": "line",
+          "angle": 0,
+          "id": 19,
+          "origin_position": [
+            833,
+            510,
+            834,
+            536,
+            816,
+            536,
+            816,
+            510
+          ]
+        },
+        {
+          "angle": 90,
+          "id": 20,
+          "origin_position": [
+            808,
+            196,
+            809,
+            293,
+            791,
+            292,
+            790,
+            196
+          ],
+          "pos": [
+            66,
+            392,
+            162,
+            392,
+            162,
+            411,
+            66,
+            411
+          ],
+          "score": 0.9860000014305115,
+          "text": "A.disciplines",
+          "type": "line"
+        },
+        {
+          "angle": 90,
+          "id": 21,
+          "origin_position": [
+            811,
+            327,
+            812,
+            401,
+            793,
+            401,
+            793,
+            327
+          ],
+          "pos": [
+            196,
+            390,
+            270,
+            390,
+            270,
+            409,
+            196,
+            409
+          ],
+          "score": 0.7919999957084656,
+          "sub_type": "handwriting",
+          "text": "B.focused",
+          "type": "line"
+        },
+        {
+          "origin_position": [
+            813,
+            473,
+            813,
+            554,
+            790,
+            554,
+            789,
+            473
+          ],
+          "pos": [
+            343,
+            390,
+            424,
+            390,
+            424,
+            414,
+            343,
+            414
+          ],
+          "score": 0.9929999709129333,
+          "text": "compatible",
+          "type": "line",
+          "angle": 90,
+          "id": 22
+        },
+        {
+          "type": "line",
+          "angle": 90,
+          "id": 23,
+          "origin_position": [
+            814,
+            568,
+            815,
+            646,
+            791,
+            646,
+            790,
+            568
+          ],
+          "pos": [
+            438,
+            389,
+            517,
+            389,
+            517,
+            414,
+            438,
+            414
+          ],
+          "score": 0.9819999933242798,
+          "text": "maintain"
+        },
+        {
+          "type": "line",
+          "angle": 90,
+          "id": 24,
+          "origin_position": [
+            815,
+            679,
+            816,
+            766,
+            791,
+            766,
+            790,
+            679
+          ],
+          "pos": [
+            551,
+            389,
+            639,
+            389,
+            639,
+            415,
+            551,
+            415
+          ],
+          "score": 0.9160000085830688,
+          "text": "E.relatively"
+        },
+        {
+          "origin_position": [
+            789,
+            195,
+            790,
+            290,
+            767,
+            290,
+            766,
+            195
+          ],
+          "pos": [
+            65,
+            412,
+            160,
+            412,
+            160,
+            435,
+            65,
+            435
+          ],
+          "score": 0.9639999866485596,
+          "text": "F economics",
+          "type": "line",
+          "angle": 90,
+          "id": 25
+        },
+        {
+          "origin_position": [
+            787,
+            344,
+            788,
+            419,
+            769,
+            419,
+            768,
+            343
+          ],
+          "pos": [
+            213,
+            415,
+            289,
+            415,
+            289,
+            434,
+            213,
+            434
+          ],
+          "score": 0.9369999766349792,
+          "text": "nominated",
+          "type": "line",
+          "angle": 90,
+          "id": 26
+        },
+        {
+          "angle": 90,
+          "id": 27,
+          "origin_position": [
+            789,
+            452,
+            790,
+            542,
+            767,
+            542,
+            766,
+            452
+          ],
+          "pos": [
+            322,
+            414,
+            412,
+            414,
+            412,
+            437,
+            322,
+            437
+          ],
+          "score": 0.8659999966621399,
+          "text": "H.leamnable",
+          "type": "line"
+        },
+        {
+          "type": "line",
+          "angle": 90,
+          "id": 28,
+          "origin_position": [
+            790,
+            564,
+            791,
+            652,
+            767,
+            652,
+            767,
+            564
+          ],
+          "pos": [
+            434,
+            414,
+            523,
+            414,
+            523,
+            438,
+            434,
+            438
+          ],
+          "score": 0.9860000014305115,
+          "text": "specialize"
+        },
+        {
+          "angle": 90,
+          "id": 29,
+          "origin_position": [
+            791,
+            676,
+            792,
+            767,
+            767,
+            767,
+            766,
+            677
+          ],
+          "pos": [
+            548,
+            414,
+            640,
+            414,
+            640,
+            440,
+            548,
+            440
+          ],
+          "score": 0.9769999980926514,
+          "text": "negatively",
+          "type": "line"
+        },
+        {
+          "sub_type": "handwriting",
+          "text": "K.c",
+          "type": "line",
+          "angle": 90,
+          "id": 30,
+          "origin_position": [
+            763,
+            192,
+            763,
+            224,
+            747,
+            223,
+            746,
+            192
+          ],
+          "pos": [
+            63,
+            438,
+            94,
+            438,
+            94,
+            455,
+            63,
+            455
+          ],
+          "score": 0.6899999976158142
+        },
+        {
+          "origin_position": [
+            766,
+            199,
+            767,
+            298,
+            744,
+            298,
+            743,
+            198
+          ],
+          "pos": [
+            69,
+            435,
+            168,
+            435,
+            168,
+            458,
+            69,
+            458
+          ],
+          "score": 0.9649999737739563,
+          "text": "omparable",
+          "type": "line",
+          "angle": 90,
+          "id": 31
+        },
+        {
+          "origin_position": [
+            744,
+            217,
+            748,
+            856,
+            725,
+            856,
+            720,
+            217
+          ],
+          "pos": [
+            88,
+            458,
+            730,
+            460,
+            730,
+            484,
+            88,
+            482
+          ],
+          "score": 0.9890000224113464,
+          "text": "In every field,elite youth performers and elite adults were almost entirely separate groups.Around",
+          "type": "line",
+          "angle": 0,
+          "id": 32
+        },
+        {
+          "score": 0.9819999933242798,
+          "text": "90% of superstar adults had not been superstars as children, while only 10% of top-level kids had gone",
+          "type": "line",
+          "angle": 0,
+          "id": 33,
+          "origin_position": [
+            721,
+            183,
+            727,
+            856,
+            703,
+            856,
+            697,
+            182
+          ],
+          "pos": [
+            54,
+            480,
+            730,
+            482,
+            730,
+            506,
+            54,
+            505
+          ]
+        },
+        {
+          "id": 34,
+          "origin_position": [
+            697,
+            182,
+            704,
+            856,
+            682,
+            856,
+            674,
+            182
+          ],
+          "pos": [
+            54,
+            505,
+            730,
+            505,
+            730,
+            528,
+            54,
+            528
+          ],
+          "score": 0.9879999756813049,
+          "text": "on to become exceptional adults. It is not just that exceptional performance in childhood did not predict",
+          "type": "line",
+          "angle": 0
+        },
+        {
+          "id": 35,
+          "origin_position": [
+            674,
+            182,
+            678,
+            580,
+            656,
+            580,
+            651,
+            182
+          ],
+          "pos": [
+            54,
+            528,
+            451,
+            528,
+            451,
+            551,
+            54,
+            551
+          ],
+          "score": 0.9890000224113464,
+          "text": "exceptional performance as an adult. The two were actually",
+          "type": "line",
+          "angle": 0
+        },
+        {
+          "id": 36,
+          "origin_position": [
+            681,
+            584,
+            682,
+            609,
+            651,
+            609,
+            651,
+            584
+          ],
+          "pos": [
+            455,
+            525,
+            480,
+            525,
+            480,
+            556,
+            455,
+            556
+          ],
+          "score": 0.49000000953674316,
+          "sub_type": "handwriting",
+          "text": "了",
+          "type": "line",
+          "angle": 0
+        },
+        {
+          "text": "56",
+          "type": "line",
+          "angle": 0,
+          "id": 37,
+          "origin_position": [
+            681,
+            607,
+            681,
+            635,
+            658,
+            635,
+            658,
+            607
+          ],
+          "pos": [
+            478,
+            526,
+            506,
+            526,
+            506,
+            549,
+            478,
+            549
+          ],
+          "score": 0.9729999899864197
+        },
+        {
+          "type": "line",
+          "angle": 0,
+          "id": 38,
+          "origin_position": [
+            681,
+            660,
+            684,
+            845,
+            659,
+            845,
+            657,
+            660
+          ],
+          "pos": [
+            531,
+            526,
+            719,
+            526,
+            719,
+            551,
+            531,
+            551
+          ],
+          "score": 0.9869999885559082,
+          "text": "correlated,says Dr Güllich."
+        },
+        {
+          "text": "The adult superstars also had a different approach to their fields from that of the child prodigies",
+          "type": "line",
+          "angle": 0,
+          "id": 39,
+          "origin_position": [
+            653,
+            214,
+            661,
+            856,
+            637,
+            856,
+            629,
+            214
+          ],
+          "pos": [
+            86,
+            549,
+            730,
+            549,
+            730,
+            574,
+            86,
+            574
+          ],
+          "score": 0.9900000095367432
+        },
+        {
+          "origin_position": [
+            629,
+            183,
+            632,
+            388,
+            609,
+            388,
+            606,
+            183
+          ],
+          "pos": [
+            56,
+            573,
+            259,
+            573,
+            259,
+            596,
+            56,
+            596
+          ],
+          "score": 0.9950000047683716,
+          "text": "（神童）in that they seemed to",
+          "type": "line",
+          "angle": 0,
+          "id": 40
+        },
+        {
+          "id": 41,
+          "origin_position": [
+            632,
+            413,
+            632,
+            438,
+            610,
+            438,
+            609,
+            413
+          ],
+          "pos": [
+            284,
+            573,
+            309,
+            573,
+            309,
+            596,
+            284,
+            596
+          ],
+          "score": 0.8830000162124634,
+          "text": "57",
+          "type": "line",
+          "angle": 0
+        },
+        {
+          "text": "D",
+          "type": "line",
+          "angle": 0,
+          "id": 42,
+          "origin_position": [
+            637,
+            438,
+            638,
+            465,
+            607,
+            465,
+            607,
+            438
+          ],
+          "pos": [
+            309,
+            568,
+            336,
+            568,
+            336,
+            599,
+            309,
+            599
+          ],
+          "score": 0.906000018119812,
+          "sub_type": "handwriting"
+        },
+        {
+          "pos": [
+            338,
+            573,
+            730,
+            573,
+            730,
+            597,
+            338,
+            597
+          ],
+          "score": 0.9919999837875366,
+          "text": "interests besides the one in which they eventually became",
+          "type": "line",
+          "angle": 0,
+          "id": 43,
+          "origin_position": [
+            633,
+            467,
+            638,
+            856,
+            614,
+            857,
+            609,
+            467
+          ]
+        },
+        {
+          "angle": 0,
+          "id": 44,
+          "origin_position": [
+            605,
+            181,
+            613,
+            737,
+            588,
+            737,
+            580,
+            181
+          ],
+          "pos": [
+            54,
+            597,
+            609,
+            597,
+            609,
+            622,
+            54,
+            622
+          ],
+          "score": 0.9879999756813049,
+          "text": "elite.The best sportsmen and women tended to have played several sports at a(n)",
+          "type": "line"
+        },
+        {
+          "sub_type": "handwriting",
+          "text": "E",
+          "type": "line",
+          "angle": 0,
+          "id": 45,
+          "origin_position": [
+            616,
+            737,
+            617,
+            767,
+            590,
+            767,
+            590,
+            737
+          ],
+          "pos": [
+            609,
+            593,
+            639,
+            593,
+            639,
+            620,
+            609,
+            620
+          ],
+          "score": 0.6890000104904175
+        },
+        {
+          "id": 46,
+          "origin_position": [
+            614,
+            750,
+            614,
+            792,
+            592,
+            793,
+            591,
+            750
+          ],
+          "pos": [
+            622,
+            596,
+            665,
+            596,
+            665,
+            619,
+            622,
+            619
+          ],
+          "score": 0.9470000267028809,
+          "text": "58",
+          "type": "line",
+          "angle": 0
+        },
+        {
+          "angle": 0,
+          "id": 47,
+          "origin_position": [
+            614,
+            818,
+            614,
+            857,
+            592,
+            857,
+            591,
+            818
+          ],
+          "pos": [
+            691,
+            597,
+            730,
+            597,
+            730,
+            620,
+            691,
+            620
+          ],
+          "score": 0.9959999918937683,
+          "text": "high",
+          "type": "line"
+        },
+        {
+          "type": "line",
+          "angle": 0,
+          "id": 48,
+          "origin_position": [
+            582,
+            183,
+            590,
+            736,
+            566,
+            736,
+            558,
+            182
+          ],
+          "pos": [
+            56,
+            620,
+            608,
+            620,
+            608,
+            644,
+            56,
+            644
+          ],
+          "score": 0.9819999933242798,
+          "text": "level. Their performancein the sport they played lagged behind that of their more"
+        },
+        {
+          "score": 0.7459999918937683,
+          "text": "359",
+          "type": "line",
+          "angle": 0,
+          "id": 49,
+          "origin_position": [
+            591,
+            750,
+            592,
+            788,
+            569,
+            788,
+            568,
+            750
+          ],
+          "pos": [
+            622,
+            619,
+            660,
+            619,
+            660,
+            642,
+            622,
+            642
+          ]
+        },
+        {
+          "pos": [
+            656,
+            614,
+            693,
+            614,
+            693,
+            657,
+            656,
+            657
+          ],
+          "score": 0.8529999852180481,
+          "sub_type": "handwriting",
+          "text": "HB",
+          "type": "line",
+          "angle": 0,
+          "id": 50,
+          "origin_position": [
+            596,
+            784,
+            597,
+            820,
+            555,
+            820,
+            554,
+            784
+          ]
+        },
+        {
+          "pos": [
+            688,
+            623,
+            728,
+            623,
+            728,
+            642,
+            688,
+            642
+          ],
+          "score": 0.9800000190734863,
+          "text": "peers",
+          "type": "line",
+          "angle": 0,
+          "id": 51,
+          "origin_position": [
+            588,
+            815,
+            589,
+            855,
+            570,
+            855,
+            569,
+            815
+          ]
+        },
+        {
+          "score": 0.984000027179718,
+          "text": "when they were young.But when they did60",
+          "type": "line",
+          "angle": 0,
+          "id": 52,
+          "origin_position": [
+            557,
+            181,
+            566,
+            521,
+            541,
+            521,
+            533,
+            182
+          ],
+          "pos": [
+            55,
+            645,
+            392,
+            641,
+            392,
+            666,
+            56,
+            669
+          ]
+        },
+        {
+          "id": 53,
+          "origin_position": [
+            570,
+            526,
+            570,
+            550,
+            543,
+            550,
+            542,
+            526
+          ],
+          "pos": [
+            397,
+            637,
+            421,
+            637,
+            421,
+            665,
+            397,
+            665
+          ],
+          "score": 0.8009999990463257,
+          "sub_type": "handwriting",
+          "text": "B",
+          "type": "line",
+          "angle": 0
+        },
+        {
+          "score": 0.9769999980926514,
+          "text": ",their progress was much quicker.",
+          "type": "line",
+          "angle": 0,
+          "id": 54,
+          "origin_position": [
+            564,
+            549,
+            567,
+            779,
+            544,
+            779,
+            541,
+            549
+          ],
+          "pos": [
+            420,
+            644,
+            651,
+            644,
+            651,
+            667,
+            420,
+            667
+          ]
+        },
+        {
+          "pos": [
+            86,
+            665,
+            275,
+            665,
+            275,
+            688,
+            86,
+            688
+          ],
+          "score": 0.9919999837875366,
+          "text": "The same was true in other",
+          "type": "line",
+          "angle": 0,
+          "id": 55,
+          "origin_position": [
+            538,
+            212,
+            541,
+            404,
+            518,
+            403,
+            515,
+            212
+          ]
+        },
+        {
+          "id": 56,
+          "origin_position": [
+            542,
+            407,
+            545,
+            454,
+            518,
+            456,
+            515,
+            408
+          ],
+          "pos": [
+            278,
+            664,
+            325,
+            661,
+            327,
+            688,
+            280,
+            691
+          ],
+          "score": 0.7730000019073486,
+          "sub_type": "handwriting",
+          "text": "I61",
+          "type": "line",
+          "angle": 0
+        },
+        {
+          "pos": [
+            355,
+            665,
+            730,
+            665,
+            730,
+            688,
+            355,
+            688
+          ],
+          "score": 0.9909999966621399,
+          "text": ".Nobel-prizewinning scientists were less likely to have",
+          "type": "line",
+          "angle": 0,
+          "id": 57,
+          "origin_position": [
+            542,
+            484,
+            547,
+            857,
+            525,
+            857,
+            519,
+            484
+          ]
+        },
+        {
+          "origin_position": [
+            514,
+            180,
+            518,
+            439,
+            495,
+            439,
+            491,
+            179
+          ],
+          "pos": [
+            54,
+            688,
+            310,
+            688,
+            310,
+            711,
+            54,
+            711
+          ],
+          "score": 0.9909999966621399,
+          "text": "won academic scholarships than those",
+          "type": "line",
+          "angle": 0,
+          "id": 58
+        },
+        {
+          "score": 0.7760000228881836,
+          "sub_type": "handwriting",
+          "text": "G.62",
+          "type": "line",
+          "angle": 0,
+          "id": 59,
+          "origin_position": [
+            519,
+            445,
+            520,
+            490,
+            493,
+            490,
+            492,
+            445
+          ],
+          "pos": [
+            316,
+            687,
+            361,
+            687,
+            361,
+            714,
+            316,
+            714
+          ]
+        },
+        {
+          "angle": 0,
+          "id": 60,
+          "origin_position": [
+            519,
+            519,
+            525,
+            857,
+            502,
+            857,
+            496,
+            519
+          ],
+          "pos": [
+            390,
+            688,
+            730,
+            688,
+            730,
+            711,
+            390,
+            711
+          ],
+          "score": 0.9850000143051147,
+          "text": "for a Nobel who did not win. They also took longer",
+          "type": "line"
+        },
+        {
+          "text": "to reach senior academic positions and had less impressive early publication records. Why so many",
+          "type": "line",
+          "angle": 0,
+          "id": 61,
+          "origin_position": [
+            491,
+            177,
+            502,
+            857,
+            478,
+            857,
+            467,
+            177
+          ],
+          "pos": [
+            52,
+            711,
+            730,
+            711,
+            730,
+            735,
+            52,
+            735
+          ],
+          "score": 0.9829999804496765
+        },
+        {
+          "pos": [
+            55,
+            734,
+            729,
+            734,
+            729,
+            755,
+            55,
+            755
+          ],
+          "score": 0.9850000143051147,
+          "text": "exceptional performers show the same pattern of later flowering is hard to answer.The researchers",
+          "type": "line",
+          "angle": 0,
+          "id": 62,
+          "origin_position": [
+            468,
+            180,
+            479,
+            857,
+            458,
+            857,
+            447,
+            180
+          ]
+        },
+        {
+          "id": 63,
+          "origin_position": [
+            446,
+            179,
+            456,
+            773,
+            433,
+            774,
+            423,
+            178
+          ],
+          "pos": [
+            54,
+            756,
+            645,
+            756,
+            645,
+            779,
+            54,
+            779
+          ],
+          "score": 0.9869999885559082,
+          "text": "consulted the literature on excellence for theories of how it arises, but none seemed",
+          "type": "line",
+          "angle": 0
+        },
+        {
+          "id": 64,
+          "origin_position": [
+            423,
+            178,
+            430,
+            584,
+            407,
+            584,
+            399,
+            178
+          ],
+          "pos": [
+            54,
+            779,
+            455,
+            779,
+            455,
+            802,
+            54,
+            802
+          ],
+          "score": 0.9860000014305115,
+          "text": "with their data. Instead,they offer assumptions of their own.",
+          "type": "line",
+          "angle": 0
+        },
+        {
+          "sub_type": "handwriting",
+          "text": "K63",
+          "type": "line",
+          "angle": 0,
+          "id": 65,
+          "origin_position": [
+            462,
+            773,
+            463,
+            822,
+            423,
+            822,
+            422,
+            774
+          ],
+          "pos": [
+            645,
+            750,
+            694,
+            750,
+            694,
+            790,
+            645,
+            790
+          ],
+          "score": 0.8109999895095825
+        },
+        {
+          "angle": 0,
+          "id": 66,
+          "origin_position": [
+            398,
+            213,
+            406,
+            660,
+            388,
+            660,
+            380,
+            212
+          ],
+          "pos": [
+            88,
+            804,
+            531,
+            804,
+            531,
+            822,
+            88,
+            822
+          ],
+          "score": 0.9729999899864197,
+          "text": "One is\"search and match\", an idea derived from labour-market",
+          "type": "line"
+        },
+        {
+          "angle": 0,
+          "id": 67,
+          "origin_position": [
+            409,
+            691,
+            409,
+            715,
+            390,
+            715,
+            390,
+            691
+          ],
+          "pos": [
+            562,
+            802,
+            586,
+            802,
+            586,
+            821,
+            562,
+            821
+          ],
+          "score": 0.9860000014305115,
+          "text": "64",
+          "type": "line"
+        },
+        {
+          "id": 68,
+          "origin_position": [
+            410,
+            729,
+            413,
+            858,
+            390,
+            858,
+            387,
+            729
+          ],
+          "pos": [
+            600,
+            801,
+            730,
+            801,
+            730,
+            824,
+            600,
+            824
+          ],
+          "score": 0.9750000238418579,
+          "text": ".This holds that",
+          "type": "line",
+          "angle": 0
+        },
+        {
+          "score": 0.9919999837875366,
+          "text": "having a broad range of interests and waiting before choosing offers a better chance of finding the field",
+          "type": "line",
+          "angle": 0,
+          "id": 69,
+          "origin_position": [
+            375,
+            178,
+            390,
+            858,
+            366,
+            858,
+            351,
+            177
+          ],
+          "pos": [
+            54,
+            826,
+            730,
+            824,
+            730,
+            848,
+            54,
+            850
+          ]
+        },
+        {
+          "pos": [
+            54,
+            847,
+            731,
+            847,
+            731,
+            870,
+            54,
+            870
+          ],
+          "score": 0.9850000143051147,
+          "text": "best suited to your talents. The young Rafael Nadal-another all-time-great tennis player-",
+          "type": "line",
+          "angle": 0,
+          "id": 70,
+          "origin_position": [
+            354,
+            177,
+            367,
+            859,
+            344,
+            859,
+            331,
+            177
+          ]
+        },
+        {
+          "id": 71,
+          "origin_position": [
+            331,
+            177,
+            344,
+            859,
+            321,
+            860,
+            307,
+            176
+          ],
+          "pos": [
+            54,
+            870,
+            731,
+            870,
+            731,
+            893,
+            54,
+            893
+          ],
+          "score": 0.9649999737739563,
+          "text": "experimented with a career in football before opting for tennis. A second is \"enhanced learning\",the",
+          "type": "line",
+          "angle": 0
+        },
+        {
+          "angle": 0,
+          "id": 72,
+          "origin_position": [
+            306,
+            177,
+            311,
+            412,
+            289,
+            412,
+            284,
+            177
+          ],
+          "pos": [
+            55,
+            894,
+            285,
+            894,
+            285,
+            916,
+            55,
+            916
+          ],
+          "score": 0.9810000061988831,
+          "text": "idea that learning is itself a(n)",
+          "type": "line"
+        },
+        {
+          "type": "line",
+          "angle": 0,
+          "id": 73,
+          "origin_position": [
+            312,
+            407,
+            312,
+            435,
+            291,
+            435,
+            291,
+            407
+          ],
+          "pos": [
+            280,
+            893,
+            308,
+            893,
+            308,
+            914,
+            280,
+            914
+          ],
+          "score": 0.9980000257492065,
+          "text": "65"
+        },
+        {
+          "score": 0.9779999852180481,
+          "text": "skill,and that a good way to develop it is to pursue a variety",
+          "type": "line",
+          "angle": 0,
+          "id": 74,
+          "origin_position": [
+            314,
+            461,
+            320,
+            859,
+            296,
+            859,
+            290,
+            460
+          ],
+          "pos": [
+            333,
+            892,
+            730,
+            894,
+            730,
+            918,
+            333,
+            916
+          ]
+        },
+        {
+          "id": 75,
+          "origin_position": [
+            283,
+            176,
+            297,
+            860,
+            273,
+            860,
+            258,
+            176
+          ],
+          "pos": [
+            54,
+            917,
+            731,
+            917,
+            731,
+            941,
+            54,
+            941
+          ],
+          "score": 0.984000027179718,
+          "text": "of things. The last is the limited-risk hypothesis that avoiding the hothouse（高强度环境）may stop",
+          "type": "line",
+          "angle": 0
+        },
+        {
+          "origin_position": [
+            258,
+            176,
+            271,
+            765,
+            248,
+            765,
+            235,
+            175
+          ],
+          "pos": [
+            54,
+            941,
+            636,
+            941,
+            636,
+            964,
+            54,
+            964
+          ],
+          "score": 0.984000027179718,
+          "text": "youngsters from burning out after spending years pursuing it to the exclusion of all else.",
+          "type": "line",
+          "angle": 0,
+          "id": 76
+        },
+        {
+          "score": 0.8159999847412109,
+          "sub_type": "handwriting",
+          "text": "B",
+          "type": "line",
+          "angle": 0,
+          "id": 77,
+          "origin_position": [
+            301,
+            946,
+            301,
+            963,
+            273,
+            963,
+            273,
+            946
+          ],
+          "pos": [
+            818,
+            915,
+            835,
+            915,
+            835,
+            943,
+            818,
+            943
+          ]
+        },
+        {
+          "origin_position": [
+            236,
+            208,
+            248,
+            776,
+            224,
+            776,
+            211,
+            208
+          ],
+          "pos": [
+            86,
+            964,
+            647,
+            964,
+            647,
+            988,
+            86,
+            988
+          ],
+          "score": 0.9850000143051147,
+          "text": "The researchers hope to extend their analysis to more fields such as business and art.",
+          "type": "line",
+          "angle": 0,
+          "id": 78
+        },
+        {
+          "type": "line",
+          "angle": 0,
+          "id": 79,
+          "origin_position": [
+            240,
+            952,
+            245,
+            984,
+            193,
+            993,
+            187,
+            960
+          ],
+          "pos": [
+            823,
+            976,
+            856,
+            971,
+            864,
+            1023,
+            831,
+            1028
+          ],
+          "score": 0.23899999260902405,
+          "sub_type": "handwriting",
+          "text": "原"
+        },
+        {
+          "pos": [
+            853,
+            66,
+            1060,
+            66,
+            1060,
+            90,
+            853,
+            90
+          ],
+          "score": 0.9940000176429749,
+          "text": "III.Reading Comprehension",
+          "type": "line",
+          "angle": 0,
+          "id": 80,
+          "origin_position": [
+            1127,
+            972,
+            1127,
+            1170,
+            1104,
+            1170,
+            1104,
+            972
+          ]
+        },
+        {
+          "text": "$( 1 5 ^ { \\prime } + 3 0 ^ { \\prime } = 4 5 ^ { \\prime } )$",
+          "type": "line",
+          "angle": 0,
+          "id": 81,
+          "origin_position": [
+            1128,
+            1166,
+            1125,
+            1267,
+            1103,
+            1267,
+            1105,
+            1165
+          ],
+          "pos": [
+            1056,
+            65,
+            1162,
+            68,
+            1162,
+            92,
+            1055,
+            89
+          ],
+          "score": 1,
+          "sub_type": "formula"
+        },
+        {
+          "type": "line",
+          "angle": 0,
+          "id": 82,
+          "origin_position": [
+            1101,
+            974,
+            1101,
+            1043,
+            1084,
+            1043,
+            1084,
+            974
+          ],
+          "pos": [
+            855,
+            93,
+            927,
+            93,
+            927,
+            111,
+            855,
+            111
+          ],
+          "score": 0.9860000014305115,
+          "text": "Section A"
+        },
+        {
+          "angle": 0,
+          "id": 83,
+          "origin_position": [
+            1081,
+            974,
+            1083,
+            1606,
+            1061,
+            1607,
+            1059,
+            974
+          ],
+          "pos": [
+            855,
+            114,
+            1521,
+            114,
+            1521,
+            137,
+            855,
+            137
+          ],
+          "score": 0.9850000143051147,
+          "text": "Directions:For each blank in the following passage there are four words or phrases marked A, B,C",
+          "type": "line"
+        },
+        {
+          "angle": 0,
+          "id": 84,
+          "origin_position": [
+            1060,
+            972,
+            1062,
+            1435,
+            1040,
+            1436,
+            1038,
+            973
+          ],
+          "pos": [
+            853,
+            136,
+            1338,
+            136,
+            1338,
+            159,
+            853,
+            159
+          ],
+          "score": 0.9750000238418579,
+          "text": "and D. Fill in each blank with the word or phrase that best fits the context.",
+          "type": "line"
+        },
+        {
+          "id": 85,
+          "origin_position": [
+            1018,
+            1155,
+            1019,
+            1449,
+            998,
+            1450,
+            996,
+            1155
+          ],
+          "pos": [
+            1042,
+            181,
+            1352,
+            181,
+            1352,
+            204,
+            1042,
+            204
+          ],
+          "score": 0.984000027179718,
+          "text": "Who Actually WVrote What You're Reading?",
+          "type": "line",
+          "angle": 0
+        },
+        {
+          "score": 0.9879999756813049,
+          "text": "For decades,readers rarely questioned the authorship of what they encountered online.Today,that",
+          "type": "line",
+          "angle": 0,
+          "id": 86,
+          "origin_position": [
+            996,
+            1006,
+            998,
+            1614,
+            977,
+            1615,
+            974,
+            1006
+          ],
+          "pos": [
+            887,
+            204,
+            1526,
+            204,
+            1526,
+            227,
+            887,
+            227
+          ]
+        },
+        {
+          "score": 0.9890000224113464,
+          "text": "certainty66.Artificial intelligence has become capable of producing convincing content at",
+          "type": "line",
+          "angle": 0,
+          "id": 87,
+          "origin_position": [
+            974,
+            973,
+            977,
+            1613,
+            955,
+            1613,
+            952,
+            974
+          ],
+          "pos": [
+            853,
+            227,
+            1524,
+            227,
+            1524,
+            250,
+            853,
+            250
+          ]
+        },
+        {
+          "angle": 0,
+          "id": 88,
+          "origin_position": [
+            950,
+            975,
+            950,
+            1111,
+            933,
+            1111,
+            932,
+            976
+          ],
+          "pos": [
+            855,
+            252,
+            995,
+            252,
+            995,
+            270,
+            855,
+            270
+          ],
+          "score": 0.9980000257492065,
+          "text": "extraordinary speed.",
+          "type": "line"
+        },
+        {
+          "angle": 0,
+          "id": 89,
+          "origin_position": [
+            931,
+            1007,
+            934,
+            1616,
+            913,
+            1617,
+            909,
+            1007
+          ],
+          "pos": [
+            887,
+            272,
+            1526,
+            272,
+            1526,
+            295,
+            887,
+            295
+          ],
+          "score": 0.9900000095367432,
+          "text": "This change hasn't arrived with a dramatic announcement.Instead,it has67integrated",
+          "type": "line"
+        },
+        {
+          "score": 0.9819999933242798,
+          "text": "into everyday digital life.Al-generated text seems polished and informative,but in the",
+          "type": "line",
+          "angle": 0,
+          "id": 90,
+          "origin_position": [
+            908,
+            974,
+            912,
+            1520,
+            890,
+            1521,
+            886,
+            974
+          ],
+          "pos": [
+            853,
+            295,
+            1424,
+            295,
+            1424,
+            318,
+            853,
+            318
+          ]
+        },
+        {
+          "angle": 0,
+          "id": 91,
+          "origin_position": [
+            914,
+            1515,
+            914,
+            1571,
+            892,
+            1572,
+            892,
+            1515
+          ],
+          "pos": [
+            1418,
+            293,
+            1478,
+            293,
+            1478,
+            316,
+            1418,
+            316
+          ],
+          "score": 0.9879999756813049,
+          "text": "68",
+          "type": "line"
+        },
+        {
+          "text": "of",
+          "type": "line",
+          "angle": 0,
+          "id": 92,
+          "origin_position": [
+            912,
+            1596,
+            912,
+            1617,
+            894,
+            1617,
+            894,
+            1597
+          ],
+          "pos": [
+            1504,
+            296,
+            1526,
+            296,
+            1526,
+            315,
+            1504,
+            315
+          ],
+          "score": 0.9929999709129333
+        },
+        {
+          "angle": 0,
+          "id": 93,
+          "origin_position": [
+            888,
+            973,
+            893,
+            1617,
+            870,
+            1618,
+            865,
+            973
+          ],
+          "pos": [
+            852,
+            316,
+            1526,
+            316,
+            1526,
+            340,
+            852,
+            340
+          ],
+          "score": 0.9800000190734863,
+          "text": "obvious signs that a machine produced it. Readers and professionals alike are increasingly turning to",
+          "type": "line"
+        },
+        {
+          "angle": 0,
+          "id": 94,
+          "origin_position": [
+            865,
+            973,
+            868,
+            1357,
+            846,
+            1358,
+            843,
+            974
+          ],
+          "pos": [
+            852,
+            340,
+            1251,
+            340,
+            1251,
+            363,
+            852,
+            363
+          ],
+          "score": 0.9739999771118164,
+          "text": "AI detector tools to better trace the source of what they read.",
+          "type": "line"
+        },
+        {
+          "angle": 0,
+          "id": 95,
+          "origin_position": [
+            842,
+            1008,
+            844,
+            1273,
+            826,
+            1273,
+            824,
+            1008
+          ],
+          "pos": [
+            887,
+            364,
+            1162,
+            364,
+            1162,
+            383,
+            887,
+            383
+          ],
+          "score": 0.9829999804496765,
+          "text": "The most striking part lies in how69",
+          "type": "line"
+        },
+        {
+          "angle": 0,
+          "id": 96,
+          "origin_position": [
+            845,
+            1267,
+            848,
+            1620,
+            827,
+            1620,
+            824,
+            1268
+          ],
+          "pos": [
+            1156,
+            363,
+            1527,
+            363,
+            1527,
+            385,
+            1156,
+            385
+          ],
+          "score": 0.9819999933242798,
+          "text": "modern AI writing sounds.Trained on an enormous",
+          "type": "line"
+        },
+        {
+          "origin_position": [
+            823,
+            974,
+            828,
+            1622,
+            806,
+            1623,
+            801,
+            974
+          ],
+          "pos": [
+            852,
+            384,
+            1529,
+            384,
+            1529,
+            407,
+            852,
+            407
+          ],
+          "score": 0.9879999756813049,
+          "text": "database to reproduce tone,structure,and style with impressive accuracy,Al-produced materials appear",
+          "type": "line",
+          "angle": 0,
+          "id": 97
+        },
+        {
+          "origin_position": [
+            800,
+            974,
+            804,
+            1444,
+            783,
+            1444,
+            778,
+            974
+          ],
+          "pos": [
+            852,
+            408,
+            1340,
+            408,
+            1340,
+            430,
+            852,
+            430
+          ],
+          "score": 0.9879999756813049,
+          "text": "indistinguishable from humnan-created content.This ability has obvious",
+          "type": "line",
+          "angle": 0,
+          "id": 98
+        },
+        {
+          "origin_position": [
+            805,
+            1443,
+            805,
+            1498,
+            785,
+            1499,
+            785,
+            1443
+          ],
+          "pos": [
+            1339,
+            407,
+            1397,
+            407,
+            1397,
+            428,
+            1339,
+            428
+          ],
+          "score": 0.9980000257492065,
+          "text": "70",
+          "type": "line",
+          "angle": 0,
+          "id": 99
+        },
+        {
+          "text": ".Writers draft",
+          "type": "line",
+          "angle": 0,
+          "id": 100,
+          "origin_position": [
+            803,
+            1499,
+            804,
+            1622,
+            787,
+            1623,
+            786,
+            1499
+          ],
+          "pos": [
+            1398,
+            409,
+            1528,
+            409,
+            1528,
+            427,
+            1398,
+            427
+          ],
+          "score": 0.953000009059906
+        },
+        {
+          "angle": 0,
+          "id": 101,
+          "origin_position": [
+            777,
+            974,
+            783,
+            1624,
+            762,
+            1624,
+            755,
+            975
+          ],
+          "pos": [
+            852,
+            431,
+            1529,
+            431,
+            1529,
+            454,
+            852,
+            454
+          ],
+          "score": 0.9900000095367432,
+          "text": "content faster,businesses organize information more efficiently.To the great relief of self-taught ones,",
+          "type": "line"
+        },
+        {
+          "score": 0.9890000224113464,
+          "text": "educational materials can be produced71",
+          "type": "line",
+          "angle": 0,
+          "id": 102,
+          "origin_position": [
+            754,
+            976,
+            757,
+            1275,
+            739,
+            1275,
+            736,
+            976
+          ],
+          "pos": [
+            853,
+            455,
+            1162,
+            455,
+            1162,
+            474,
+            853,
+            474
+          ]
+        },
+        {
+          "angle": 0,
+          "id": 103,
+          "origin_position": [
+            735,
+            1006,
+            741,
+            1625,
+            719,
+            1626,
+            713,
+            1006
+          ],
+          "pos": [
+            884,
+            475,
+            1529,
+            475,
+            1529,
+            498,
+            884,
+            498
+          ],
+          "score": 0.9890000224113464,
+          "text": "Yet when both humans and machines can produce equally convincing text,trouble arises.",
+          "type": "line"
+        },
+        {
+          "text": "Traditional hints that once72authorship become unreliable.Tone alone no longer reveals",
+          "type": "line",
+          "angle": 0,
+          "id": 104,
+          "origin_position": [
+            712,
+            973,
+            719,
+            1626,
+            696,
+            1627,
+            689,
+            973
+          ],
+          "pos": [
+            850,
+            498,
+            1529,
+            498,
+            1529,
+            522,
+            850,
+            522
+          ],
+          "score": 0.9890000224113464
+        },
+        {
+          "pos": [
+            850,
+            522,
+            1378,
+            522,
+            1378,
+            545,
+            850,
+            545
+          ],
+          "score": 0.9929999709129333,
+          "text": "whether an article reflects living experience or algorithmic（算法的）prediction.",
+          "type": "line",
+          "angle": 0,
+          "id": 105,
+          "origin_position": [
+            689,
+            973,
+            695,
+            1483,
+            673,
+            1484,
+            666,
+            974
+          ]
+        },
+        {
+          "angle": 0,
+          "id": 106,
+          "origin_position": [
+            666,
+            1006,
+            673,
+            1627,
+            651,
+            1628,
+            643,
+            1006
+          ],
+          "pos": [
+            883,
+            546,
+            1529,
+            546,
+            1529,
+            569,
+            883,
+            569
+          ],
+          "score": 0.9860000014305115,
+          "text": "Some may wonder why authorship matters if information itself is useful. The answer is",
+          "type": "line"
+        },
+        {
+          "id": 107,
+          "origin_position": [
+            644,
+            1006,
+            652,
+            1627,
+            630,
+            1628,
+            622,
+            1007
+          ],
+          "pos": [
+            883,
+            568,
+            1528,
+            568,
+            1528,
+            591,
+            883,
+            591
+          ],
+          "score": 0.972000002861023,
+          "text": "73and context. Human authors contribute responsibility and expertise. If a claim is",
+          "type": "line",
+          "angle": 0
+        },
+        {
+          "score": 0.9850000143051147,
+          "text": "challenged,they can explain their reasoning;if an error appears,they have to take the blame.By contrast,",
+          "type": "line",
+          "angle": 0,
+          "id": 108,
+          "origin_position": [
+            622,
+            974,
+            630,
+            1632,
+            608,
+            1632,
+            599,
+            974
+          ],
+          "pos": [
+            850,
+            591,
+            1532,
+            591,
+            1532,
+            614,
+            850,
+            614
+          ]
+        },
+        {
+          "type": "line",
+          "angle": 0,
+          "id": 109,
+          "origin_position": [
+            599,
+            974,
+            608,
+            1628,
+            584,
+            1629,
+            575,
+            975
+          ],
+          "pos": [
+            850,
+            614,
+            1528,
+            614,
+            1528,
+            639,
+            850,
+            639
+          ],
+          "score": 0.9760000109672546,
+          "text": "Al operates differently: it generates text from data patterns rather than74understanding.A"
+        },
+        {
+          "angle": 0,
+          "id": 110,
+          "origin_position": [
+            576,
+            975,
+            586,
+            1630,
+            563,
+            1631,
+            554,
+            975
+          ],
+          "pos": [
+            850,
+            637,
+            1529,
+            637,
+            1529,
+            660,
+            850,
+            660
+          ],
+          "score": 0.9869999885559082,
+          "text": "prescription written by a doctor carries more weight than an automatic AI version,as it is rooted in",
+          "type": "line"
+        },
+        {
+          "type": "line",
+          "angle": 0,
+          "id": 111,
+          "origin_position": [
+            554,
+            1008,
+            558,
+            1370,
+            538,
+            1370,
+            535,
+            1009
+          ],
+          "pos": [
+            884,
+            660,
+            1256,
+            662,
+            1256,
+            682,
+            884,
+            680
+          ],
+          "score": 0.9879999756813049,
+          "text": "75knowledge with no context-free generalizations."
+        },
+        {
+          "score": 0.9860000014305115,
+          "text": "Consequently,the rise of Al-generated writing is introducing a new dimension to",
+          "type": "line",
+          "angle": 0,
+          "id": 112,
+          "origin_position": [
+            532,
+            1008,
+            540,
+            1529,
+            519,
+            1530,
+            511,
+            1008
+          ],
+          "pos": [
+            883,
+            683,
+            1422,
+            683,
+            1422,
+            704,
+            883,
+            704
+          ]
+        },
+        {
+          "origin_position": [
+            539,
+            1556,
+            539,
+            1580,
+            522,
+            1581,
+            522,
+            1557
+          ],
+          "pos": [
+            1450,
+            684,
+            1475,
+            684,
+            1475,
+            702,
+            1450,
+            702
+          ],
+          "score": 0.9990000128746033,
+          "text": "76",
+          "type": "line",
+          "angle": 0,
+          "id": 113
+        },
+        {
+          "pos": [
+            1474,
+            685,
+            1528,
+            685,
+            1528,
+            704,
+            1474,
+            704
+          ],
+          "score": 0.9350000023841858,
+          "text": ".In",
+          "type": "line",
+          "angle": 0,
+          "id": 114,
+          "origin_position": [
+            538,
+            1579,
+            539,
+            1631,
+            521,
+            1631,
+            520,
+            1580
+          ]
+        },
+        {
+          "origin_position": [
+            510,
+            975,
+            518,
+            1497,
+            495,
+            1497,
+            487,
+            976
+          ],
+          "pos": [
+            850,
+            705,
+            1387,
+            705,
+            1387,
+            728,
+            850,
+            728
+          ],
+          "score": 0.984000027179718,
+          "text": "the past, readers learned to cross-check facts, spot misinformation or identify",
+          "type": "line",
+          "angle": 0,
+          "id": 115
+        },
+        {
+          "angle": 0,
+          "id": 116,
+          "origin_position": [
+            508,
+            1523,
+            526,
+            1540,
+            490,
+            1541,
+            508,
+            1523
+          ],
+          "pos": [
+            1414,
+            715,
+            1433,
+            697,
+            1433,
+            734,
+            1414,
+            715
+          ],
+          "score": 0.8370000123977661,
+          "text": "3",
+          "type": "line"
+        },
+        {
+          "type": "line",
+          "angle": 0,
+          "id": 117,
+          "origin_position": [
+            517,
+            1581,
+            518,
+            1629,
+            500,
+            1630,
+            500,
+            1581
+          ],
+          "pos": [
+            1475,
+            707,
+            1526,
+            707,
+            1526,
+            725,
+            1475,
+            725
+          ],
+          "score": 0.9760000109672546,
+          "text": "online."
+        },
+        {
+          "pos": [
+            850,
+            727,
+            1477,
+            727,
+            1477,
+            750,
+            850,
+            750
+          ],
+          "score": 0.9860000014305115,
+          "text": "Today,they must also consider the origin of content to determine how it should be interpreted.",
+          "type": "line",
+          "angle": 0,
+          "id": 118,
+          "origin_position": [
+            488,
+            976,
+            498,
+            1583,
+            475,
+            1584,
+            465,
+            976
+          ]
+        },
+        {
+          "pos": [
+            917,
+            752,
+            941,
+            752,
+            941,
+            770,
+            917,
+            770
+          ],
+          "score": 0.9779999852180481,
+          "text": "78",
+          "type": "line",
+          "angle": 0,
+          "id": 119,
+          "origin_position": [
+            464,
+            1042,
+            465,
+            1065,
+            447,
+            1066,
+            447,
+            1042
+          ]
+        },
+        {
+          "score": 0.984000027179718,
+          "text": ",tools designed toidentify Al-written content-by examining characteristics suchas",
+          "type": "line",
+          "angle": 0,
+          "id": 120,
+          "origin_position": [
+            466,
+            1064,
+            475,
+            1635,
+            455,
+            1635,
+            445,
+            1065
+          ],
+          "pos": [
+            940,
+            751,
+            1530,
+            751,
+            1530,
+            772,
+            940,
+            772
+          ]
+        },
+        {
+          "angle": 0,
+          "id": 121,
+          "origin_position": [
+            442,
+            976,
+            454,
+            1636,
+            431,
+            1637,
+            420,
+            976
+          ],
+          "pos": [
+            850,
+            773,
+            1531,
+            773,
+            1531,
+            796,
+            850,
+            796
+          ],
+          "score": 0.9850000143051147,
+          "text": "sentence predictability,structure,and language pattems-have come into being. These tools help",
+          "type": "line"
+        },
+        {
+          "pos": [
+            850,
+            795,
+            1282,
+            795,
+            1282,
+            818,
+            850,
+            818
+          ],
+          "score": 0.9940000176429749,
+          "text": "maintain trustworthiness for the press,support academic79",
+          "type": "line",
+          "angle": 0,
+          "id": 122,
+          "origin_position": [
+            421,
+            976,
+            428,
+            1398,
+            405,
+            1398,
+            398,
+            977
+          ]
+        },
+        {
+          "origin_position": [
+            426,
+            1423,
+            429,
+            1635,
+            412,
+            1636,
+            408,
+            1423
+          ],
+          "pos": [
+            1308,
+            798,
+            1529,
+            798,
+            1529,
+            816,
+            1308,
+            816
+          ],
+          "score": 0.9909999966621399,
+          "text": "for educational world,and offer",
+          "type": "line",
+          "angle": 0,
+          "id": 123
+        },
+        {
+          "pos": [
+            852,
+            818,
+            1336,
+            820,
+            1336,
+            840,
+            852,
+            838
+          ],
+          "score": 0.9850000143051147,
+          "text": "a way to better understand what is shaping the information they consume.",
+          "type": "line",
+          "angle": 0,
+          "id": 124,
+          "origin_position": [
+            398,
+            979,
+            404,
+            1451,
+            385,
+            1451,
+            378,
+            979
+          ]
+        },
+        {
+          "angle": 0,
+          "id": 125,
+          "origin_position": [
+            378,
+            1010,
+            383,
+            1300,
+            359,
+            1301,
+            354,
+            1011
+          ],
+          "pos": [
+            884,
+            839,
+            1180,
+            839,
+            1180,
+            863,
+            884,
+            863
+          ],
+          "score": 0.9850000143051147,
+          "text": "The internet has always evolved80",
+          "type": "line"
+        },
+        {
+          "angle": 0,
+          "id": 126,
+          "origin_position": [
+            381,
+            1323,
+            387,
+            1639,
+            365,
+            1639,
+            359,
+            1324
+          ],
+          "pos": [
+            1204,
+            841,
+            1531,
+            841,
+            1531,
+            864,
+            1204,
+            864
+          ],
+          "score": 0.9929999709129333,
+          "text": "with technology.Historically,Search engines",
+          "type": "line"
+        },
+        {
+          "text": "changed how people find information, social media changed how they share it. And now,with AI",
+          "type": "line",
+          "angle": 0,
+          "id": 127,
+          "origin_position": [
+            353,
+            979,
+            366,
+            1637,
+            343,
+            1638,
+            330,
+            979
+          ],
+          "pos": [
+            852,
+            863,
+            1529,
+            863,
+            1529,
+            886,
+            852,
+            886
+          ],
+          "score": 0.9789999723434448
+        },
+        {
+          "origin_position": [
+            331,
+            979,
+            343,
+            1638,
+            319,
+            1639,
+            307,
+            980
+          ],
+          "pos": [
+            852,
+            885,
+            1529,
+            886,
+            1529,
+            911,
+            852,
+            909
+          ],
+          "score": 0.9789999723434448,
+          "text": "rewriting the rules of content creation,the Internet's newest question may be simple, but it carries lasting",
+          "type": "line",
+          "angle": 0,
+          "id": 128
+        },
+        {
+          "score": 0.9909999966621399,
+          "text": "significance:who actually wrote what you're reading?",
+          "type": "line",
+          "angle": 0,
+          "id": 129,
+          "origin_position": [
+            307,
+            978,
+            314,
+            1332,
+            292,
+            1332,
+            284,
+            978
+          ],
+          "pos": [
+            850,
+            909,
+            1211,
+            909,
+            1211,
+            932,
+            850,
+            932
+          ]
+        },
+        {
+          "pos": [
+            850,
+            930,
+            960,
+            930,
+            960,
+            954,
+            850,
+            954
+          ],
+          "score": 0.9990000128746033,
+          "text": "66.A.expands",
+          "type": "line",
+          "angle": 0,
+          "id": 130,
+          "origin_position": [
+            286,
+            978,
+            288,
+            1086,
+            264,
+            1087,
+            262,
+            978
+          ]
+        },
+        {
+          "angle": 0,
+          "id": 131,
+          "origin_position": [
+            286,
+            1174,
+            288,
+            1248,
+            270,
+            1249,
+            268,
+            1174
+          ],
+          "pos": [
+            1049,
+            934,
+            1125,
+            934,
+            1125,
+            952,
+            1049,
+            952
+          ],
+          "score": 0.9990000128746033,
+          "text": "B.endures",
+          "type": "line"
+        },
+        {
+          "origin_position": [
+            294,
+            1331,
+            295,
+            1410,
+            271,
+            1410,
+            270,
+            1332
+          ],
+          "pos": [
+            1210,
+            930,
+            1291,
+            930,
+            1291,
+            954,
+            1210,
+            954
+          ],
+          "score": 0.9980000257492065,
+          "text": "C.emerges",
+          "type": "line",
+          "angle": 0,
+          "id": 132
+        },
+        {
+          "score": 0.9940000176429749,
+          "text": "D.fades",
+          "type": "line",
+          "angle": 0,
+          "id": 133,
+          "origin_position": [
+            293,
+            1491,
+            294,
+            1549,
+            276,
+            1550,
+            275,
+            1492
+          ],
+          "pos": [
+            1375,
+            934,
+            1435,
+            934,
+            1435,
+            952,
+            1375,
+            952
+          ]
+        },
+        {
+          "sub_type": "handwriting",
+          "text": "B",
+          "type": "line",
+          "angle": 0,
+          "id": 134,
+          "origin_position": [
+            265,
+            967,
+            266,
+            994,
+            238,
+            994,
+            238,
+            968
+          ],
+          "pos": [
+            839,
+            951,
+            866,
+            951,
+            866,
+            978,
+            839,
+            978
+          ],
+          "score": 0.8299999833106995
+        },
+        {
+          "angle": 0,
+          "id": 135,
+          "origin_position": [
+            262,
+            978,
+            264,
+            1076,
+            241,
+            1076,
+            239,
+            978
+          ],
+          "pos": [
+            850,
+            954,
+            949,
+            954,
+            949,
+            977,
+            850,
+            977
+          ],
+          "score": 0.9919999837875366,
+          "text": "67.A.keenly",
+          "type": "line"
+        },
+        {
+          "text": "B.quietly",
+          "type": "line",
+          "angle": 0,
+          "id": 136,
+          "origin_position": [
+            266,
+            1173,
+            268,
+            1244,
+            245,
+            1244,
+            243,
+            1174
+          ],
+          "pos": [
+            1048,
+            954,
+            1120,
+            954,
+            1120,
+            977,
+            1048,
+            977
+          ],
+          "score": 0.9980000257492065
+        },
+        {
+          "angle": 0,
+          "id": 137,
+          "origin_position": [
+            270,
+            1332,
+            272,
+            1421,
+            249,
+            1422,
+            247,
+            1332
+          ],
+          "pos": [
+            1210,
+            954,
+            1302,
+            954,
+            1302,
+            977,
+            1210,
+            977
+          ],
+          "score": 0.9990000128746033,
+          "text": "C.inevitably",
+          "type": "line"
+        },
+        {
+          "score": 0.9990000128746033,
+          "text": "D.properly",
+          "type": "line",
+          "angle": 0,
+          "id": 138,
+          "origin_position": [
+            270,
+            1493,
+            272,
+            1571,
+            254,
+            1572,
+            252,
+            1493
+          ],
+          "pos": [
+            1376,
+            957,
+            1457,
+            957,
+            1457,
+            975,
+            1376,
+            975
+          ]
+        },
+        {
+          "angle": 0,
+          "id": 139,
+          "origin_position": [
+            238,
+            975,
+            240,
+            1084,
+            221,
+            1084,
+            219,
+            976
+          ],
+          "pos": [
+            847,
+            978,
+            957,
+            978,
+            957,
+            997,
+            847,
+            997
+          ],
+          "score": 0.9990000128746033,
+          "text": "68.A.absence",
+          "type": "line"
+        },
+        {
+          "angle": 0,
+          "id": 140,
+          "origin_position": [
+            242,
+            1177,
+            245,
+            1289,
+            226,
+            1290,
+            223,
+            1177
+          ],
+          "pos": [
+            1051,
+            978,
+            1166,
+            978,
+            1166,
+            997,
+            1051,
+            997
+          ],
+          "score": 0.9980000257492065,
+          "text": "B.representation",
+          "type": "line"
+        },
+        {
+          "pos": [
+            1211,
+            978,
+            1312,
+            978,
+            1312,
+            997,
+            1211,
+            997
+          ],
+          "score": 0.9990000128746033,
+          "text": "C.disturbance",
+          "type": "line",
+          "angle": 0,
+          "id": 141,
+          "origin_position": [
+            246,
+            1333,
+            248,
+            1431,
+            229,
+            1432,
+            227,
+            1334
+          ]
+        },
+        {
+          "id": 142,
+          "origin_position": [
+            247,
+            1494,
+            249,
+            1561,
+            231,
+            1562,
+            230,
+            1494
+          ],
+          "pos": [
+            1376,
+            980,
+            1446,
+            980,
+            1446,
+            998,
+            1376,
+            998
+          ],
+          "score": 0.9980000257492065,
+          "text": "D.supply",
+          "type": "line",
+          "angle": 0
+        },
+        {
+          "pos": [
+            852,
+            998,
+            952,
+            998,
+            952,
+            1022,
+            852,
+            1022
+          ],
+          "score": 0.9990000128746033,
+          "text": "69.A.natural",
+          "type": "line",
+          "angle": 0,
+          "id": 143,
+          "origin_position": [
+            218,
+            981,
+            220,
+            1080,
+            196,
+            1080,
+            194,
+            981
+          ]
+        },
+        {
+          "angle": 0,
+          "id": 144,
+          "origin_position": [
+            220,
+            1177,
+            223,
+            1272,
+            205,
+            1273,
+            202,
+            1177
+          ],
+          "pos": [
+            1051,
+            1000,
+            1148,
+            1000,
+            1148,
+            1018,
+            1051,
+            1018
+          ],
+          "score": 0.9980000257492065,
+          "text": "B.mechanical",
+          "type": "line"
+        },
+        {
+          "angle": 0,
+          "id": 145,
+          "origin_position": [
+            225,
+            1334,
+            224,
+            1402,
+            205,
+            1401,
+            206,
+            1334
+          ],
+          "pos": [
+            1211,
+            999,
+            1281,
+            1001,
+            1280,
+            1021,
+            1211,
+            1018
+          ],
+          "score": 0.9990000128746033,
+          "text": "C.formal",
+          "type": "line"
+        },
+        {
+          "origin_position": [
+            227,
+            1494,
+            228,
+            1569,
+            209,
+            1569,
+            208,
+            1495
+          ],
+          "pos": [
+            1376,
+            1001,
+            1453,
+            1001,
+            1453,
+            1020,
+            1376,
+            1020
+          ],
+          "score": 0.9789999723434448,
+          "text": "D.shallow",
+          "type": "line",
+          "angle": 0,
+          "id": 146
+        },
+        {
+          "angle": 0,
+          "id": 147,
+          "origin_position": [
+            194,
+            967,
+            194,
+            996,
+            162,
+            996,
+            161,
+            967
+          ],
+          "pos": [
+            838,
+            1022,
+            867,
+            1022,
+            867,
+            1054,
+            838,
+            1054
+          ],
+          "score": 0.5849999785423279,
+          "sub_type": "handwriting",
+          "text": "1",
+          "type": "line"
+        },
+        {
+          "angle": 0,
+          "id": 148,
+          "origin_position": [
+            194,
+            984,
+            197,
+            1119,
+            174,
+            1120,
+            171,
+            984
+          ],
+          "pos": [
+            855,
+            1022,
+            992,
+            1022,
+            992,
+            1045,
+            855,
+            1045
+          ],
+          "score": 0.9599999785423279,
+          "text": "70.A.requirements",
+          "type": "line"
+        },
+        {
+          "angle": 0,
+          "id": 149,
+          "origin_position": [
+            197,
+            1177,
+            200,
+            1268,
+            181,
+            1268,
+            178,
+            1178
+          ],
+          "pos": [
+            1051,
+            1023,
+            1143,
+            1023,
+            1143,
+            1042,
+            1051,
+            1042
+          ],
+          "score": 0.9980000257492065,
+          "text": "B.limitations",
+          "type": "line"
+        },
+        {
+          "text": "C.features",
+          "type": "line",
+          "angle": 0,
+          "id": 150,
+          "origin_position": [
+            202,
+            1336,
+            201,
+            1410,
+            182,
+            1410,
+            183,
+            1336
+          ],
+          "pos": [
+            1213,
+            1022,
+            1289,
+            1025,
+            1288,
+            1044,
+            1212,
+            1041
+          ],
+          "score": 0.9990000128746033
+        },
+        {
+          "angle": 0,
+          "id": 151,
+          "origin_position": [
+            204,
+            1497,
+            204,
+            1592,
+            184,
+            1592,
+            184,
+            1497
+          ],
+          "pos": [
+            1378,
+            1024,
+            1477,
+            1026,
+            1476,
+            1046,
+            1378,
+            1044
+          ],
+          "score": 0.9980000257492065,
+          "text": "D.advantages",
+          "type": "line"
+        },
+        {
+          "angle": 0,
+          "id": 152,
+          "origin_position": [
+            171,
+            981,
+            178,
+            1273,
+            155,
+            1274,
+            148,
+            981
+          ],
+          "pos": [
+            852,
+            1045,
+            1148,
+            1045,
+            1148,
+            1068,
+            852,
+            1068
+          ],
+          "score": 0.9990000128746033,
+          "text": "2025-2026学年度第二学期高一英语期中考试卷",
+          "type": "line"
+        },
+        {
+          "id": 153,
+          "origin_position": [
+            149,
+            176,
+            156,
+            476,
+            138,
+            476,
+            130,
+            176
+          ],
+          "pos": [
+            56,
+            1048,
+            349,
+            1048,
+            349,
+            1066,
+            56,
+            1066
+          ],
+          "score": 0.9990000128746033,
+          "text": "2025-2026学年度第二学期高一英语期中考试卷",
+          "type": "line",
+          "angle": 0
+        },
+        {
+          "origin_position": [
+            162,
+            739,
+            164,
+            835,
+            146,
+            835,
+            144,
+            739
+          ],
+          "pos": [
+            609,
+            1048,
+            705,
+            1048,
+            705,
+            1066,
+            609,
+            1066
+          ],
+          "score": 0.9890000224113464,
+          "text": "第5页 共12页",
+          "type": "line",
+          "angle": 0,
+          "id": 154
+        },
+        {
+          "angle": 0,
+          "id": 155,
+          "origin_position": [
+            183,
+            1528,
+            185,
+            1624,
+            162,
+            1625,
+            160,
+            1529
+          ],
+          "pos": [
+            1410,
+            1046,
+            1509,
+            1046,
+            1509,
+            1069,
+            1410,
+            1069
+          ],
+          "score": 0.984000027179718,
+          "text": "第6页 共12页",
+          "type": "line"
+        }
+      ],
+      "durations": 2161.07763671875,
+      "image_id": "",
+      "page_id": 1,
+      "angle": 90,
+      "height": 1580,
+      "status": "Success",
+      "structured": [
+        {
+          "outline_level": -1,
+          "pos": [
+            51,
+            62,
+            730,
+            62,
+            730,
+            106,
+            51,
+            106
+          ],
+          "sub_type": "text",
+          "text": "F52   by a later study devoting nearly 400 pages to the language of time in Hopi,which included concepts such as\"today\",\"January\"and so on.",
+          "type": "textblock",
+          "content": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "id": 0,
+          "origin_position": [
+            1129,
+            186,
+            1130,
+            853,
+            1089,
+            853,
+            1087,
+            185
+          ]
+        },
+        {
+          "origin_position": [
+            1101,
+            772,
+            1104,
+            823,
+            1064,
+            826,
+            1061,
+            775
+          ],
+          "outline_level": -1,
+          "pos": [
+            646,
+            93,
+            699,
+            90,
+            702,
+            132,
+            649,
+            135
+          ],
+          "sub_type": "text",
+          "text": "了（5",
+          "type": "textblock",
+          "content": [
+            4
+          ],
+          "id": 1
+        },
+        {
+          "outline_level": -1,
+          "pos": [
+            51,
+            109,
+            731,
+            109,
+            731,
+            256,
+            51,
+            256
+          ],
+          "sub_type": "text",
+          "text": "There is truth in both perspectives. At least some aspects of human languages must be or nearly so, since they are all used by members of the same human species,with the same sorts of brains and patterns of communication. Yet recent increases in understanding of the world's Indigenous（本土的）languages have taught us two important additional lessons.First,there is far more  54Eamong the world's languages than previously believed.Second,differences are often related to the patterns of culture and environment in which languages are 55   spoken.",
+          "type": "textblock",
+          "content": [
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14
+          ],
+          "id": 2,
+          "origin_position": [
+            1084,
+            185,
+            1086,
+            854,
+            945,
+            855,
+            941,
+            183
+          ]
+        },
+        {
+          "id": 3,
+          "origin_position": [
+            947,
+            186,
+            951,
+            858,
+            859,
+            859,
+            853,
+            185
+          ],
+          "outline_level": -1,
+          "pos": [
+            54,
+            250,
+            734,
+            250,
+            734,
+            346,
+            54,
+            346
+          ],
+          "sub_type": "text",
+          "text": "For example,in many Himalayan languages,an expression like \"that house\"comes in three flavors: \"that-house-upward\",\"that-house-downward\"and\"that-house-on-the-same-level\"-a reflection of the mountainous area where these speakers live in. When their speakers migrate to lower-elevation regions, the system may shift from \"upward/downward\" to \"upriver/downriver”.",
+          "type": "textblock",
+          "content": [
+            15,
+            16,
+            17,
+            18
+          ]
+        },
+        {
+          "text": "(B)",
+          "type": "textblock",
+          "content": [
+            19
+          ],
+          "id": 4,
+          "origin_position": [
+            832,
+            510,
+            832,
+            536,
+            819,
+            536,
+            819,
+            510
+          ],
+          "outline_level": 0,
+          "pos": [
+            380,
+            371,
+            406,
+            371,
+            406,
+            384,
+            380,
+            384
+          ],
+          "sub_type": "text_title"
+        },
+        {
+          "outline_level": -1,
+          "rows_height": [
+            71
+          ],
+          "sub_type": "bordered",
+          "type": "table",
+          "cols": 1,
+          "id": 5,
+          "pos": [
+            58,
+            387,
+            722,
+            388,
+            721,
+            459,
+            57,
+            460
+          ],
+          "rows": 1,
+          "text": "<table border=\"1\" ><tr>\n<td>A.disciplines B.focused compatible maintain E.relatively<br>F economics nominated H.leamnable specialize negatively<br>K.comparable</td>\n</tr></table>",
+          "cells": [
+            {
+              "content": [
+                {
+                  "content": [
+                    20,
+                    21,
+                    22,
+                    23,
+                    24,
+                    25,
+                    26,
+                    27,
+                    28,
+                    29,
+                    30,
+                    31
+                  ],
+                  "origin_position": [
+                    813,
+                    188,
+                    819,
+                    843,
+                    751,
+                    844,
+                    744,
+                    187
+                  ],
+                  "pos": [
+                    58,
+                    387,
+                    718,
+                    387,
+                    718,
+                    457,
+                    58,
+                    457
+                  ],
+                  "type": "textblock"
+                }
+              ],
+              "origin_position": [
+                813,
+                188,
+                819,
+                843,
+                751,
+                844,
+                744,
+                187
+              ],
+              "pos": [
+                58,
+                387,
+                718,
+                387,
+                718,
+                457,
+                58,
+                457
+              ],
+              "row": 0,
+              "row_span": 1,
+              "col": 0,
+              "col_span": 1
+            }
+          ],
+          "columns_width": [
+            660
+          ],
+          "origin_position": [
+            813,
+            188,
+            818,
+            847,
+            749,
+            847,
+            741,
+            186
+          ]
+        },
+        {
+          "pos": [
+            54,
+            458,
+            730,
+            458,
+            730,
+            556,
+            54,
+            556
+          ],
+          "sub_type": "text",
+          "text": "In every field,elite youth performers and elite adults were almost entirely separate groups.Around 90% of superstar adults had not been superstars as children, while only 10% of top-level kids had gone on to become exceptional adults. It is not just that exceptional performance in childhood did not predict exceptional performance as an adult. The two were actually了56   correlated,says Dr Güllich.",
+          "type": "textblock",
+          "content": [
+            32,
+            33,
+            34,
+            35,
+            36,
+            37,
+            38
+          ],
+          "id": 6,
+          "origin_position": [
+            743,
+            183,
+            750,
+            856,
+            654,
+            856,
+            646,
+            182
+          ],
+          "outline_level": -1
+        },
+        {
+          "type": "textblock",
+          "content": [
+            39,
+            40,
+            41,
+            42,
+            43,
+            44,
+            45,
+            46,
+            47,
+            48,
+            49,
+            50,
+            51,
+            52,
+            53,
+            54
+          ],
+          "id": 7,
+          "origin_position": [
+            653,
+            182,
+            661,
+            856,
+            543,
+            857,
+            533,
+            180
+          ],
+          "outline_level": -1,
+          "pos": [
+            54,
+            549,
+            730,
+            549,
+            730,
+            669,
+            54,
+            669
+          ],
+          "sub_type": "text",
+          "text": "The adult superstars also had a different approach to their fields from that of the child prodigies （神童）in that they seemed to   57Dinterests besides the one in which they eventually became elite.The best sportsmen and women tended to have played several sports at a(n)E58   high level. Their performancein the sport they played lagged behind that of their more  359HBpeers when they were young.But when they did60 B,their progress was much quicker."
+        },
+        {
+          "origin_position": [
+            541,
+            178,
+            551,
+            857,
+            415,
+            858,
+            402,
+            176
+          ],
+          "outline_level": -1,
+          "pos": [
+            52,
+            661,
+            730,
+            661,
+            730,
+            799,
+            52,
+            799
+          ],
+          "sub_type": "text",
+          "text": "The same was true in otherI61   .Nobel-prizewinning scientists were less likely to have won academic scholarships than those G.62   for a Nobel who did not win. They also took longer to reach senior academic positions and had less impressive early publication records. Why so many exceptional performers show the same pattern of later flowering is hard to answer.The researchers consulted the literature on excellence for theories of how it arises, but none seemed with their data. Instead,they offer assumptions of their own.                      K63",
+          "type": "textblock",
+          "content": [
+            55,
+            56,
+            57,
+            58,
+            59,
+            60,
+            61,
+            62,
+            63,
+            64,
+            65
+          ],
+          "id": 8
+        },
+        {
+          "origin_position": [
+            396,
+            177,
+            409,
+            859,
+            250,
+            860,
+            235,
+            174
+          ],
+          "outline_level": -1,
+          "pos": [
+            53,
+            805,
+            731,
+            805,
+            731,
+            964,
+            53,
+            964
+          ],
+          "sub_type": "text",
+          "text": "One is\"search and match\", an idea derived from labour-market    64  .This holds that having a broad range of interests and waiting before choosing offers a better chance of finding the field best suited to your talents. The young Rafael Nadal-another all-time-great tennis player-experimented with a career in football before opting for tennis. A second is \"enhanced learning\",the idea that learning is itself a(n)65   skill,and that a good way to develop it is to pursue a variety of things. The last is the limited-risk hypothesis that avoiding the hothouse（高强度环境）may stop youngsters from burning out after spending years pursuing it to the exclusion of all else.",
+          "type": "textblock",
+          "content": [
+            66,
+            67,
+            68,
+            69,
+            70,
+            71,
+            72,
+            73,
+            74,
+            75,
+            76
+          ],
+          "id": 9
+        },
+        {
+          "outline_level": -1,
+          "pos": [
+            818,
+            915,
+            835,
+            915,
+            835,
+            943,
+            818,
+            943
+          ],
+          "sub_type": "text",
+          "text": "B",
+          "type": "textblock",
+          "content": [
+            77
+          ],
+          "id": 25,
+          "origin_position": [
+            301,
+            946,
+            301,
+            963,
+            273,
+            963,
+            273,
+            946
+          ]
+        },
+        {
+          "pos": [
+            86,
+            964,
+            647,
+            964,
+            647,
+            988,
+            86,
+            988
+          ],
+          "sub_type": "text",
+          "text": "The researchers hope to extend their analysis to more fields such as business and art.",
+          "type": "textblock",
+          "content": [
+            78
+          ],
+          "id": 10,
+          "origin_position": [
+            236,
+            208,
+            248,
+            776,
+            224,
+            776,
+            211,
+            208
+          ],
+          "outline_level": -1
+        },
+        {
+          "origin_position": [
+            240,
+            952,
+            245,
+            984,
+            193,
+            993,
+            187,
+            960
+          ],
+          "outline_level": -1,
+          "pos": [
+            823,
+            976,
+            856,
+            971,
+            864,
+            1023,
+            831,
+            1028
+          ],
+          "sub_type": "text",
+          "text": "原",
+          "type": "textblock",
+          "content": [
+            79
+          ],
+          "id": 40
+        },
+        {
+          "type": "textblock",
+          "content": [
+            80,
+            81
+          ],
+          "id": 11,
+          "origin_position": [
+            1128,
+            972,
+            1128,
+            1267,
+            1103,
+            1267,
+            1102,
+            972
+          ],
+          "outline_level": 0,
+          "pos": [
+            853,
+            65,
+            1162,
+            65,
+            1162,
+            92,
+            853,
+            92
+          ],
+          "sub_type": "text_title",
+          "text": "III.Reading Comprehension$(15^{\\prime }+30^{\\prime }=45^{\\prime })$"
+        },
+        {
+          "id": 12,
+          "origin_position": [
+            1099,
+            974,
+            1099,
+            1043,
+            1088,
+            1043,
+            1088,
+            974
+          ],
+          "outline_level": 1,
+          "pos": [
+            855,
+            95,
+            927,
+            95,
+            927,
+            107,
+            855,
+            107
+          ],
+          "sub_type": "text_title",
+          "text": "Section A",
+          "type": "textblock",
+          "content": [
+            82
+          ]
+        },
+        {
+          "type": "textblock",
+          "content": [
+            83,
+            84
+          ],
+          "id": 13,
+          "origin_position": [
+            1078,
+            972,
+            1080,
+            1607,
+            1041,
+            1608,
+            1038,
+            973
+          ],
+          "outline_level": -1,
+          "pos": [
+            853,
+            117,
+            1521,
+            117,
+            1521,
+            159,
+            853,
+            159
+          ],
+          "sub_type": "text",
+          "text": "Directions:For each blank in the following passage there are four words or phrases marked A, B,C and D. Fill in each blank with the word or phrase that best fits the context."
+        },
+        {
+          "type": "textblock",
+          "content": [
+            85
+          ],
+          "id": 14,
+          "origin_position": [
+            1014,
+            1155,
+            1016,
+            1450,
+            1001,
+            1450,
+            999,
+            1155
+          ],
+          "outline_level": 2,
+          "pos": [
+            1042,
+            185,
+            1352,
+            185,
+            1352,
+            201,
+            1042,
+            201
+          ],
+          "sub_type": "text_title",
+          "text": "Who Actually WVrote What You're Reading?"
+        },
+        {
+          "id": 18,
+          "origin_position": [
+            992,
+            973,
+            995,
+            1614,
+            938,
+            1616,
+            934,
+            974
+          ],
+          "outline_level": -1,
+          "pos": [
+            853,
+            208,
+            1526,
+            208,
+            1526,
+            268,
+            853,
+            268
+          ],
+          "sub_type": "text",
+          "text": "For decades,readers rarely questioned the authorship of what they encountered online.Today,that certainty66.Artificial intelligence has become capable of producing convincing content at extraordinary speed.",
+          "type": "textblock",
+          "content": [
+            86,
+            87,
+            88
+          ]
+        },
+        {
+          "sub_type": "text",
+          "text": "This change hasn't arrived with a dramatic announcement.Instead,it has67integrated into everyday digital life.Al-generated text seems polished and informative,but in the68   of obvious signs that a machine produced it. Readers and professionals alike are increasingly turning to AI detector tools to better trace the source of what they read.",
+          "type": "textblock",
+          "content": [
+            89,
+            90,
+            91,
+            92,
+            93,
+            94
+          ],
+          "id": 19,
+          "origin_position": [
+            931,
+            973,
+            934,
+            1616,
+            853,
+            1619,
+            848,
+            974
+          ],
+          "outline_level": -1,
+          "pos": [
+            852,
+            272,
+            1526,
+            272,
+            1526,
+            358,
+            852,
+            358
+          ]
+        },
+        {
+          "outline_level": -1,
+          "pos": [
+            852,
+            366,
+            1529,
+            366,
+            1529,
+            470,
+            852,
+            470
+          ],
+          "sub_type": "text",
+          "text": "The most striking part lies in how69modern AI writing sounds.Trained on an enormous database to reproduce tone,structure,and style with impressive accuracy,Al-produced materials appear indistinguishable from humnan-created content.This ability has obvious70.Writers draft content faster,businesses organize information more efficiently.To the great relief of self-taught ones, educational materials can be produced71",
+          "type": "textblock",
+          "content": [
+            95,
+            96,
+            97,
+            98,
+            99,
+            100,
+            101,
+            102
+          ],
+          "id": 20,
+          "origin_position": [
+            840,
+            974,
+            845,
+            1622,
+            746,
+            1625,
+            739,
+            975
+          ]
+        },
+        {
+          "content": [
+            103,
+            104,
+            105
+          ],
+          "id": 21,
+          "origin_position": [
+            735,
+            973,
+            741,
+            1625,
+            677,
+            1627,
+            669,
+            974
+          ],
+          "outline_level": -1,
+          "pos": [
+            850,
+            475,
+            1529,
+            475,
+            1529,
+            542,
+            850,
+            542
+          ],
+          "sub_type": "text",
+          "text": "Yet when both humans and machines can produce equally convincing text,trouble arises. Traditional hints that once72authorship become unreliable.Tone alone no longer reveals whether an article reflects living experience or algorithmic（算法的）prediction.",
+          "type": "textblock"
+        },
+        {
+          "id": 22,
+          "origin_position": [
+            666,
+            974,
+            673,
+            1630,
+            543,
+            1634,
+            533,
+            975
+          ],
+          "outline_level": -1,
+          "pos": [
+            850,
+            546,
+            1532,
+            546,
+            1532,
+            681,
+            850,
+            681
+          ],
+          "sub_type": "text",
+          "text": "Some may wonder why authorship matters if information itself is useful. The answer is 73and context. Human authors contribute responsibility and expertise. If a claim is challenged,they can explain their reasoning;if an error appears,they have to take the blame.By contrast, Al operates differently: it generates text from data patterns rather than74understanding.A prescription written by a doctor carries more weight than an automatic AI version,as it is rooted in 75knowledge with no context-free generalizations.",
+          "type": "textblock",
+          "content": [
+            106,
+            107,
+            108,
+            109,
+            110,
+            111
+          ]
+        },
+        {
+          "id": 23,
+          "origin_position": [
+            529,
+            975,
+            539,
+            1631,
+            479,
+            1633,
+            468,
+            976
+          ],
+          "outline_level": -1,
+          "pos": [
+            850,
+            685,
+            1528,
+            685,
+            1528,
+            747,
+            850,
+            747
+          ],
+          "sub_type": "text",
+          "text": "Consequently,the rise of Al-generated writing is introducing a new dimension to   76.In the past, readers learned to cross-check facts, spot misinformation or identify   3online. Today,they must also consider the origin of content to determine how it should be interpreted.",
+          "type": "textblock",
+          "content": [
+            112,
+            113,
+            114,
+            115,
+            116,
+            117,
+            118
+          ]
+        },
+        {
+          "sub_type": "text",
+          "text": "78,tools designed toidentify Al-written content-by examining characteristics suchas sentence predictability,structure,and language pattems-have come into being. These tools help maintain trustworthiness for the press,support academic79   for educational world,and offer a way to better understand what is shaping the information they consume.",
+          "type": "textblock",
+          "content": [
+            119,
+            120,
+            121,
+            122,
+            123,
+            124
+          ],
+          "id": 24,
+          "origin_position": [
+            462,
+            976,
+            473,
+            1636,
+            392,
+            1638,
+            380,
+            977
+          ],
+          "outline_level": -1,
+          "pos": [
+            850,
+            753,
+            1531,
+            753,
+            1531,
+            836,
+            850,
+            836
+          ]
+        },
+        {
+          "pos": [
+            850,
+            844,
+            1531,
+            844,
+            1531,
+            927,
+            850,
+            927
+          ],
+          "sub_type": "text",
+          "text": "The internet has always evolved80   with technology.Historically,Search engines changed how people find information, social media changed how they share it. And now,with AI rewriting the rules of content creation,the Internet's newest question may be simple, but it carries lasting significance:who actually wrote what you're reading?",
+          "type": "textblock",
+          "content": [
+            125,
+            126,
+            127,
+            128,
+            129
+          ],
+          "id": 26,
+          "origin_position": [
+            372,
+            977,
+            384,
+            1639,
+            303,
+            1641,
+            289,
+            978
+          ],
+          "outline_level": -1
+        },
+        {
+          "outline_level": -1,
+          "pos": [
+            850,
+            930,
+            960,
+            930,
+            960,
+            954,
+            850,
+            954
+          ],
+          "sub_type": "text",
+          "text": "66.A.expands",
+          "type": "textblock",
+          "content": [
+            130
+          ],
+          "id": 27,
+          "origin_position": [
+            286,
+            978,
+            288,
+            1086,
+            264,
+            1087,
+            262,
+            978
+          ]
+        },
+        {
+          "sub_type": "text",
+          "text": "B.endures",
+          "type": "textblock",
+          "content": [
+            131
+          ],
+          "id": 29,
+          "origin_position": [
+            285,
+            1174,
+            287,
+            1248,
+            273,
+            1249,
+            271,
+            1174
+          ],
+          "outline_level": -1,
+          "pos": [
+            1049,
+            935,
+            1125,
+            935,
+            1125,
+            949,
+            1049,
+            949
+          ]
+        },
+        {
+          "outline_level": -1,
+          "pos": [
+            1210,
+            935,
+            1291,
+            935,
+            1291,
+            951,
+            1210,
+            951
+          ],
+          "sub_type": "text",
+          "text": "C.emerges",
+          "type": "textblock",
+          "content": [
+            132
+          ],
+          "id": 30,
+          "origin_position": [
+            289,
+            1331,
+            290,
+            1410,
+            274,
+            1410,
+            273,
+            1332
+          ]
+        },
+        {
+          "type": "textblock",
+          "content": [
+            133
+          ],
+          "id": 28,
+          "origin_position": [
+            292,
+            1491,
+            293,
+            1549,
+            279,
+            1550,
+            278,
+            1492
+          ],
+          "outline_level": -1,
+          "pos": [
+            1375,
+            935,
+            1435,
+            935,
+            1435,
+            949,
+            1375,
+            949
+          ],
+          "sub_type": "text",
+          "text": "D.fades"
+        },
+        {
+          "content": [
+            134,
+            135
+          ],
+          "id": 31,
+          "origin_position": [
+            265,
+            967,
+            267,
+            1076,
+            240,
+            1076,
+            238,
+            968
+          ],
+          "outline_level": -1,
+          "pos": [
+            839,
+            951,
+            949,
+            951,
+            949,
+            978,
+            839,
+            978
+          ],
+          "sub_type": "text",
+          "text": "B67.A.keenly",
+          "type": "textblock"
+        },
+        {
+          "pos": [
+            1048,
+            954,
+            1120,
+            954,
+            1120,
+            977,
+            1048,
+            977
+          ],
+          "sub_type": "text",
+          "text": "B.quietly",
+          "type": "textblock",
+          "content": [
+            136
+          ],
+          "id": 33,
+          "origin_position": [
+            266,
+            1173,
+            268,
+            1244,
+            245,
+            1244,
+            243,
+            1174
+          ],
+          "outline_level": -1
+        },
+        {
+          "sub_type": "text",
+          "text": "C.inevitably",
+          "type": "textblock",
+          "content": [
+            137
+          ],
+          "id": 34,
+          "origin_position": [
+            266,
+            1332,
+            268,
+            1421,
+            253,
+            1422,
+            251,
+            1332
+          ],
+          "outline_level": -1,
+          "pos": [
+            1210,
+            958,
+            1302,
+            958,
+            1302,
+            973,
+            1210,
+            973
+          ]
+        },
+        {
+          "id": 35,
+          "origin_position": [
+            268,
+            1493,
+            270,
+            1571,
+            254,
+            1572,
+            252,
+            1493
+          ],
+          "outline_level": -1,
+          "pos": [
+            1376,
+            959,
+            1457,
+            959,
+            1457,
+            975,
+            1376,
+            975
+          ],
+          "sub_type": "text",
+          "text": "D.properly",
+          "type": "textblock",
+          "content": [
+            138
+          ]
+        },
+        {
+          "id": 38,
+          "origin_position": [
+            236,
+            976,
+            238,
+            1084,
+            224,
+            1084,
+            222,
+            976
+          ],
+          "outline_level": -1,
+          "pos": [
+            847,
+            980,
+            957,
+            980,
+            957,
+            994,
+            847,
+            994
+          ],
+          "sub_type": "text",
+          "text": "68.A.absence",
+          "type": "textblock",
+          "content": [
+            139
+          ]
+        },
+        {
+          "outline_level": -1,
+          "pos": [
+            1051,
+            981,
+            1166,
+            981,
+            1166,
+            994,
+            1051,
+            994
+          ],
+          "sub_type": "text",
+          "text": "B.representation",
+          "type": "textblock",
+          "content": [
+            140
+          ],
+          "id": 37,
+          "origin_position": [
+            239,
+            1177,
+            242,
+            1289,
+            229,
+            1290,
+            226,
+            1177
+          ]
+        },
+        {
+          "sub_type": "text",
+          "text": "C.disturbance",
+          "type": "textblock",
+          "content": [
+            141
+          ],
+          "id": 36,
+          "origin_position": [
+            243,
+            1333,
+            245,
+            1432,
+            232,
+            1432,
+            230,
+            1334
+          ],
+          "outline_level": -1,
+          "pos": [
+            1211,
+            981,
+            1312,
+            981,
+            1312,
+            994,
+            1211,
+            994
+          ]
+        },
+        {
+          "sub_type": "text",
+          "text": "D.supply",
+          "type": "textblock",
+          "content": [
+            142
+          ],
+          "id": 39,
+          "origin_position": [
+            245,
+            1494,
+            247,
+            1561,
+            233,
+            1562,
+            232,
+            1494
+          ],
+          "outline_level": -1,
+          "pos": [
+            1376,
+            982,
+            1446,
+            982,
+            1446,
+            996,
+            1376,
+            996
+          ]
+        },
+        {
+          "id": 43,
+          "origin_position": [
+            218,
+            981,
+            220,
+            1080,
+            196,
+            1080,
+            194,
+            981
+          ],
+          "outline_level": -1,
+          "pos": [
+            852,
+            998,
+            952,
+            998,
+            952,
+            1022,
+            852,
+            1022
+          ],
+          "sub_type": "text",
+          "text": "69.A.natural",
+          "type": "textblock",
+          "content": [
+            143
+          ]
+        },
+        {
+          "origin_position": [
+            218,
+            1177,
+            221,
+            1272,
+            207,
+            1273,
+            204,
+            1177
+          ],
+          "outline_level": -1,
+          "pos": [
+            1051,
+            1002,
+            1148,
+            1002,
+            1148,
+            1016,
+            1051,
+            1016
+          ],
+          "sub_type": "text",
+          "text": "B.mechanical",
+          "type": "textblock",
+          "content": [
+            144
+          ],
+          "id": 42
+        },
+        {
+          "pos": [
+            1210,
+            1001,
+            1280,
+            1003,
+            1280,
+            1018,
+            1211,
+            1015
+          ],
+          "sub_type": "text",
+          "text": "C.formal",
+          "type": "textblock",
+          "content": [
+            145
+          ],
+          "id": 41,
+          "origin_position": [
+            223,
+            1333,
+            222,
+            1401,
+            208,
+            1401,
+            209,
+            1334
+          ],
+          "outline_level": -1
+        },
+        {
+          "type": "textblock",
+          "content": [
+            146
+          ],
+          "id": 44,
+          "origin_position": [
+            224,
+            1494,
+            225,
+            1569,
+            212,
+            1569,
+            211,
+            1495
+          ],
+          "outline_level": -1,
+          "pos": [
+            1376,
+            1004,
+            1453,
+            1004,
+            1453,
+            1017,
+            1376,
+            1017
+          ],
+          "sub_type": "text",
+          "text": "D.shallow"
+        },
+        {
+          "id": 49,
+          "origin_position": [
+            194,
+            967,
+            197,
+            1119,
+            165,
+            1120,
+            161,
+            967
+          ],
+          "outline_level": -1,
+          "pos": [
+            838,
+            1022,
+            992,
+            1022,
+            992,
+            1054,
+            838,
+            1054
+          ],
+          "sub_type": "text",
+          "text": "170.A.requirements",
+          "type": "textblock",
+          "content": [
+            147,
+            148
+          ]
+        },
+        {
+          "pos": [
+            1051,
+            1025,
+            1143,
+            1025,
+            1143,
+            1038,
+            1051,
+            1038
+          ],
+          "sub_type": "text",
+          "text": "B.limitations",
+          "type": "textblock",
+          "content": [
+            149
+          ],
+          "id": 46,
+          "origin_position": [
+            195,
+            1178,
+            198,
+            1268,
+            185,
+            1268,
+            182,
+            1178
+          ],
+          "outline_level": -1
+        },
+        {
+          "content": [
+            150
+          ],
+          "id": 47,
+          "origin_position": [
+            199,
+            1335,
+            198,
+            1409,
+            185,
+            1410,
+            186,
+            1336
+          ],
+          "outline_level": -1,
+          "pos": [
+            1212,
+            1025,
+            1288,
+            1028,
+            1288,
+            1041,
+            1212,
+            1038
+          ],
+          "sub_type": "text",
+          "text": "C.features",
+          "type": "textblock"
+        },
+        {
+          "id": 48,
+          "origin_position": [
+            202,
+            1496,
+            202,
+            1592,
+            188,
+            1592,
+            188,
+            1497
+          ],
+          "outline_level": -1,
+          "pos": [
+            1377,
+            1026,
+            1476,
+            1028,
+            1476,
+            1042,
+            1378,
+            1040
+          ],
+          "sub_type": "text",
+          "text": "D.advantages",
+          "type": "textblock",
+          "content": [
+            151
+          ]
+        },
+        {
+          "pos": [
+            852,
+            1045,
+            1148,
+            1045,
+            1148,
+            1063,
+            852,
+            1063
+          ],
+          "sub_type": "text",
+          "text": "2025-2026学年度第二学期高一英语期中考试卷",
+          "type": "textblock",
+          "content": [
+            152
+          ],
+          "id": 52,
+          "origin_position": [
+            171,
+            981,
+            178,
+            1273,
+            160,
+            1273,
+            153,
+            981
+          ],
+          "outline_level": -1
+        },
+        {
+          "origin_position": [
+            148,
+            176,
+            155,
+            476,
+            140,
+            476,
+            132,
+            176
+          ],
+          "pos": [
+            56,
+            1049,
+            349,
+            1049,
+            349,
+            1064,
+            56,
+            1064
+          ],
+          "type": "footer",
+          "blocks": [
+            {
+              "outline_level": -1,
+              "pos": [
+                56,
+                1049,
+                349,
+                1049,
+                349,
+                1064,
+                56,
+                1064
+              ],
+              "sub_type": "text",
+              "text": "2025-2026学年度第二学期高一英语期中考试卷",
+              "type": "textblock",
+              "content": [
+                153
+              ],
+              "id": 55,
+              "origin_position": [
+                148,
+                176,
+                155,
+                476,
+                140,
+                476,
+                132,
+                176
+              ]
+            }
+          ]
+        },
+        {
+          "blocks": [
+            {
+              "id": 53,
+              "origin_position": [
+                161,
+                739,
+                163,
+                835,
+                148,
+                835,
+                146,
+                739
+              ],
+              "outline_level": -1,
+              "pos": [
+                609,
+                1049,
+                705,
+                1049,
+                705,
+                1064,
+                609,
+                1064
+              ],
+              "sub_type": "text",
+              "text": "第5页 共12页",
+              "type": "textblock",
+              "content": [
+                154
+              ]
+            }
+          ],
+          "origin_position": [
+            161,
+            739,
+            163,
+            835,
+            148,
+            835,
+            146,
+            739
+          ],
+          "pos": [
+            609,
+            1049,
+            705,
+            1049,
+            705,
+            1064,
+            609,
+            1064
+          ],
+          "type": "footer"
+        },
+        {
+          "blocks": [
+            {
+              "type": "textblock",
+              "content": [
+                155
+              ],
+              "id": 56,
+              "origin_position": [
+                180,
+                1528,
+                182,
+                1624,
+                166,
+                1625,
+                164,
+                1529
+              ],
+              "outline_level": -1,
+              "pos": [
+                1410,
+                1049,
+                1509,
+                1049,
+                1509,
+                1065,
+                1410,
+                1065
+              ],
+              "sub_type": "text",
+              "text": "第6页 共12页"
+            }
+          ],
+          "origin_position": [
+            180,
+            1528,
+            182,
+            1624,
+            166,
+            1625,
+            164,
+            1529
+          ],
+          "pos": [
+            1410,
+            1049,
+            1509,
+            1049,
+            1509,
+            1065,
+            1410,
+            1065
+          ],
+          "type": "footer"
+        }
+      ],
+      "width": 1128
+    }
+  ],
+  "success_count": 1,
+  "total_count": 1,
+  "total_page_number": 1,
+  "valid_page_number": 1,
+  "detail": [
+    {
+      "content": 0,
+      "origin_position": [
+        1129,
+        186,
+        1130,
+        853,
+        1089,
+        853,
+        1087,
+        185
+      ],
+      "page_id": 1,
+      "paragraph_id": 0,
+      "sub_type": "text",
+      "tags": [
+        "handwritten"
+      ],
+      "text": "F52 by a later study devoting nearly 400 pages to the language of time in Hopi,which included concepts such as\"today\",\"January\"and so on.",
+      "type": "paragraph",
+      "outline_level": -1,
+      "position": [
+        51,
+        62,
+        730,
+        62,
+        730,
+        106,
+        51,
+        106
+      ]
+    },
+    {
+      "tags": [
+        "handwritten"
+      ],
+      "content": 0,
+      "page_id": 1,
+      "position": [
+        646,
+        93,
+        699,
+        90,
+        702,
+        132,
+        649,
+        135
+      ],
+      "sub_type": "text",
+      "text": "了（5",
+      "type": "paragraph",
+      "origin_position": [
+        1101,
+        772,
+        1104,
+        823,
+        1064,
+        826,
+        1061,
+        775
+      ],
+      "outline_level": -1,
+      "paragraph_id": 1
+    },
+    {
+      "content": 0,
+      "outline_level": -1,
+      "page_id": 1,
+      "position": [
+        51,
+        109,
+        731,
+        109,
+        731,
+        256,
+        51,
+        256
+      ],
+      "sub_type": "text",
+      "tags": [
+        "handwritten"
+      ],
+      "text": "There is truth in both perspectives. At least some aspects of human languages must be or nearly so, since they are all used by members of the same human species,with the same sorts of brains and patterns of communication. Yet recent increases in understanding of the world's Indigenous（本土的）languages have taught us two important additional lessons.First,there is far more 54Eamong the world's languages than previously believed.Second,differences are often related to the patterns of culture and environment in which languages are 55 spoken.",
+      "type": "paragraph",
+      "origin_position": [
+        1084,
+        185,
+        1086,
+        854,
+        945,
+        855,
+        941,
+        183
+      ],
+      "paragraph_id": 2
+    },
+    {
+      "position": [
+        54,
+        250,
+        734,
+        250,
+        734,
+        346,
+        54,
+        346
+      ],
+      "sub_type": "text",
+      "tags": [],
+      "type": "paragraph",
+      "origin_position": [
+        947,
+        186,
+        951,
+        858,
+        859,
+        859,
+        853,
+        185
+      ],
+      "text": "For example,in many Himalayan languages,an expression like \"that house\"comes in three flavors: \"that-house-upward\",\"that-house-downward\"and\"that-house-on-the-same-level\"-a reflection of the mountainous area where these speakers live in. When their speakers migrate to lower-elevation regions, the system may shift from \"upward/downward\" to \"upriver/downriver”.",
+      "content": 0,
+      "outline_level": -1,
+      "page_id": 1,
+      "paragraph_id": 3
+    },
+    {
+      "content": 0,
+      "origin_position": [
+        832,
+        510,
+        832,
+        536,
+        819,
+        536,
+        819,
+        510
+      ],
+      "outline_level": 0,
+      "position": [
+        380,
+        371,
+        406,
+        371,
+        406,
+        384,
+        380,
+        384
+      ],
+      "sub_type": "text_title",
+      "tags": [],
+      "type": "paragraph",
+      "page_id": 1,
+      "paragraph_id": 4,
+      "text": "(B)"
+    },
+    {
+      "outline_level": -1,
+      "paragraph_id": 5,
+      "position": [
+        58,
+        387,
+        722,
+        388,
+        721,
+        459,
+        57,
+        460
+      ],
+      "text": "<table border=\"1\" ><tr>\n<td>A.disciplines B.focused compatible maintain E.relatively<br>F economics nominated H.leamnable specialize negatively<br>K.comparable</td>\n</tr></table>",
+      "type": "table",
+      "cells": [
+        {
+          "col": 0,
+          "col_span": 1,
+          "origin_position": [
+            813,
+            188,
+            819,
+            843,
+            751,
+            844,
+            744,
+            187
+          ],
+          "page_id": 1,
+          "position": [
+            58,
+            387,
+            718,
+            387,
+            718,
+            457,
+            58,
+            457
+          ],
+          "row": 0,
+          "row_span": 1,
+          "text": "A.disciplines B.focused compatible maintain E.relatively<br>F economics nominated H.leamnable specialize negatively<br>K.comparable",
+          "type": "cell"
+        }
+      ],
+      "content": 0,
+      "origin_position": [
+        813,
+        188,
+        818,
+        847,
+        749,
+        847,
+        741,
+        186
+      ],
+      "page_id": 1,
+      "sub_type": "bordered"
+    },
+    {
+      "outline_level": -1,
+      "page_id": 1,
+      "position": [
+        54,
+        458,
+        730,
+        458,
+        730,
+        556,
+        54,
+        556
+      ],
+      "tags": [
+        "handwritten"
+      ],
+      "text": "In every field,elite youth performers and elite adults were almost entirely separate groups.Around 90% of superstar adults had not been superstars as children, while only 10% of top-level kids had gone on to become exceptional adults. It is not just that exceptional performance in childhood did not predict exceptional performance as an adult. The two were actually了56 correlated,says Dr Güllich.",
+      "type": "paragraph",
+      "content": 0,
+      "origin_position": [
+        743,
+        183,
+        750,
+        856,
+        654,
+        856,
+        646,
+        182
+      ],
+      "paragraph_id": 6,
+      "sub_type": "text"
+    },
+    {
+      "content": 0,
+      "origin_position": [
+        653,
+        182,
+        661,
+        856,
+        543,
+        857,
+        533,
+        180
+      ],
+      "outline_level": -1,
+      "paragraph_id": 7,
+      "text": "The adult superstars also had a different approach to their fields from that of the child prodigies （神童）in that they seemed to 57Dinterests besides the one in which they eventually became elite.The best sportsmen and women tended to have played several sports at a(n)E58 high level. Their performancein the sport they played lagged behind that of their more 359HBpeers when they were young.But when they did60 B,their progress was much quicker.",
+      "type": "paragraph",
+      "page_id": 1,
+      "position": [
+        54,
+        549,
+        730,
+        549,
+        730,
+        669,
+        54,
+        669
+      ],
+      "sub_type": "text",
+      "tags": [
+        "handwritten"
+      ]
+    },
+    {
+      "origin_position": [
+        541,
+        178,
+        551,
+        857,
+        415,
+        858,
+        402,
+        176
+      ],
+      "outline_level": -1,
+      "position": [
+        52,
+        661,
+        730,
+        661,
+        730,
+        799,
+        52,
+        799
+      ],
+      "text": "The same was true in otherI61 .Nobel-prizewinning scientists were less likely to have won academic scholarships than those G.62 for a Nobel who did not win. They also took longer to reach senior academic positions and had less impressive early publication records. Why so many exceptional performers show the same pattern of later flowering is hard to answer.The researchers consulted the literature on excellence for theories of how it arises, but none seemed with their data. Instead,they offer assumptions of their own. K63",
+      "content": 0,
+      "page_id": 1,
+      "paragraph_id": 8,
+      "sub_type": "text",
+      "tags": [
+        "handwritten"
+      ],
+      "type": "paragraph"
+    },
+    {
+      "outline_level": -1,
+      "paragraph_id": 9,
+      "position": [
+        53,
+        805,
+        731,
+        805,
+        731,
+        964,
+        53,
+        964
+      ],
+      "sub_type": "text",
+      "tags": [],
+      "text": "One is\"search and match\", an idea derived from labour-market 64 .This holds that having a broad range of interests and waiting before choosing offers a better chance of finding the field best suited to your talents. The young Rafael Nadal-another all-time-great tennis player-experimented with a career in football before opting for tennis. A second is \"enhanced learning\",the idea that learning is itself a(n)65 skill,and that a good way to develop it is to pursue a variety of things. The last is the limited-risk hypothesis that avoiding the hothouse（高强度环境）may stop youngsters from burning out after spending years pursuing it to the exclusion of all else.",
+      "type": "paragraph",
+      "content": 0,
+      "origin_position": [
+        396,
+        177,
+        409,
+        859,
+        250,
+        860,
+        235,
+        174
+      ],
+      "page_id": 1
+    },
+    {
+      "content": 0,
+      "origin_position": [
+        301,
+        946,
+        301,
+        963,
+        273,
+        963,
+        273,
+        946
+      ],
+      "page_id": 1,
+      "paragraph_id": 25,
+      "position": [
+        818,
+        915,
+        835,
+        915,
+        835,
+        943,
+        818,
+        943
+      ],
+      "sub_type": "text",
+      "type": "paragraph",
+      "outline_level": -1,
+      "tags": [
+        "handwritten"
+      ],
+      "text": "B"
+    },
+    {
+      "tags": [],
+      "text": "The researchers hope to extend their analysis to more fields such as business and art.",
+      "content": 0,
+      "origin_position": [
+        236,
+        208,
+        248,
+        776,
+        224,
+        776,
+        211,
+        208
+      ],
+      "outline_level": -1,
+      "page_id": 1,
+      "paragraph_id": 10,
+      "position": [
+        86,
+        964,
+        647,
+        964,
+        647,
+        988,
+        86,
+        988
+      ],
+      "sub_type": "text",
+      "type": "paragraph"
+    },
+    {
+      "tags": [
+        "handwritten"
+      ],
+      "text": "原",
+      "paragraph_id": 40,
+      "position": [
+        823,
+        976,
+        856,
+        971,
+        864,
+        1023,
+        831,
+        1028
+      ],
+      "sub_type": "text",
+      "type": "paragraph",
+      "content": 0,
+      "origin_position": [
+        240,
+        952,
+        245,
+        984,
+        193,
+        993,
+        187,
+        960
+      ],
+      "outline_level": -1,
+      "page_id": 1
+    },
+    {
+      "outline_level": 0,
+      "page_id": 1,
+      "paragraph_id": 11,
+      "sub_type": "text_title",
+      "tags": [
+        "formula"
+      ],
+      "text": "III.Reading Comprehension $(15^{\\prime }+30^{\\prime }=45^{\\prime })$ ",
+      "type": "paragraph",
+      "content": 0,
+      "origin_position": [
+        1128,
+        972,
+        1128,
+        1267,
+        1103,
+        1267,
+        1102,
+        972
+      ],
+      "position": [
+        853,
+        65,
+        1162,
+        65,
+        1162,
+        92,
+        853,
+        92
+      ]
+    },
+    {
+      "paragraph_id": 12,
+      "position": [
+        855,
+        95,
+        927,
+        95,
+        927,
+        107,
+        855,
+        107
+      ],
+      "sub_type": "text_title",
+      "tags": [],
+      "text": "Section A",
+      "type": "paragraph",
+      "content": 0,
+      "outline_level": 1,
+      "origin_position": [
+        1099,
+        974,
+        1099,
+        1043,
+        1088,
+        1043,
+        1088,
+        974
+      ],
+      "page_id": 1
+    },
+    {
+      "sub_type": "text",
+      "tags": [],
+      "type": "paragraph",
+      "content": 0,
+      "page_id": 1,
+      "paragraph_id": 13,
+      "text": "**Directions**:For each blank in the following passage there are four words or phrases marked A, B,C and D. Fill in each blank with the word or phrase that best fits the context.",
+      "origin_position": [
+        1078,
+        972,
+        1080,
+        1607,
+        1041,
+        1608,
+        1038,
+        973
+      ],
+      "outline_level": -1,
+      "position": [
+        853,
+        117,
+        1521,
+        117,
+        1521,
+        159,
+        853,
+        159
+      ]
+    },
+    {
+      "origin_position": [
+        1014,
+        1155,
+        1016,
+        1450,
+        1001,
+        1450,
+        999,
+        1155
+      ],
+      "page_id": 1,
+      "paragraph_id": 14,
+      "text": "Who Actually WVrote What You're Reading?",
+      "type": "paragraph",
+      "content": 0,
+      "outline_level": 2,
+      "position": [
+        1042,
+        185,
+        1352,
+        185,
+        1352,
+        201,
+        1042,
+        201
+      ],
+      "sub_type": "text_title",
+      "tags": []
+    },
+    {
+      "tags": [],
+      "text": "For decades,readers rarely questioned the authorship of what they encountered online.Today,that certainty66.Artificial intelligence has become capable of producing convincing content at extraordinary speed.",
+      "origin_position": [
+        992,
+        973,
+        995,
+        1614,
+        938,
+        1616,
+        934,
+        974
+      ],
+      "outline_level": -1,
+      "page_id": 1,
+      "type": "paragraph",
+      "content": 0,
+      "paragraph_id": 18,
+      "position": [
+        853,
+        208,
+        1526,
+        208,
+        1526,
+        268,
+        853,
+        268
+      ],
+      "sub_type": "text"
+    },
+    {
+      "content": 0,
+      "page_id": 1,
+      "position": [
+        852,
+        272,
+        1526,
+        272,
+        1526,
+        358,
+        852,
+        358
+      ],
+      "sub_type": "text",
+      "tags": [],
+      "type": "paragraph",
+      "origin_position": [
+        931,
+        973,
+        934,
+        1616,
+        853,
+        1619,
+        848,
+        974
+      ],
+      "outline_level": -1,
+      "paragraph_id": 19,
+      "text": "This change hasn't arrived with a dramatic announcement.Instead,it has67integrated into everyday digital life.Al-generated text seems polished and informative,but in the68 of obvious signs that a machine produced it. Readers and professionals alike are increasingly turning to AI detector tools to better trace the source of what they read."
+    },
+    {
+      "paragraph_id": 20,
+      "position": [
+        852,
+        366,
+        1529,
+        366,
+        1529,
+        470,
+        852,
+        470
+      ],
+      "sub_type": "text",
+      "tags": [],
+      "text": "The most striking part lies in how69modern AI writing sounds.Trained on an enormous database to reproduce tone,structure,and style with impressive accuracy,Al-produced materials appear indistinguishable from humnan-created content.This ability has obvious70.Writers draft content faster,businesses organize information more efficiently.To the great relief of self-taught ones, educational materials can be produced71",
+      "type": "paragraph",
+      "content": 0,
+      "origin_position": [
+        840,
+        974,
+        845,
+        1622,
+        746,
+        1625,
+        739,
+        975
+      ],
+      "outline_level": -1,
+      "page_id": 1
+    },
+    {
+      "sub_type": "text",
+      "type": "paragraph",
+      "content": 0,
+      "origin_position": [
+        735,
+        973,
+        741,
+        1625,
+        677,
+        1627,
+        669,
+        974
+      ],
+      "outline_level": -1,
+      "page_id": 1,
+      "paragraph_id": 21,
+      "position": [
+        850,
+        475,
+        1529,
+        475,
+        1529,
+        542,
+        850,
+        542
+      ],
+      "tags": [],
+      "text": "Yet when both humans and machines can produce equally convincing text,trouble arises. Traditional hints that once72authorship become unreliable.Tone alone no longer reveals whether an article reflects living experience or algorithmic（算法的）prediction."
+    },
+    {
+      "text": "Some may wonder why authorship matters if information itself is useful. The answer is 73and context. Human authors contribute responsibility and expertise. If a claim is challenged,they can explain their reasoning;if an error appears,they have to take the blame.By contrast, Al operates differently: it generates text from data patterns rather than74understanding.A prescription written by a doctor carries more weight than an automatic AI version,as it is rooted in 75knowledge with no context-free generalizations.",
+      "type": "paragraph",
+      "content": 0,
+      "origin_position": [
+        666,
+        974,
+        673,
+        1630,
+        543,
+        1634,
+        533,
+        975
+      ],
+      "outline_level": -1,
+      "page_id": 1,
+      "paragraph_id": 22,
+      "position": [
+        850,
+        546,
+        1532,
+        546,
+        1532,
+        681,
+        850,
+        681
+      ],
+      "sub_type": "text",
+      "tags": []
+    },
+    {
+      "page_id": 1,
+      "sub_type": "text",
+      "tags": [],
+      "origin_position": [
+        529,
+        975,
+        539,
+        1631,
+        479,
+        1633,
+        468,
+        976
+      ],
+      "outline_level": -1,
+      "paragraph_id": 23,
+      "position": [
+        850,
+        685,
+        1528,
+        685,
+        1528,
+        747,
+        850,
+        747
+      ],
+      "text": "Consequently,the rise of Al-generated writing is introducing a new dimension to 76.In the past, readers learned to cross-check facts, spot misinformation or identify 3online. Today,they must also consider the origin of content to determine how it should be interpreted.",
+      "type": "paragraph",
+      "content": 0
+    },
+    {
+      "sub_type": "text",
+      "tags": [],
+      "content": 0,
+      "origin_position": [
+        462,
+        976,
+        473,
+        1636,
+        392,
+        1638,
+        380,
+        977
+      ],
+      "text": "78,tools designed toidentify Al-written content-by examining characteristics suchas sentence predictability,structure,and language pattems-have come into being. These tools help maintain trustworthiness for the press,support academic79 for educational world,and offer a way to better understand what is shaping the information they consume.",
+      "type": "paragraph",
+      "outline_level": -1,
+      "page_id": 1,
+      "paragraph_id": 24,
+      "position": [
+        850,
+        753,
+        1531,
+        753,
+        1531,
+        836,
+        850,
+        836
+      ]
+    },
+    {
+      "content": 0,
+      "paragraph_id": 26,
+      "position": [
+        850,
+        844,
+        1531,
+        844,
+        1531,
+        927,
+        850,
+        927
+      ],
+      "sub_type": "text",
+      "tags": [],
+      "text": "The internet has always evolved80 with technology.Historically,Search engines changed how people find information, social media changed how they share it. And now,with AI rewriting the rules of content creation,the Internet's newest question may be simple, but it carries lasting significance:who actually wrote what you're reading?",
+      "origin_position": [
+        372,
+        977,
+        384,
+        1639,
+        303,
+        1641,
+        289,
+        978
+      ],
+      "outline_level": -1,
+      "page_id": 1,
+      "type": "paragraph"
+    },
+    {
+      "tags": [],
+      "text": "66.A.expands",
+      "content": 0,
+      "paragraph_id": 27,
+      "position": [
+        850,
+        930,
+        960,
+        930,
+        960,
+        954,
+        850,
+        954
+      ],
+      "type": "paragraph",
+      "origin_position": [
+        286,
+        978,
+        288,
+        1086,
+        264,
+        1087,
+        262,
+        978
+      ],
+      "outline_level": -1,
+      "page_id": 1,
+      "sub_type": "text"
+    },
+    {
+      "type": "paragraph",
+      "content": 0,
+      "origin_position": [
+        285,
+        1174,
+        287,
+        1248,
+        273,
+        1249,
+        271,
+        1174
+      ],
+      "paragraph_id": 29,
+      "tags": [],
+      "outline_level": -1,
+      "page_id": 1,
+      "position": [
+        1049,
+        935,
+        1125,
+        935,
+        1125,
+        949,
+        1049,
+        949
+      ],
+      "sub_type": "text",
+      "text": "B.endures"
+    },
+    {
+      "origin_position": [
+        289,
+        1331,
+        290,
+        1410,
+        274,
+        1410,
+        273,
+        1332
+      ],
+      "outline_level": -1,
+      "position": [
+        1210,
+        935,
+        1291,
+        935,
+        1291,
+        951,
+        1210,
+        951
+      ],
+      "sub_type": "text",
+      "text": "C.emerges",
+      "content": 0,
+      "page_id": 1,
+      "paragraph_id": 30,
+      "tags": [],
+      "type": "paragraph"
+    },
+    {
+      "content": 0,
+      "position": [
+        1375,
+        935,
+        1435,
+        935,
+        1435,
+        949,
+        1375,
+        949
+      ],
+      "sub_type": "text",
+      "tags": [],
+      "text": "D.fades",
+      "type": "paragraph",
+      "origin_position": [
+        292,
+        1491,
+        293,
+        1549,
+        279,
+        1550,
+        278,
+        1492
+      ],
+      "outline_level": -1,
+      "page_id": 1,
+      "paragraph_id": 28
+    },
+    {
+      "content": 0,
+      "page_id": 1,
+      "text": "B67.A.keenly",
+      "type": "paragraph",
+      "origin_position": [
+        265,
+        967,
+        267,
+        1076,
+        240,
+        1076,
+        238,
+        968
+      ],
+      "outline_level": -1,
+      "paragraph_id": 31,
+      "position": [
+        839,
+        951,
+        949,
+        951,
+        949,
+        978,
+        839,
+        978
+      ],
+      "sub_type": "text",
+      "tags": [
+        "handwritten"
+      ]
+    },
+    {
+      "origin_position": [
+        266,
+        1173,
+        268,
+        1244,
+        245,
+        1244,
+        243,
+        1174
+      ],
+      "outline_level": -1,
+      "paragraph_id": 33,
+      "text": "B.quietly",
+      "type": "paragraph",
+      "page_id": 1,
+      "position": [
+        1048,
+        954,
+        1120,
+        954,
+        1120,
+        977,
+        1048,
+        977
+      ],
+      "sub_type": "text",
+      "tags": [],
+      "content": 0
+    },
+    {
+      "tags": [],
+      "text": "C.inevitably",
+      "outline_level": -1,
+      "page_id": 1,
+      "position": [
+        1210,
+        958,
+        1302,
+        958,
+        1302,
+        973,
+        1210,
+        973
+      ],
+      "sub_type": "text",
+      "type": "paragraph",
+      "content": 0,
+      "origin_position": [
+        266,
+        1332,
+        268,
+        1421,
+        253,
+        1422,
+        251,
+        1332
+      ],
+      "paragraph_id": 34
+    },
+    {
+      "sub_type": "text",
+      "text": "D.properly",
+      "type": "paragraph",
+      "page_id": 1,
+      "paragraph_id": 35,
+      "position": [
+        1376,
+        959,
+        1457,
+        959,
+        1457,
+        975,
+        1376,
+        975
+      ],
+      "tags": [],
+      "content": 0,
+      "origin_position": [
+        268,
+        1493,
+        270,
+        1571,
+        254,
+        1572,
+        252,
+        1493
+      ],
+      "outline_level": -1
+    },
+    {
+      "text": "68.A.absence",
+      "outline_level": -1,
+      "page_id": 1,
+      "type": "paragraph",
+      "content": 0,
+      "origin_position": [
+        236,
+        976,
+        238,
+        1084,
+        224,
+        1084,
+        222,
+        976
+      ],
+      "paragraph_id": 38,
+      "position": [
+        847,
+        980,
+        957,
+        980,
+        957,
+        994,
+        847,
+        994
+      ],
+      "sub_type": "text",
+      "tags": []
+    },
+    {
+      "sub_type": "text",
+      "content": 0,
+      "origin_position": [
+        239,
+        1177,
+        242,
+        1289,
+        229,
+        1290,
+        226,
+        1177
+      ],
+      "outline_level": -1,
+      "tags": [],
+      "text": "B.representation",
+      "type": "paragraph",
+      "page_id": 1,
+      "paragraph_id": 37,
+      "position": [
+        1051,
+        981,
+        1166,
+        981,
+        1166,
+        994,
+        1051,
+        994
+      ]
+    },
+    {
+      "page_id": 1,
+      "tags": [],
+      "text": "C.disturbance",
+      "origin_position": [
+        243,
+        1333,
+        245,
+        1432,
+        232,
+        1432,
+        230,
+        1334
+      ],
+      "paragraph_id": 36,
+      "position": [
+        1211,
+        981,
+        1312,
+        981,
+        1312,
+        994,
+        1211,
+        994
+      ],
+      "sub_type": "text",
+      "type": "paragraph",
+      "content": 0,
+      "outline_level": -1
+    },
+    {
+      "content": 0,
+      "origin_position": [
+        245,
+        1494,
+        247,
+        1561,
+        233,
+        1562,
+        232,
+        1494
+      ],
+      "outline_level": -1,
+      "paragraph_id": 39,
+      "sub_type": "text",
+      "tags": [],
+      "text": "D.supply",
+      "page_id": 1,
+      "position": [
+        1376,
+        982,
+        1446,
+        982,
+        1446,
+        996,
+        1376,
+        996
+      ],
+      "type": "paragraph"
+    },
+    {
+      "paragraph_id": 43,
+      "position": [
+        852,
+        998,
+        952,
+        998,
+        952,
+        1022,
+        852,
+        1022
+      ],
+      "sub_type": "text",
+      "text": "69.A.natural",
+      "content": 0,
+      "origin_position": [
+        218,
+        981,
+        220,
+        1080,
+        196,
+        1080,
+        194,
+        981
+      ],
+      "outline_level": -1,
+      "page_id": 1,
+      "tags": [],
+      "type": "paragraph"
+    },
+    {
+      "origin_position": [
+        218,
+        1177,
+        221,
+        1272,
+        207,
+        1273,
+        204,
+        1177
+      ],
+      "page_id": 1,
+      "position": [
+        1051,
+        1002,
+        1148,
+        1002,
+        1148,
+        1016,
+        1051,
+        1016
+      ],
+      "tags": [],
+      "type": "paragraph",
+      "content": 0,
+      "outline_level": -1,
+      "paragraph_id": 42,
+      "sub_type": "text",
+      "text": "B.mechanical"
+    },
+    {
+      "position": [
+        1210,
+        1001,
+        1280,
+        1003,
+        1280,
+        1018,
+        1211,
+        1015
+      ],
+      "tags": [],
+      "text": "C.formal",
+      "type": "paragraph",
+      "content": 0,
+      "paragraph_id": 41,
+      "sub_type": "text",
+      "origin_position": [
+        223,
+        1333,
+        222,
+        1401,
+        208,
+        1401,
+        209,
+        1334
+      ],
+      "outline_level": -1,
+      "page_id": 1
+    },
+    {
+      "position": [
+        1376,
+        1004,
+        1453,
+        1004,
+        1453,
+        1017,
+        1376,
+        1017
+      ],
+      "type": "paragraph",
+      "content": 0,
+      "origin_position": [
+        224,
+        1494,
+        225,
+        1569,
+        212,
+        1569,
+        211,
+        1495
+      ],
+      "outline_level": -1,
+      "page_id": 1,
+      "paragraph_id": 44,
+      "sub_type": "text",
+      "tags": [],
+      "text": "D.shallow"
+    },
+    {
+      "position": [
+        838,
+        1022,
+        992,
+        1022,
+        992,
+        1054,
+        838,
+        1054
+      ],
+      "sub_type": "text",
+      "tags": [
+        "handwritten"
+      ],
+      "type": "paragraph",
+      "page_id": 1,
+      "paragraph_id": 49,
+      "text": "170.A.requirements",
+      "content": 0,
+      "origin_position": [
+        194,
+        967,
+        197,
+        1119,
+        165,
+        1120,
+        161,
+        967
+      ],
+      "outline_level": -1
+    },
+    {
+      "type": "paragraph",
+      "content": 0,
+      "origin_position": [
+        195,
+        1178,
+        198,
+        1268,
+        185,
+        1268,
+        182,
+        1178
+      ],
+      "page_id": 1,
+      "sub_type": "text",
+      "tags": [],
+      "outline_level": -1,
+      "paragraph_id": 46,
+      "position": [
+        1051,
+        1025,
+        1143,
+        1025,
+        1143,
+        1038,
+        1051,
+        1038
+      ],
+      "text": "B.limitations"
+    },
+    {
+      "text": "C.features",
+      "origin_position": [
+        199,
+        1335,
+        198,
+        1409,
+        185,
+        1410,
+        186,
+        1336
+      ],
+      "page_id": 1,
+      "position": [
+        1212,
+        1025,
+        1288,
+        1028,
+        1288,
+        1041,
+        1212,
+        1038
+      ],
+      "sub_type": "text",
+      "tags": [],
+      "type": "paragraph",
+      "content": 0,
+      "outline_level": -1,
+      "paragraph_id": 47
+    },
+    {
+      "page_id": 1,
+      "paragraph_id": 48,
+      "position": [
+        1377,
+        1026,
+        1476,
+        1028,
+        1476,
+        1042,
+        1378,
+        1040
+      ],
+      "sub_type": "text",
+      "tags": [],
+      "type": "paragraph",
+      "origin_position": [
+        202,
+        1496,
+        202,
+        1592,
+        188,
+        1592,
+        188,
+        1497
+      ],
+      "outline_level": -1,
+      "text": "D.advantages",
+      "content": 0
+    },
+    {
+      "text": "2025-2026学年度第二学期高一英语期中考试卷",
+      "content": 0,
+      "origin_position": [
+        171,
+        981,
+        178,
+        1273,
+        160,
+        1273,
+        153,
+        981
+      ],
+      "outline_level": -1,
+      "position": [
+        852,
+        1045,
+        1148,
+        1045,
+        1148,
+        1063,
+        852,
+        1063
+      ],
+      "sub_type": "text",
+      "tags": [],
+      "type": "paragraph",
+      "page_id": 1,
+      "paragraph_id": 52
+    },
+    {
+      "outline_level": -1,
+      "page_id": 1,
+      "paragraph_id": 55,
+      "position": [
+        56,
+        1049,
+        349,
+        1049,
+        349,
+        1064,
+        56,
+        1064
+      ],
+      "sub_type": "footer",
+      "tags": [],
+      "text": "2025-2026学年度第二学期高一英语期中考试卷",
+      "type": "paragraph",
+      "content": 1,
+      "origin_position": [
+        148,
+        176,
+        155,
+        476,
+        140,
+        476,
+        132,
+        176
+      ]
+    },
+    {
+      "position": [
+        609,
+        1049,
+        705,
+        1049,
+        705,
+        1064,
+        609,
+        1064
+      ],
+      "sub_type": "footer",
+      "text": "第5页 共12页",
+      "content": 1,
+      "paragraph_id": 53,
+      "tags": [],
+      "type": "paragraph",
+      "origin_position": [
+        161,
+        739,
+        163,
+        835,
+        148,
+        835,
+        146,
+        739
+      ],
+      "outline_level": -1,
+      "page_id": 1
+    },
+    {
+      "page_id": 1,
+      "paragraph_id": 56,
+      "position": [
+        1410,
+        1049,
+        1509,
+        1049,
+        1509,
+        1065,
+        1410,
+        1065
+      ],
+      "text": "第6页 共12页",
+      "type": "paragraph",
+      "content": 1,
+      "origin_position": [
+        180,
+        1528,
+        182,
+        1624,
+        166,
+        1625,
+        164,
+        1529
+      ],
+      "outline_level": -1,
+      "sub_type": "footer",
+      "tags": []
+    }
+  ],
+  "markdown": "F52 by a later study devoting nearly 400 pages to the language of time in Hopi,which included concepts such as\"today\",\"January\"and so on.\n\n了（5\n\nThere is truth in both perspectives. At least some aspects of human languages must be or nearly so, since they are all used by members of the same human species,with the same sorts of brains and patterns of communication. Yet recent increases in understanding of the world's Indigenous（本土的）languages have taught us two important additional lessons.First,there is far more 54Eamong the world's languages than previously believed.Second,differences are often related to the patterns of culture and environment in which languages are 55 spoken.\n\nFor example,in many Himalayan languages,an expression like \"that house\"comes in three flavors: \"that-house-upward\",\"that-house-downward\"and\"that-house-on-the-same-level\"-a reflection of the mountainous area where these speakers live in. When their speakers migrate to lower-elevation regions, the system may shift from \"upward/downward\" to \"upriver/downriver”.\n\n# (B)\n\n<table border=\"1\" ><tr>\n<td>A.disciplines B.focused compatible maintain E.relatively<br>F economics nominated H.leamnable specialize negatively<br>K.comparable</td>\n</tr></table>\n\nIn every field,elite youth performers and elite adults were almost entirely separate groups.Around 90% of superstar adults had not been superstars as children, while only 10% of top-level kids had gone on to become exceptional adults. It is not just that exceptional performance in childhood did not predict exceptional performance as an adult. The two were actually了56 correlated,says Dr Güllich.\n\nThe adult superstars also had a different approach to their fields from that of the child prodigies （神童）in that they seemed to 57Dinterests besides the one in which they eventually became elite.The best sportsmen and women tended to have played several sports at a(n)E58 high level. Their performancein the sport they played lagged behind that of their more 359HBpeers when they were young.But when they did60 B,their progress was much quicker.\n\nThe same was true in otherI61 .Nobel-prizewinning scientists were less likely to have won academic scholarships than those G.62 for a Nobel who did not win. They also took longer to reach senior academic positions and had less impressive early publication records. Why so many exceptional performers show the same pattern of later flowering is hard to answer.The researchers consulted the literature on excellence for theories of how it arises, but none seemed with their data. Instead,they offer assumptions of their own. K63\n\nOne is\"search and match\", an idea derived from labour-market 64 .This holds that having a broad range of interests and waiting before choosing offers a better chance of finding the field best suited to your talents. The young Rafael Nadal-another all-time-great tennis player-experimented with a career in football before opting for tennis. A second is \"enhanced learning\",the idea that learning is itself a(n)65 skill,and that a good way to develop it is to pursue a variety of things. The last is the limited-risk hypothesis that avoiding the hothouse（高强度环境）may stop youngsters from burning out after spending years pursuing it to the exclusion of all else.\n\nB\n\nThe researchers hope to extend their analysis to more fields such as business and art.\n\n原\n\n# III.Reading Comprehension $(15^{\\prime }+30^{\\prime }=45^{\\prime })$ \n\n## Section A\n\n**Directions**:For each blank in the following passage there are four words or phrases marked A, B,C and D. Fill in each blank with the word or phrase that best fits the context.\n\n### Who Actually WVrote What You're Reading?\n\nFor decades,readers rarely questioned the authorship of what they encountered online.Today,that certainty66.Artificial intelligence has become capable of producing convincing content at extraordinary speed.\n\nThis change hasn't arrived with a dramatic announcement.Instead,it has67integrated into everyday digital life.Al-generated text seems polished and informative,but in the68 of obvious signs that a machine produced it. Readers and professionals alike are increasingly turning to AI detector tools to better trace the source of what they read.\n\nThe most striking part lies in how69modern AI writing sounds.Trained on an enormous database to reproduce tone,structure,and style with impressive accuracy,Al-produced materials appear indistinguishable from humnan-created content.This ability has obvious70.Writers draft content faster,businesses organize information more efficiently.To the great relief of self-taught ones, educational materials can be produced71\n\nYet when both humans and machines can produce equally convincing text,trouble arises. Traditional hints that once72authorship become unreliable.Tone alone no longer reveals whether an article reflects living experience or algorithmic（算法的）prediction.\n\nSome may wonder why authorship matters if information itself is useful. The answer is 73and context. Human authors contribute responsibility and expertise. If a claim is challenged,they can explain their reasoning;if an error appears,they have to take the blame.By contrast, Al operates differently: it generates text from data patterns rather than74understanding.A prescription written by a doctor carries more weight than an automatic AI version,as it is rooted in 75knowledge with no context-free generalizations.\n\nConsequently,the rise of Al-generated writing is introducing a new dimension to 76.In the past, readers learned to cross-check facts, spot misinformation or identify 3online. Today,they must also consider the origin of content to determine how it should be interpreted.\n\n78,tools designed toidentify Al-written content-by examining characteristics suchas sentence predictability,structure,and language pattems-have come into being. These tools help maintain trustworthiness for the press,support academic79 for educational world,and offer a way to better understand what is shaping the information they consume.\n\nThe internet has always evolved80 with technology.Historically,Search engines changed how people find information, social media changed how they share it. And now,with AI rewriting the rules of content creation,the Internet's newest question may be simple, but it carries lasting significance:who actually wrote what you're reading?\n\n66.A.expands\n\nB.endures\n\nC.emerges\n\nD.fades\n\nB67.A.keenly\n\nB.quietly\n\nC.inevitably\n\nD.properly\n\n68.A.absence\n\nB.representation\n\nC.disturbance\n\nD.supply\n\n69.A.natural\n\nB.mechanical\n\nC.formal\n\nD.shallow\n\n170.A.requirements\n\nB.limitations\n\nC.features\n\nD.advantages\n\n2025-2026学年度第二学期高一英语期中考试卷\n\n<!-- 2025-2026学年度第二学期高一英语期中考试卷 -->\n\n<!-- 第5页 共12页 -->\n\n<!-- 第6页 共12页 -->\n\n"
+}

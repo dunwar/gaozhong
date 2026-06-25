@@ -10,13 +10,13 @@
     <div v-else-if="!paper" class="text-center py-16">
       <div class="text-5xl mb-4">📄</div>
       <p class="text-gray-500 mb-4">试卷不存在或无权查看</p>
-      <router-link to="/errors" class="text-blue-600 hover:text-blue-700 font-medium text-sm">← 返回错题本</router-link>
+      <router-link to="/error/list" class="text-blue-600 hover:text-blue-700 font-medium text-sm">← 返回错题本</router-link>
     </div>
 
     <template v-else>
       <!-- 顶部导航 -->
       <div class="flex items-center justify-between mb-6">
-        <button @click="$router.push('/errors')" class="flex items-center gap-1 text-gray-500 hover:text-blue-600 transition-colors text-sm">
+        <button @click="$router.push('/error/list')" class="flex items-center gap-1 text-gray-500 hover:text-blue-600 transition-colors text-sm">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
           返回错题本
         </button>
@@ -53,7 +53,7 @@
       <div v-if="errors.length === 0" class="text-center py-12 bg-white rounded-2xl border border-gray-100">
         <div class="text-5xl mb-4">🎉</div>
         <p class="text-gray-500 text-lg">这张卷子全对，没有错题！</p>
-        <router-link to="/errors" class="inline-block mt-3 text-blue-600 hover:text-blue-700 font-medium text-sm">← 返回错题本</router-link>
+        <router-link to="/error/list" class="inline-block mt-3 text-blue-600 hover:text-blue-700 font-medium text-sm">← 返回错题本</router-link>
       </div>
 
       <div v-else class="space-y-4">
@@ -148,7 +148,7 @@
       <!-- 底部操作 -->
       <div class="flex justify-between items-center mt-8">
         <router-link
-          :to="`/paper/${paper.id}/review`"
+          :to="`/review/${paper.id}`"
           class="px-4 py-2 bg-amber-50 text-amber-700 border border-amber-200 rounded-lg hover:bg-amber-100 text-sm font-medium transition-colors"
         >
           🔍 复核试卷

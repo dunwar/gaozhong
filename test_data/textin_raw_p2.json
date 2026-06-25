@@ -1,0 +1,7985 @@
+{
+  "valid_page_number": 1,
+  "detail": [
+    {
+      "text": "ルけが",
+      "type": "paragraph",
+      "origin_position": [
+        1119,
+        149,
+        1119,
+        190,
+        1017,
+        192,
+        1016,
+        151
+      ],
+      "paragraph_id": 10,
+      "sub_type": "text",
+      "tags": [
+        "handwritten"
+      ],
+      "content": 0,
+      "outline_level": -1,
+      "page_id": 1,
+      "position": [
+        22,
+        50,
+        63,
+        49,
+        67,
+        153,
+        26,
+        154
+      ]
+    },
+    {
+      "origin_position": [
+        1104,
+        187,
+        1103,
+        268,
+        1090,
+        268,
+        1090,
+        187
+      ],
+      "outline_level": -1,
+      "page_id": 1,
+      "position": [
+        60,
+        65,
+        142,
+        65,
+        142,
+        79,
+        60,
+        79
+      ],
+      "type": "paragraph",
+      "content": 0,
+      "paragraph_id": 1,
+      "sub_type": "text",
+      "tags": [],
+      "text": "1.A.at ease"
+    },
+    {
+      "content": 0,
+      "page_id": 1,
+      "paragraph_id": 2,
+      "position": [
+        240,
+        68,
+        307,
+        68,
+        307,
+        81,
+        240,
+        81
+      ],
+      "sub_type": "text",
+      "tags": [],
+      "text": "B.at scale",
+      "type": "paragraph",
+      "origin_position": [
+        1100,
+        366,
+        1099,
+        432,
+        1087,
+        432,
+        1087,
+        365
+      ],
+      "outline_level": -1
+    },
+    {
+      "outline_level": -1,
+      "position": [
+        392,
+        69,
+        470,
+        69,
+        470,
+        81,
+        392,
+        81
+      ],
+      "sub_type": "text",
+      "text": "C.at leisure",
+      "type": "paragraph",
+      "content": 0,
+      "origin_position": [
+        1098,
+        516,
+        1097,
+        592,
+        1086,
+        592,
+        1086,
+        515
+      ],
+      "page_id": 1,
+      "paragraph_id": 4,
+      "tags": []
+    },
+    {
+      "origin_position": [
+        1098,
+        666,
+        1097,
+        750,
+        1085,
+        750,
+        1085,
+        666
+      ],
+      "outline_level": -1,
+      "paragraph_id": 3,
+      "position": [
+        545,
+        68,
+        631,
+        68,
+        631,
+        81,
+        545,
+        81
+      ],
+      "sub_type": "text",
+      "text": "D.at random",
+      "type": "paragraph",
+      "content": 0,
+      "page_id": 1,
+      "tags": []
+    },
+    {
+      "outline_level": -1,
+      "page_id": 1,
+      "paragraph_id": 61,
+      "sub_type": "text",
+      "text": "C",
+      "type": "paragraph",
+      "content": 0,
+      "origin_position": [
+        1126,
+        885,
+        1125,
+        909,
+        1085,
+        909,
+        1085,
+        885
+      ],
+      "position": [
+        770,
+        38,
+        795,
+        38,
+        795,
+        80,
+        770,
+        80
+      ],
+      "tags": [
+        "handwritten"
+      ]
+    },
+    {
+      "position": [
+        57,
+        83,
+        152,
+        85,
+        152,
+        107,
+        57,
+        105
+      ],
+      "sub_type": "text",
+      "tags": [],
+      "text": "2.A.targeted",
+      "type": "paragraph",
+      "content": 0,
+      "outline_level": -1,
+      "origin_position": [
+        1086,
+        183,
+        1084,
+        278,
+        1062,
+        278,
+        1064,
+        183
+      ],
+      "page_id": 1,
+      "paragraph_id": 5
+    },
+    {
+      "origin_position": [
+        1078,
+        365,
+        1078,
+        453,
+        1066,
+        453,
+        1066,
+        365
+      ],
+      "outline_level": -1,
+      "paragraph_id": 8,
+      "type": "paragraph",
+      "page_id": 1,
+      "position": [
+        240,
+        90,
+        329,
+        90,
+        329,
+        102,
+        240,
+        102
+      ],
+      "sub_type": "text",
+      "tags": [],
+      "text": "B.recognized",
+      "content": 0
+    },
+    {
+      "content": 0,
+      "origin_position": [
+        1077,
+        515,
+        1077,
+        591,
+        1065,
+        591,
+        1066,
+        515
+      ],
+      "page_id": 1,
+      "type": "paragraph",
+      "outline_level": -1,
+      "paragraph_id": 6,
+      "position": [
+        392,
+        90,
+        469,
+        90,
+        469,
+        102,
+        392,
+        102
+      ],
+      "sub_type": "text",
+      "tags": [],
+      "text": "C.analyzed"
+    },
+    {
+      "position": [
+        546,
+        90,
+        621,
+        90,
+        621,
+        105,
+        546,
+        105
+      ],
+      "type": "paragraph",
+      "content": 0,
+      "origin_position": [
+        1076,
+        666,
+        1076,
+        740,
+        1061,
+        740,
+        1062,
+        666
+      ],
+      "paragraph_id": 9,
+      "sub_type": "text",
+      "tags": [],
+      "text": "D.signaled",
+      "outline_level": -1,
+      "page_id": 1
+    },
+    {
+      "page_id": 1,
+      "sub_type": "text",
+      "tags": [],
+      "content": 0,
+      "origin_position": [
+        1063,
+        175,
+        1059,
+        286,
+        1044,
+        285,
+        1048,
+        175
+      ],
+      "paragraph_id": 11,
+      "position": [
+        49,
+        107,
+        160,
+        110,
+        160,
+        125,
+        49,
+        122
+      ],
+      "text": "73.A.humanity",
+      "type": "paragraph",
+      "outline_level": -1
+    },
+    {
+      "text": "B.accountability",
+      "origin_position": [
+        1063,
+        363,
+        1062,
+        473,
+        1040,
+        473,
+        1041,
+        363
+      ],
+      "outline_level": -1,
+      "page_id": 1,
+      "position": [
+        238,
+        106,
+        349,
+        106,
+        349,
+        128,
+        238,
+        128
+      ],
+      "sub_type": "text",
+      "tags": [],
+      "type": "paragraph",
+      "content": 0,
+      "paragraph_id": 14
+    },
+    {
+      "outline_level": -1,
+      "paragraph_id": 13,
+      "position": [
+        391,
+        110,
+        460,
+        111,
+        460,
+        126,
+        391,
+        124
+      ],
+      "sub_type": "text",
+      "content": 0,
+      "origin_position": [
+        1058,
+        514,
+        1056,
+        582,
+        1042,
+        582,
+        1044,
+        514
+      ],
+      "page_id": 1,
+      "tags": [],
+      "text": "C.priority",
+      "type": "paragraph"
+    },
+    {
+      "origin_position": [
+        1056,
+        665,
+        1056,
+        737,
+        1041,
+        737,
+        1041,
+        665
+      ],
+      "outline_level": -1,
+      "sub_type": "text",
+      "text": "D.quantity",
+      "type": "paragraph",
+      "page_id": 1,
+      "paragraph_id": 15,
+      "position": [
+        545,
+        111,
+        618,
+        111,
+        618,
+        126,
+        545,
+        126
+      ],
+      "tags": [],
+      "content": 0
+    },
+    {
+      "paragraph_id": 19,
+      "position": [
+        56,
+        129,
+        152,
+        129,
+        152,
+        149,
+        56,
+        149
+      ],
+      "sub_type": "text",
+      "tags": [],
+      "text": "74.A.genuine",
+      "outline_level": -1,
+      "type": "paragraph",
+      "content": 0,
+      "origin_position": [
+        1041,
+        182,
+        1040,
+        277,
+        1021,
+        277,
+        1021,
+        181
+      ],
+      "page_id": 1
+    },
+    {
+      "outline_level": -1,
+      "position": [
+        239,
+        131,
+        324,
+        133,
+        324,
+        147,
+        239,
+        145
+      ],
+      "sub_type": "text",
+      "tags": [],
+      "type": "paragraph",
+      "origin_position": [
+        1038,
+        364,
+        1036,
+        448,
+        1022,
+        448,
+        1024,
+        364
+      ],
+      "page_id": 1,
+      "paragraph_id": 20,
+      "text": "B.temporary",
+      "content": 0
+    },
+    {
+      "content": 0,
+      "origin_position": [
+        1036,
+        515,
+        1036,
+        600,
+        1024,
+        600,
+        1025,
+        515
+      ],
+      "page_id": 1,
+      "paragraph_id": 18,
+      "position": [
+        392,
+        132,
+        479,
+        132,
+        479,
+        144,
+        392,
+        144
+      ],
+      "sub_type": "text",
+      "tags": [],
+      "text": "C.instinctive",
+      "outline_level": -1,
+      "type": "paragraph"
+    },
+    {
+      "type": "paragraph",
+      "page_id": 1,
+      "paragraph_id": 17,
+      "sub_type": "text",
+      "content": 0,
+      "origin_position": [
+        1036,
+        665,
+        1035,
+        731,
+        1024,
+        731,
+        1024,
+        665
+      ],
+      "outline_level": -1,
+      "position": [
+        545,
+        132,
+        612,
+        132,
+        612,
+        144,
+        545,
+        144
+      ],
+      "tags": [],
+      "text": "D.mutual"
+    },
+    {
+      "content": 0,
+      "origin_position": [
+        1026,
+        143,
+        1020,
+        284,
+        996,
+        284,
+        1002,
+        141
+      ],
+      "outline_level": -1,
+      "page_id": 1,
+      "paragraph_id": 21,
+      "sub_type": "text",
+      "tags": [
+        "handwritten"
+      ],
+      "text": "CD75.A.extensive",
+      "position": [
+        18,
+        144,
+        159,
+        150,
+        159,
+        174,
+        16,
+        169
+      ],
+      "type": "paragraph"
+    },
+    {
+      "content": 0,
+      "origin_position": [
+        1016,
+        364,
+        1016,
+        460,
+        1003,
+        460,
+        1004,
+        364
+      ],
+      "outline_level": -1,
+      "position": [
+        240,
+        153,
+        337,
+        153,
+        337,
+        166,
+        240,
+        166
+      ],
+      "tags": [],
+      "text": "B.fundamental",
+      "type": "paragraph",
+      "page_id": 1,
+      "paragraph_id": 25,
+      "sub_type": "text"
+    },
+    {
+      "content": 0,
+      "page_id": 1,
+      "paragraph_id": 27,
+      "sub_type": "text",
+      "tags": [],
+      "text": "C.professional",
+      "origin_position": [
+        1016,
+        515,
+        1015,
+        612,
+        1001,
+        612,
+        1001,
+        514
+      ],
+      "outline_level": -1,
+      "position": [
+        392,
+        153,
+        491,
+        153,
+        491,
+        168,
+        392,
+        168
+      ],
+      "type": "paragraph"
+    },
+    {
+      "page_id": 1,
+      "tags": [],
+      "text": "D.internal",
+      "type": "paragraph",
+      "origin_position": [
+        1015,
+        665,
+        1015,
+        735,
+        1003,
+        735,
+        1003,
+        665
+      ],
+      "paragraph_id": 23,
+      "position": [
+        545,
+        153,
+        617,
+        153,
+        617,
+        165,
+        545,
+        165
+      ],
+      "sub_type": "text",
+      "content": 0,
+      "outline_level": -1
+    },
+    {
+      "position": [
+        764,
+        111,
+        793,
+        111,
+        793,
+        160,
+        764,
+        160
+      ],
+      "tags": [
+        "handwritten"
+      ],
+      "text": "P",
+      "sub_type": "text",
+      "type": "paragraph",
+      "content": 0,
+      "origin_position": [
+        1055,
+        879,
+        1055,
+        907,
+        1007,
+        907,
+        1007,
+        879
+      ],
+      "outline_level": -1,
+      "page_id": 1,
+      "paragraph_id": 24
+    },
+    {
+      "content": 0,
+      "outline_level": -1,
+      "page_id": 1,
+      "paragraph_id": 44,
+      "position": [
+        9,
+        178,
+        25,
+        178,
+        25,
+        204,
+        9,
+        204
+      ],
+      "text": "B",
+      "origin_position": [
+        993,
+        134,
+        993,
+        150,
+        967,
+        149,
+        967,
+        133
+      ],
+      "sub_type": "text",
+      "tags": [
+        "handwritten"
+      ],
+      "type": "paragraph"
+    },
+    {
+      "content": 0,
+      "origin_position": [
+        1007,
+        143,
+        1003,
+        370,
+        939,
+        368,
+        937,
+        144
+      ],
+      "page_id": 1,
+      "paragraph_id": 28,
+      "sub_type": "text",
+      "type": "paragraph",
+      "outline_level": -1,
+      "position": [
+        18,
+        164,
+        246,
+        167,
+        245,
+        232,
+        20,
+        234
+      ],
+      "tags": [
+        "handwritten"
+      ],
+      "text": "DB76.A.technology dependence C.school discipline BG77.A.clues"
+    },
+    {
+      "outline_level": -1,
+      "paragraph_id": 29,
+      "sub_type": "text",
+      "page_id": 1,
+      "position": [
+        390,
+        173,
+        504,
+        173,
+        504,
+        189,
+        390,
+        189
+      ],
+      "tags": [],
+      "text": "B.digital literacy",
+      "type": "paragraph",
+      "content": 0,
+      "origin_position": [
+        996,
+        512,
+        996,
+        625,
+        980,
+        624,
+        980,
+        512
+      ]
+    },
+    {
+      "tags": [],
+      "text": "D.social norm",
+      "type": "paragraph",
+      "content": 0,
+      "origin_position": [
+        975,
+        514,
+        974,
+        607,
+        963,
+        607,
+        963,
+        514
+      ],
+      "outline_level": -1,
+      "page_id": 1,
+      "paragraph_id": 32,
+      "position": [
+        392,
+        195,
+        486,
+        195,
+        486,
+        207,
+        392,
+        207
+      ],
+      "sub_type": "text"
+    },
+    {
+      "content": 0,
+      "outline_level": -1,
+      "sub_type": "text",
+      "origin_position": [
+        955,
+        361,
+        954,
+        449,
+        939,
+        449,
+        940,
+        360
+      ],
+      "page_id": 1,
+      "paragraph_id": 37,
+      "position": [
+        237,
+        216,
+        326,
+        216,
+        326,
+        231,
+        237,
+        231
+      ],
+      "tags": [],
+      "text": "B.prejudices",
+      "type": "paragraph"
+    },
+    {
+      "outline_level": -1,
+      "paragraph_id": 36,
+      "position": [
+        392,
+        217,
+        454,
+        217,
+        454,
+        230,
+        392,
+        230
+      ],
+      "type": "paragraph",
+      "page_id": 1,
+      "sub_type": "text",
+      "tags": [],
+      "text": "C.proofs",
+      "content": 0,
+      "origin_position": [
+        953,
+        514,
+        953,
+        575,
+        940,
+        575,
+        940,
+        514
+      ]
+    },
+    {
+      "content": 0,
+      "origin_position": [
+        953,
+        664,
+        953,
+        736,
+        941,
+        736,
+        941,
+        664
+      ],
+      "page_id": 1,
+      "paragraph_id": 35,
+      "position": [
+        545,
+        216,
+        618,
+        216,
+        618,
+        229,
+        545,
+        229
+      ],
+      "tags": [],
+      "text": "D.patterns",
+      "outline_level": -1,
+      "sub_type": "text",
+      "type": "paragraph"
+    },
+    {
+      "outline_level": -1,
+      "page_id": 1,
+      "position": [
+        23,
+        233,
+        199,
+        229,
+        199,
+        310,
+        31,
+        314
+      ],
+      "tags": [
+        "handwritten"
+      ],
+      "text": "78.A.Controversially 879.A.integrity S0.A.neck and neck",
+      "type": "paragraph",
+      "paragraph_id": 40,
+      "sub_type": "text",
+      "content": 0,
+      "origin_position": [
+        938,
+        147,
+        942,
+        323,
+        862,
+        321,
+        858,
+        154
+      ]
+    },
+    {
+      "sub_type": "text",
+      "text": "B.Luckily",
+      "type": "paragraph",
+      "outline_level": -1,
+      "page_id": 1,
+      "paragraph_id": 38,
+      "tags": [],
+      "content": 0,
+      "origin_position": [
+        935,
+        360,
+        935,
+        433,
+        921,
+        433,
+        921,
+        360
+      ],
+      "position": [
+        237,
+        236,
+        310,
+        236,
+        310,
+        250,
+        237,
+        250
+      ]
+    },
+    {
+      "page_id": 1,
+      "paragraph_id": 39,
+      "tags": [],
+      "text": "C.Specifically",
+      "type": "paragraph",
+      "origin_position": [
+        934,
+        512,
+        934,
+        609,
+        919,
+        609,
+        920,
+        512
+      ],
+      "position": [
+        390,
+        236,
+        489,
+        236,
+        489,
+        251,
+        390,
+        251
+      ],
+      "sub_type": "text",
+      "content": 0,
+      "outline_level": -1
+    },
+    {
+      "origin_position": [
+        933,
+        664,
+        933,
+        742,
+        919,
+        742,
+        919,
+        664
+      ],
+      "outline_level": -1,
+      "page_id": 1,
+      "paragraph_id": 41,
+      "position": [
+        545,
+        237,
+        624,
+        237,
+        624,
+        251,
+        545,
+        251
+      ],
+      "sub_type": "text",
+      "text": "D.Literally",
+      "content": 0,
+      "tags": [],
+      "type": "paragraph"
+    },
+    {
+      "outline_level": -1,
+      "paragraph_id": 46,
+      "page_id": 1,
+      "position": [
+        237,
+        254,
+        316,
+        254,
+        316,
+        276,
+        237,
+        276
+      ],
+      "sub_type": "text",
+      "tags": [],
+      "text": "B.diversity",
+      "type": "paragraph",
+      "content": 0,
+      "origin_position": [
+        917,
+        360,
+        917,
+        438,
+        895,
+        438,
+        895,
+        360
+      ]
+    },
+    {
+      "content": 0,
+      "outline_level": -1,
+      "paragraph_id": 45,
+      "sub_type": "text",
+      "origin_position": [
+        915,
+        512,
+        912,
+        578,
+        897,
+        577,
+        900,
+        511
+      ],
+      "page_id": 1,
+      "position": [
+        390,
+        256,
+        457,
+        259,
+        457,
+        274,
+        390,
+        271
+      ],
+      "tags": [],
+      "text": "C.vitality",
+      "type": "paragraph"
+    },
+    {
+      "text": "D.consistency",
+      "type": "paragraph",
+      "outline_level": -1,
+      "paragraph_id": 43,
+      "position": [
+        546,
+        259,
+        641,
+        259,
+        641,
+        272,
+        546,
+        272
+      ],
+      "tags": [],
+      "content": 0,
+      "origin_position": [
+        911,
+        665,
+        911,
+        758,
+        898,
+        758,
+        899,
+        665
+      ],
+      "page_id": 1,
+      "sub_type": "text"
+    },
+    {
+      "content": 0,
+      "outline_level": -1,
+      "page_id": 1,
+      "position": [
+        238,
+        279,
+        318,
+        279,
+        318,
+        292,
+        238,
+        292
+      ],
+      "text": "B.toe to toe",
+      "type": "paragraph",
+      "origin_position": [
+        892,
+        361,
+        892,
+        440,
+        879,
+        440,
+        880,
+        361
+      ],
+      "paragraph_id": 50,
+      "sub_type": "text",
+      "tags": []
+    },
+    {
+      "content": 0,
+      "origin_position": [
+        892,
+        513,
+        892,
+        606,
+        879,
+        606,
+        879,
+        513
+      ],
+      "outline_level": -1,
+      "page_id": 1,
+      "paragraph_id": 51,
+      "position": [
+        392,
+        279,
+        486,
+        279,
+        486,
+        292,
+        392,
+        292
+      ],
+      "sub_type": "text",
+      "type": "paragraph",
+      "tags": [],
+      "text": "C.face to face"
+    },
+    {
+      "page_id": 1,
+      "paragraph_id": 52,
+      "position": [
+        546,
+        280,
+        650,
+        280,
+        650,
+        292,
+        546,
+        292
+      ],
+      "sub_type": "text",
+      "content": 0,
+      "origin_position": [
+        891,
+        665,
+        891,
+        767,
+        879,
+        767,
+        879,
+        665
+      ],
+      "outline_level": -1,
+      "tags": [],
+      "text": "D.hand in hand",
+      "type": "paragraph"
+    },
+    {
+      "tags": [],
+      "text": "Section B",
+      "type": "paragraph",
+      "content": 0,
+      "page_id": 1,
+      "sub_type": "text_title",
+      "origin_position": [
+        850,
+        178,
+        850,
+        245,
+        839,
+        245,
+        839,
+        178
+      ],
+      "outline_level": 0,
+      "paragraph_id": 53,
+      "position": [
+        56,
+        322,
+        123,
+        322,
+        123,
+        333,
+        56,
+        333
+      ]
+    },
+    {
+      "content": 0,
+      "origin_position": [
+        833,
+        176,
+        833,
+        808,
+        770,
+        807,
+        770,
+        175
+      ],
+      "page_id": 1,
+      "tags": [],
+      "outline_level": -1,
+      "paragraph_id": 54,
+      "position": [
+        54,
+        339,
+        692,
+        339,
+        692,
+        403,
+        54,
+        403
+      ],
+      "sub_type": "text",
+      "text": "**Directions**: Read the following three passages. Each passage is followed by several questions or unfinished statements.For each of them there are four choices marked A,B,C and D.Choose the one that fits best according to the information given in the passage you have just read.",
+      "type": "paragraph"
+    },
+    {
+      "origin_position": [
+        765,
+        485,
+        765,
+        513,
+        753,
+        513,
+        753,
+        485
+      ],
+      "paragraph_id": 55,
+      "sub_type": "text",
+      "text": "**(A)**",
+      "type": "paragraph",
+      "content": 0,
+      "outline_level": -1,
+      "page_id": 1,
+      "position": [
+        365,
+        408,
+        393,
+        408,
+        393,
+        420,
+        365,
+        420
+      ],
+      "tags": []
+    },
+    {
+      "sub_type": "text",
+      "text": "Several years ago,I began asking my friends and family to tell me their passwords. I had come to believe that these tiny personalized codes get a **bum** rap.",
+      "type": "paragraph",
+      "content": 0,
+      "origin_position": [
+        750,
+        175,
+        750,
+        807,
+        707,
+        807,
+        706,
+        174
+      ],
+      "outline_level": -1,
+      "page_id": 1,
+      "tags": [],
+      "paragraph_id": 56,
+      "position": [
+        54,
+        423,
+        692,
+        423,
+        692,
+        467,
+        54,
+        467
+      ]
+    },
+    {
+      "content": 0,
+      "outline_level": -1,
+      "paragraph_id": 57,
+      "position": [
+        53,
+        470,
+        694,
+        470,
+        694,
+        656,
+        53,
+        656
+      ],
+      "sub_type": "text",
+      "tags": [],
+      "type": "paragraph",
+      "origin_position": [
+        703,
+        173,
+        704,
+        809,
+        521,
+        808,
+        517,
+        170
+      ],
+      "page_id": 1,
+      "text": "Yes,I understand why passwords are universally hated:the strains they put on our memory,the endless demand to update them, their sheer number. I hate them too. But there is more to passwords than their annoyance. In the fact that we construct them so that we (and only we) will remember them, they take on secret lives. Many of our passwords are filled with suffering,mischief,sometimes even poetry.Often they have rich backstories.There was the former prisoner whose password includes what used to be his identification number (\"a reminder not to go back\");the childless 45-year-old whose password is the name of the baby boy she lost (\"my way of trying to keep him alive,I guess\"). Sometimes the passwords were playful. Several people said they used incorrect for theirs so that when they forgot it, the software automatically gave them the right one(\"your password is incorrect\")."
+    },
+    {
+      "content": 0,
+      "origin_position": [
+        516,
+        171,
+        520,
+        808,
+        376,
+        807,
+        370,
+        168
+      ],
+      "page_id": 1,
+      "paragraph_id": 58,
+      "tags": [],
+      "outline_level": -1,
+      "position": [
+        54,
+        657,
+        694,
+        657,
+        694,
+        802,
+        54,
+        802
+      ],
+      "sub_type": "text",
+      "text": "Some passwords were striking for their creativity, folding big thoughts down into tidy little codes. After being inspired by Sheryl Sandberg'sbook Lean In:Women,Work,and the Will to Lead.Cortni Kerr,a running partner of mine,began using WwSSdol3,which stood for\"What would Sheryl Sandberg do\" plus \"13\" for the year (2013) of the password's creation. TnsitTpsif was the password of another friend,a computer scientist who loves wordplay.It stands for\"The next sentence is true.The previous sentence is false,\" which in philosophy iscalled a liar's paradox. For my friend, it was a playful reference to the knots that language can tie.",
+      "type": "paragraph"
+    },
+    {
+      "page_id": 1,
+      "paragraph_id": 59,
+      "sub_type": "text",
+      "tags": [],
+      "text": "While asking strangers about their passwords is a touchy proposition,it's not every day that you come across a conversation topic that teaches you new things about people you've known for years.",
+      "type": "paragraph",
+      "origin_position": [
+        363,
+        167,
+        369,
+        805,
+        328,
+        805,
+        322,
+        166
+      ],
+      "outline_level": -1,
+      "position": [
+        53,
+        809,
+        692,
+        809,
+        692,
+        850,
+        53,
+        850
+      ],
+      "content": 0
+    },
+    {
+      "content": 0,
+      "origin_position": [
+        319,
+        166,
+        325,
+        807,
+        225,
+        806,
+        217,
+        165
+      ],
+      "paragraph_id": 60,
+      "position": [
+        53,
+        853,
+        694,
+        853,
+        694,
+        953,
+        53,
+        953
+      ],
+      "type": "paragraph",
+      "outline_level": -1,
+      "page_id": 1,
+      "sub_type": "text",
+      "tags": [],
+      "text": "The 4622 that my wife uses in her passwords was not just the address of her own father's childhood home but also a reminder of his weakness and strength. Apparently when the former 270-pound football standout,a scholarship athlete and the pride of his working-class neighborhood in west Tulsa,was a small boy,he had to sing his home address(4622 South 28th West Avenue) in one full breath rather than try to say it normally,otherwise,his stutter（口吃） would trip him up."
+    },
+    {
+      "paragraph_id": 62,
+      "position": [
+        793,
+        48,
+        1284,
+        48,
+        1284,
+        103,
+        793,
+        103
+      ],
+      "content": 0,
+      "origin_position": [
+        1116,
+        907,
+        1113,
+        1378,
+        1060,
+        1378,
+        1062,
+        907
+      ],
+      "outline_level": -1,
+      "sub_type": "text",
+      "tags": [
+        "handwritten"
+      ],
+      "text": "A1.What does the phrase \"a bum rap\" in paragraph 1 most probably mean? A.an imaginative story",
+      "type": "paragraph",
+      "page_id": 1
+    },
+    {
+      "type": "paragraph",
+      "page_id": 1,
+      "sub_type": "text",
+      "tags": [],
+      "text": "B.an unreasonable structure",
+      "content": 0,
+      "origin_position": [
+        1075,
+        1246,
+        1074,
+        1419,
+        1062,
+        1419,
+        1063,
+        1246
+      ],
+      "outline_level": -1,
+      "paragraph_id": 65,
+      "position": [
+        1145,
+        88,
+        1327,
+        88,
+        1327,
+        100,
+        1145,
+        100
+      ]
+    },
+    {
+      "origin_position": [
+        1055,
+        949,
+        1055,
+        1050,
+        1043,
+        1050,
+        1044,
+        949
+      ],
+      "outline_level": -1,
+      "page_id": 1,
+      "tags": [],
+      "text": "C.a false blame",
+      "content": 0,
+      "paragraph_id": 67,
+      "position": [
+        837,
+        110,
+        941,
+        110,
+        941,
+        122,
+        837,
+        122
+      ],
+      "sub_type": "text",
+      "type": "paragraph"
+    },
+    {
+      "tags": [],
+      "type": "paragraph",
+      "origin_position": [
+        1059,
+        1245,
+        1058,
+        1384,
+        1037,
+        1384,
+        1037,
+        1245
+      ],
+      "outline_level": -1,
+      "paragraph_id": 66,
+      "text": "D.a notable exception",
+      "content": 0,
+      "page_id": 1,
+      "position": [
+        1144,
+        105,
+        1290,
+        105,
+        1290,
+        127,
+        1144,
+        127
+      ],
+      "sub_type": "text"
+    },
+    {
+      "content": 0,
+      "position": [
+        792,
+        120,
+        1449,
+        120,
+        1449,
+        168,
+        792,
+        168
+      ],
+      "sub_type": "text",
+      "type": "paragraph",
+      "origin_position": [
+        1046,
+        906,
+        1043,
+        1535,
+        997,
+        1535,
+        999,
+        906
+      ],
+      "outline_level": -1,
+      "page_id": 1,
+      "paragraph_id": 68,
+      "tags": [
+        "handwritten"
+      ],
+      "text": "D2.Which of the following passwords does the writer use as an example of those with a touch of humour? A.An identification number."
+    },
+    {
+      "position": [
+        1144,
+        146,
+        1302,
+        146,
+        1302,
+        168,
+        1144,
+        168
+      ],
+      "tags": [],
+      "content": 0,
+      "outline_level": -1,
+      "page_id": 1,
+      "paragraph_id": 70,
+      "sub_type": "text",
+      "text": "B.The word\"incorrect\"",
+      "type": "paragraph",
+      "origin_position": [
+        1019,
+        1245,
+        1018,
+        1395,
+        997,
+        1396,
+        998,
+        1245
+      ]
+    },
+    {
+      "content": 0,
+      "outline_level": -1,
+      "page_id": 1,
+      "paragraph_id": 73,
+      "sub_type": "text",
+      "type": "paragraph",
+      "origin_position": [
+        999,
+        904,
+        997,
+        1359,
+        941,
+        1360,
+        942,
+        904
+      ],
+      "position": [
+        790,
+        168,
+        1264,
+        168,
+        1264,
+        227,
+        790,
+        227
+      ],
+      "tags": [
+        "handwritten"
+      ],
+      "text": "AC.WwSSdo13. 3.Why does the writer's wife use the number \"4622\" in her passwords? A.It reminded her of her father."
+    },
+    {
+      "tags": [],
+      "type": "paragraph",
+      "position": [
+        1145,
+        169,
+        1236,
+        169,
+        1236,
+        187,
+        1145,
+        187
+      ],
+      "sub_type": "text",
+      "text": "D.TnsitTpsif.",
+      "content": 0,
+      "origin_position": [
+        997,
+        1246,
+        997,
+        1333,
+        979,
+        1333,
+        980,
+        1246
+      ],
+      "outline_level": -1,
+      "page_id": 1,
+      "paragraph_id": 72
+    },
+    {
+      "paragraph_id": 77,
+      "text": "B.It helped her to overcome stutter.",
+      "type": "paragraph",
+      "content": 0,
+      "origin_position": [
+        934,
+        951,
+        933,
+        1168,
+        921,
+        1168,
+        921,
+        951
+      ],
+      "page_id": 1,
+      "position": [
+        839,
+        235,
+        1064,
+        235,
+        1064,
+        248,
+        839,
+        248
+      ],
+      "sub_type": "text",
+      "tags": [],
+      "outline_level": -1
+    },
+    {
+      "origin_position": [
+        919,
+        949,
+        919,
+        1221,
+        898,
+        1221,
+        899,
+        949
+      ],
+      "outline_level": -1,
+      "paragraph_id": 78,
+      "tags": [],
+      "text": "C.It was the address of her childhood home.",
+      "page_id": 1,
+      "position": [
+        837,
+        250,
+        1119,
+        250,
+        1119,
+        271,
+        837,
+        271
+      ],
+      "sub_type": "text",
+      "type": "paragraph",
+      "content": 0
+    },
+    {
+      "page_id": 1,
+      "sub_type": "text",
+      "tags": [
+        "handwritten"
+      ],
+      "content": 0,
+      "paragraph_id": 79,
+      "position": [
+        789,
+        271,
+        1140,
+        271,
+        1140,
+        336,
+        789,
+        336
+      ],
+      "text": "BD.It was part of the name of her favourite song. A.The Development of Passwords.",
+      "type": "paragraph",
+      "origin_position": [
+        899,
+        902,
+        898,
+        1241,
+        835,
+        1241,
+        836,
+        902
+      ],
+      "outline_level": -1
+    },
+    {
+      "content": 0,
+      "outline_level": -1,
+      "page_id": 1,
+      "position": [
+        1144,
+        312,
+        1365,
+        312,
+        1365,
+        334,
+        1144,
+        334
+      ],
+      "tags": [],
+      "text": "B.The Secret Lives of Passwords.",
+      "origin_position": [
+        859,
+        1245,
+        858,
+        1456,
+        837,
+        1456,
+        837,
+        1245
+      ],
+      "paragraph_id": 82,
+      "sub_type": "text",
+      "type": "paragraph"
+    },
+    {
+      "outline_level": -1,
+      "page_id": 1,
+      "paragraph_id": 88,
+      "tags": [],
+      "text": "C.Why Everybody Hates Passwords.",
+      "type": "paragraph",
+      "content": 0,
+      "origin_position": [
+        833,
+        949,
+        832,
+        1178,
+        818,
+        1178,
+        818,
+        949
+      ],
+      "position": [
+        837,
+        339,
+        1074,
+        339,
+        1074,
+        354,
+        837,
+        354
+      ],
+      "sub_type": "text"
+    },
+    {
+      "outline_level": -1,
+      "sub_type": "text",
+      "text": "D.Passwords:What We Can't Live Without.",
+      "type": "paragraph",
+      "content": 0,
+      "origin_position": [
+        838,
+        1246,
+        838,
+        1518,
+        817,
+        1518,
+        817,
+        1246
+      ],
+      "page_id": 1,
+      "paragraph_id": 87,
+      "position": [
+        1145,
+        333,
+        1430,
+        333,
+        1430,
+        355,
+        1145,
+        355
+      ],
+      "tags": []
+    },
+    {
+      "content": 0,
+      "origin_position": [
+        793,
+        1215,
+        793,
+        1240,
+        779,
+        1240,
+        779,
+        1215
+      ],
+      "outline_level": 1,
+      "position": [
+        1112,
+        380,
+        1138,
+        380,
+        1138,
+        394,
+        1112,
+        394
+      ],
+      "sub_type": "text_title",
+      "tags": [],
+      "type": "paragraph",
+      "page_id": 1,
+      "paragraph_id": 89,
+      "text": "(B)"
+    },
+    {
+      "outline_level": -1,
+      "page_id": 1,
+      "paragraph_id": 90,
+      "position": [
+        802,
+        388,
+        1448,
+        390,
+        1446,
+        970,
+        800,
+        970
+      ],
+      "sub_type": "bordered",
+      "type": "table",
+      "cells": [
+        {
+          "col": 0,
+          "col_span": 1,
+          "origin_position": [
+            777,
+            919,
+            777,
+            1529,
+            223,
+            1533,
+            216,
+            918
+          ],
+          "page_id": 1,
+          "position": [
+            807,
+            396,
+            1441,
+            396,
+            1441,
+            963,
+            807,
+            963
+          ],
+          "row": 0,
+          "row_span": 1,
+          "text": "COURSE:History 101\"Introduction to American History\"<br>INSTRUCTOR:Dr.Jane Klammer<br>OFFICE:305 Marshall Hall<br>OFFICE HOURS:11:15-12:30 M W F(Monday Wednesday Friday)<br>CLASS:363 Marshall Hall<br>3:35-5:00 T Th(Tuesday Thursday)<br>10:10-11:00 M W F Other times by appointment<br>TELEPHONE:255-4786<br>TEXTBOOK:Green,Robert P,The Amnerican Tradition:A History of the United States.Charles E. Merrill publishing Co.Columbus, Ohio 1984,which is available at the College Bookstore.<br>COURSE Requirements:<br>mid-term exam:October 10 20% of the final grade<br>final exam:December 10 40% of the final grade<br>term paper due:December 15 40% of the final grade<br>Attendance is not required,but you are responsible for all the information given in the class lectures.In the lectures, I will talk about the chapters in the textbook and other material that I choose to supplement the course. The exams will cover all this information. Therefore,I advise you to come to the class as much as possible. If you have to missa class,be sure to get the class notes from another student.<br>Your homework assignments are listed on the next page. You are supposed to read the chapter about which I will be lecturing before you come to class. This is to make sure that you understand as much as possible while taking notes in my lectures. Be prepared when you come to class.If there are any changes in the assigned homework reading,I will announce in class.<br>The term paper is 40% of your final grade. It should not exceed fifteen pages.(Anyone thinking of majoring in history may write twenty-five pages.)Before the mid-term exam you will choose the topic for your paper.<br>Have a good term!",
+          "type": "cell"
+        }
+      ],
+      "content": 0,
+      "origin_position": [
+        785,
+        915,
+        783,
+        1536,
+        216,
+        1538,
+        209,
+        911
+      ],
+      "text": "<table border=\"1\" ><tr>\n<td>COURSE:History 101\"Introduction to American History\"<br>INSTRUCTOR:Dr.Jane Klammer<br>OFFICE:305 Marshall Hall<br>OFFICE HOURS:11:15-12:30 M W F(Monday Wednesday Friday)<br>CLASS:363 Marshall Hall<br>3:35-5:00 T Th(Tuesday Thursday)<br>10:10-11:00 M W F Other times by appointment<br>TELEPHONE:255-4786<br>TEXTBOOK:Green,Robert P,The Amnerican Tradition:A History of the United States.Charles E. Merrill publishing Co.Columbus, Ohio 1984,which is available at the College Bookstore.<br>COURSE Requirements:<br>mid-term exam:October 10 20% of the final grade<br>final exam:December 10 40% of the final grade<br>term paper due:December 15 40% of the final grade<br>Attendance is not required,but you are responsible for all the information given in the class lectures.In the lectures, I will talk about the chapters in the textbook and other material that I choose to supplement the course. The exams will cover all this information. Therefore,I advise you to come to the class as much as possible. If you have to missa class,be sure to get the class notes from another student.<br>Your homework assignments are listed on the next page. You are supposed to read the chapter about which I will be lecturing before you come to class. This is to make sure that you understand as much as possible while taking notes in my lectures. Be prepared when you come to class.If there are any changes in the assigned homework reading,I will announce in class.<br>The term paper is 40% of your final grade. It should not exceed fifteen pages.(Anyone thinking of majoring in history may write twenty-five pages.)Before the mid-term exam you will choose the topic for your paper.<br>Have a good term!</td>\n</tr></table>"
+    },
+    {
+      "content": 1,
+      "outline_level": -1,
+      "page_id": 1,
+      "tags": [],
+      "text": "2025-2026学年度第二学期高一英语期中考试卷",
+      "type": "paragraph",
+      "origin_position": [
+        186,
+        165,
+        189,
+        446,
+        176,
+        445,
+        173,
+        165
+      ],
+      "paragraph_id": 92,
+      "position": [
+        54,
+        984,
+        332,
+        984,
+        332,
+        997,
+        54,
+        997
+      ],
+      "sub_type": "footer"
+    },
+    {
+      "content": 1,
+      "origin_position": [
+        192,
+        693,
+        193,
+        781,
+        179,
+        781,
+        178,
+        693
+      ],
+      "page_id": 1,
+      "paragraph_id": 93,
+      "type": "paragraph",
+      "outline_level": -1,
+      "position": [
+        580,
+        984,
+        669,
+        984,
+        669,
+        998,
+        580,
+        998
+      ],
+      "sub_type": "footer",
+      "tags": [],
+      "text": "第7页 共12页"
+    },
+    {
+      "content": 1,
+      "page_id": 1,
+      "paragraph_id": 95,
+      "position": [
+        808,
+        985,
+        1085,
+        985,
+        1085,
+        999,
+        808,
+        999
+      ],
+      "sub_type": "footer",
+      "tags": [],
+      "type": "paragraph",
+      "origin_position": [
+        194,
+        919,
+        197,
+        1190,
+        183,
+        1190,
+        180,
+        918
+      ],
+      "outline_level": -1,
+      "text": "2025-2026学年度第二学期高一英语期中考试卷"
+    },
+    {
+      "content": 1,
+      "origin_position": [
+        199,
+        1432,
+        200,
+        1519,
+        186,
+        1519,
+        185,
+        1432
+      ],
+      "outline_level": -1,
+      "paragraph_id": 96,
+      "sub_type": "footer",
+      "text": "第8页 共12页",
+      "type": "paragraph",
+      "page_id": 1,
+      "position": [
+        1335,
+        986,
+        1426,
+        986,
+        1426,
+        1000,
+        1335,
+        1000
+      ],
+      "tags": []
+    }
+  ],
+  "markdown": "ルけが\n\n1.A.at ease\n\nB.at scale\n\nC.at leisure\n\nD.at random\n\nC\n\n2.A.targeted\n\nB.recognized\n\nC.analyzed\n\nD.signaled\n\n73.A.humanity\n\nB.accountability\n\nC.priority\n\nD.quantity\n\n74.A.genuine\n\nB.temporary\n\nC.instinctive\n\nD.mutual\n\nCD75.A.extensive\n\nB.fundamental\n\nC.professional\n\nD.internal\n\nP\n\nB\n\nDB76.A.technology dependence C.school discipline BG77.A.clues\n\nB.digital literacy\n\nD.social norm\n\nB.prejudices\n\nC.proofs\n\nD.patterns\n\n78.A.Controversially 879.A.integrity S0.A.neck and neck\n\nB.Luckily\n\nC.Specifically\n\nD.Literally\n\nB.diversity\n\nC.vitality\n\nD.consistency\n\nB.toe to toe\n\nC.face to face\n\nD.hand in hand\n\n# Section B\n\n**Directions**: Read the following three passages. Each passage is followed by several questions or unfinished statements.For each of them there are four choices marked A,B,C and D.Choose the one that fits best according to the information given in the passage you have just read.\n\n**(A)**\n\nSeveral years ago,I began asking my friends and family to tell me their passwords. I had come to believe that these tiny personalized codes get a **bum** rap.\n\nYes,I understand why passwords are universally hated:the strains they put on our memory,the endless demand to update them, their sheer number. I hate them too. But there is more to passwords than their annoyance. In the fact that we construct them so that we (and only we) will remember them, they take on secret lives. Many of our passwords are filled with suffering,mischief,sometimes even poetry.Often they have rich backstories.There was the former prisoner whose password includes what used to be his identification number (\"a reminder not to go back\");the childless 45-year-old whose password is the name of the baby boy she lost (\"my way of trying to keep him alive,I guess\"). Sometimes the passwords were playful. Several people said they used incorrect for theirs so that when they forgot it, the software automatically gave them the right one(\"your password is incorrect\").\n\nSome passwords were striking for their creativity, folding big thoughts down into tidy little codes. After being inspired by Sheryl Sandberg'sbook Lean In:Women,Work,and the Will to Lead.Cortni Kerr,a running partner of mine,began using WwSSdol3,which stood for\"What would Sheryl Sandberg do\" plus \"13\" for the year (2013) of the password's creation. TnsitTpsif was the password of another friend,a computer scientist who loves wordplay.It stands for\"The next sentence is true.The previous sentence is false,\" which in philosophy iscalled a liar's paradox. For my friend, it was a playful reference to the knots that language can tie.\n\nWhile asking strangers about their passwords is a touchy proposition,it's not every day that you come across a conversation topic that teaches you new things about people you've known for years.\n\nThe 4622 that my wife uses in her passwords was not just the address of her own father's childhood home but also a reminder of his weakness and strength. Apparently when the former 270-pound football standout,a scholarship athlete and the pride of his working-class neighborhood in west Tulsa,was a small boy,he had to sing his home address(4622 South 28th West Avenue) in one full breath rather than try to say it normally,otherwise,his stutter（口吃） would trip him up.\n\nA1.What does the phrase \"a bum rap\" in paragraph 1 most probably mean? A.an imaginative story\n\nB.an unreasonable structure\n\nC.a false blame\n\nD.a notable exception\n\nD2.Which of the following passwords does the writer use as an example of those with a touch of humour? A.An identification number.\n\nB.The word\"incorrect\"\n\nAC.WwSSdo13. 3.Why does the writer's wife use the number \"4622\" in her passwords? A.It reminded her of her father.\n\nD.TnsitTpsif.\n\nB.It helped her to overcome stutter.\n\nC.It was the address of her childhood home.\n\nBD.It was part of the name of her favourite song. A.The Development of Passwords.\n\nB.The Secret Lives of Passwords.\n\nC.Why Everybody Hates Passwords.\n\nD.Passwords:What We Can't Live Without.\n\n## (B)\n\n<table border=\"1\" ><tr>\n<td>COURSE:History 101\"Introduction to American History\"<br>INSTRUCTOR:Dr.Jane Klammer<br>OFFICE:305 Marshall Hall<br>OFFICE HOURS:11:15-12:30 M W F(Monday Wednesday Friday)<br>CLASS:363 Marshall Hall<br>3:35-5:00 T Th(Tuesday Thursday)<br>10:10-11:00 M W F Other times by appointment<br>TELEPHONE:255-4786<br>TEXTBOOK:Green,Robert P,The Amnerican Tradition:A History of the United States.Charles E. Merrill publishing Co.Columbus, Ohio 1984,which is available at the College Bookstore.<br>COURSE Requirements:<br>mid-term exam:October 10 20% of the final grade<br>final exam:December 10 40% of the final grade<br>term paper due:December 15 40% of the final grade<br>Attendance is not required,but you are responsible for all the information given in the class lectures.In the lectures, I will talk about the chapters in the textbook and other material that I choose to supplement the course. The exams will cover all this information. Therefore,I advise you to come to the class as much as possible. If you have to missa class,be sure to get the class notes from another student.<br>Your homework assignments are listed on the next page. You are supposed to read the chapter about which I will be lecturing before you come to class. This is to make sure that you understand as much as possible while taking notes in my lectures. Be prepared when you come to class.If there are any changes in the assigned homework reading,I will announce in class.<br>The term paper is 40% of your final grade. It should not exceed fifteen pages.(Anyone thinking of majoring in history may write twenty-five pages.)Before the mid-term exam you will choose the topic for your paper.<br>Have a good term!</td>\n</tr></table>\n\n<!-- 2025-2026学年度第二学期高一英语期中考试卷 -->\n\n<!-- 第7页 共12页 -->\n\n<!-- 2025-2026学年度第二学期高一英语期中考试卷 -->\n\n<!-- 第8页 共12页 -->\n\n",
+  "pages": [
+    {
+      "angle": 90,
+      "height": 1496,
+      "image_id": "",
+      "page_id": 1,
+      "status": "Success",
+      "width": 1056,
+      "content": [
+        {
+          "text": "ルけが",
+          "type": "line",
+          "angle": 0,
+          "id": 0,
+          "origin_position": [
+            1119,
+            149,
+            1119,
+            190,
+            1017,
+            192,
+            1016,
+            151
+          ],
+          "pos": [
+            22,
+            50,
+            63,
+            49,
+            67,
+            153,
+            26,
+            154
+          ],
+          "score": 0.328000009059906,
+          "sub_type": "handwriting"
+        },
+        {
+          "score": 0.9679999947547913,
+          "text": "1.A.at ease",
+          "type": "line",
+          "angle": 0,
+          "id": 1,
+          "origin_position": [
+            1105,
+            187,
+            1104,
+            268,
+            1087,
+            268,
+            1087,
+            186
+          ],
+          "pos": [
+            60,
+            64,
+            142,
+            64,
+            142,
+            82,
+            60,
+            82
+          ]
+        },
+        {
+          "text": "B.at scale",
+          "type": "line",
+          "angle": 0,
+          "id": 2,
+          "origin_position": [
+            1103,
+            366,
+            1102,
+            432,
+            1085,
+            432,
+            1085,
+            365
+          ],
+          "pos": [
+            240,
+            65,
+            307,
+            65,
+            307,
+            83,
+            240,
+            83
+          ],
+          "score": 0.9980000257492065
+        },
+        {
+          "text": "C.at leisure",
+          "type": "line",
+          "angle": 0,
+          "id": 3,
+          "origin_position": [
+            1102,
+            516,
+            1101,
+            592,
+            1084,
+            592,
+            1084,
+            515
+          ],
+          "pos": [
+            392,
+            65,
+            470,
+            65,
+            470,
+            83,
+            392,
+            83
+          ],
+          "score": 0.9919999837875366
+        },
+        {
+          "origin_position": [
+            1101,
+            666,
+            1100,
+            750,
+            1083,
+            750,
+            1083,
+            666
+          ],
+          "pos": [
+            545,
+            65,
+            631,
+            65,
+            631,
+            83,
+            545,
+            83
+          ],
+          "score": 0.9919999837875366,
+          "text": "D.at random",
+          "type": "line",
+          "angle": 0,
+          "id": 4
+        },
+        {
+          "score": 0.45100000500679016,
+          "sub_type": "handwriting",
+          "text": "C",
+          "type": "line",
+          "angle": 0,
+          "id": 5,
+          "origin_position": [
+            1126,
+            885,
+            1125,
+            909,
+            1085,
+            909,
+            1085,
+            885
+          ],
+          "pos": [
+            770,
+            38,
+            795,
+            38,
+            795,
+            80,
+            770,
+            80
+          ]
+        },
+        {
+          "pos": [
+            57,
+            83,
+            152,
+            85,
+            152,
+            107,
+            57,
+            105
+          ],
+          "score": 0.9959999918937683,
+          "text": "2.A.targeted",
+          "type": "line",
+          "angle": 0,
+          "id": 6,
+          "origin_position": [
+            1086,
+            183,
+            1084,
+            278,
+            1062,
+            278,
+            1064,
+            183
+          ]
+        },
+        {
+          "angle": 0,
+          "id": 7,
+          "origin_position": [
+            1081,
+            365,
+            1081,
+            453,
+            1063,
+            453,
+            1063,
+            365
+          ],
+          "pos": [
+            240,
+            87,
+            329,
+            87,
+            329,
+            105,
+            240,
+            105
+          ],
+          "score": 0.9990000128746033,
+          "text": "B.recognized",
+          "type": "line"
+        },
+        {
+          "angle": 0,
+          "id": 8,
+          "origin_position": [
+            1080,
+            515,
+            1080,
+            591,
+            1062,
+            591,
+            1063,
+            515
+          ],
+          "pos": [
+            392,
+            87,
+            469,
+            87,
+            469,
+            105,
+            392,
+            105
+          ],
+          "score": 0.9990000128746033,
+          "text": "C.analyzed",
+          "type": "line"
+        },
+        {
+          "type": "line",
+          "angle": 0,
+          "id": 9,
+          "origin_position": [
+            1079,
+            666,
+            1079,
+            740,
+            1061,
+            740,
+            1062,
+            666
+          ],
+          "pos": [
+            546,
+            87,
+            621,
+            87,
+            621,
+            105,
+            546,
+            105
+          ],
+          "score": 0.9990000128746033,
+          "text": "D.signaled"
+        },
+        {
+          "angle": 0,
+          "id": 10,
+          "origin_position": [
+            1067,
+            176,
+            1063,
+            287,
+            1040,
+            285,
+            1044,
+            175
+          ],
+          "pos": [
+            50,
+            103,
+            161,
+            106,
+            160,
+            129,
+            49,
+            126
+          ],
+          "score": 0.9980000257492065,
+          "text": "73.A.humanity",
+          "type": "line"
+        },
+        {
+          "id": 11,
+          "origin_position": [
+            1063,
+            363,
+            1062,
+            473,
+            1040,
+            473,
+            1041,
+            363
+          ],
+          "pos": [
+            238,
+            106,
+            349,
+            106,
+            349,
+            128,
+            238,
+            128
+          ],
+          "score": 0.9990000128746033,
+          "text": "B.accountability",
+          "type": "line",
+          "angle": 0
+        },
+        {
+          "pos": [
+            392,
+            108,
+            461,
+            109,
+            460,
+            128,
+            391,
+            126
+          ],
+          "score": 0.9760000109672546,
+          "text": "C.priority",
+          "type": "line",
+          "angle": 0,
+          "id": 12,
+          "origin_position": [
+            1060,
+            515,
+            1058,
+            583,
+            1040,
+            582,
+            1042,
+            514
+          ]
+        },
+        {
+          "type": "line",
+          "angle": 0,
+          "id": 13,
+          "origin_position": [
+            1058,
+            665,
+            1058,
+            737,
+            1040,
+            737,
+            1040,
+            665
+          ],
+          "pos": [
+            545,
+            109,
+            618,
+            109,
+            618,
+            127,
+            545,
+            127
+          ],
+          "score": 0.9800000190734863,
+          "text": "D.quantity"
+        },
+        {
+          "pos": [
+            56,
+            127,
+            152,
+            127,
+            152,
+            149,
+            56,
+            149
+          ],
+          "score": 0.9649999737739563,
+          "text": "74.A.genuine",
+          "type": "line",
+          "angle": 0,
+          "id": 14,
+          "origin_position": [
+            1043,
+            182,
+            1042,
+            277,
+            1021,
+            277,
+            1021,
+            181
+          ]
+        },
+        {
+          "id": 15,
+          "origin_position": [
+            1040,
+            365,
+            1038,
+            449,
+            1020,
+            448,
+            1022,
+            363
+          ],
+          "pos": [
+            240,
+            129,
+            325,
+            131,
+            324,
+            149,
+            239,
+            147
+          ],
+          "score": 0.9980000257492065,
+          "text": "B.temporary",
+          "type": "line",
+          "angle": 0
+        },
+        {
+          "pos": [
+            392,
+            128,
+            479,
+            128,
+            479,
+            146,
+            392,
+            146
+          ],
+          "score": 0.9959999918937683,
+          "text": "C.instinctive",
+          "type": "line",
+          "angle": 0,
+          "id": 16,
+          "origin_position": [
+            1040,
+            515,
+            1040,
+            600,
+            1022,
+            600,
+            1023,
+            515
+          ]
+        },
+        {
+          "id": 17,
+          "origin_position": [
+            1037,
+            665,
+            1037,
+            731,
+            1021,
+            731,
+            1021,
+            665
+          ],
+          "pos": [
+            545,
+            130,
+            612,
+            130,
+            612,
+            147,
+            545,
+            147
+          ],
+          "score": 0.9990000128746033,
+          "text": "D.mutual",
+          "type": "line",
+          "angle": 0
+        },
+        {
+          "type": "line",
+          "angle": 0,
+          "id": 18,
+          "origin_position": [
+            1026,
+            143,
+            1020,
+            189,
+            997,
+            186,
+            1002,
+            141
+          ],
+          "pos": [
+            18,
+            144,
+            64,
+            150,
+            61,
+            174,
+            16,
+            169
+          ],
+          "score": 0.8370000123977661,
+          "sub_type": "handwriting",
+          "text": "CD"
+        },
+        {
+          "origin_position": [
+            1020,
+            178,
+            1020,
+            284,
+            1002,
+            284,
+            1002,
+            178
+          ],
+          "pos": [
+            53,
+            150,
+            159,
+            150,
+            159,
+            168,
+            53,
+            168
+          ],
+          "score": 0.996999979019165,
+          "text": "75.A.extensive",
+          "type": "line",
+          "angle": 0,
+          "id": 19
+        },
+        {
+          "id": 20,
+          "origin_position": [
+            1019,
+            364,
+            1019,
+            460,
+            1001,
+            460,
+            1002,
+            364
+          ],
+          "pos": [
+            240,
+            150,
+            337,
+            150,
+            337,
+            168,
+            240,
+            168
+          ],
+          "score": 0.9990000128746033,
+          "text": "B.fundamental",
+          "type": "line",
+          "angle": 0
+        },
+        {
+          "angle": 0,
+          "id": 21,
+          "origin_position": [
+            1019,
+            515,
+            1018,
+            612,
+            1001,
+            612,
+            1001,
+            514
+          ],
+          "pos": [
+            392,
+            150,
+            491,
+            150,
+            491,
+            168,
+            392,
+            168
+          ],
+          "score": 0.9980000257492065,
+          "text": "C.professional",
+          "type": "line"
+        },
+        {
+          "origin_position": [
+            1018,
+            665,
+            1018,
+            735,
+            1000,
+            735,
+            1000,
+            665
+          ],
+          "pos": [
+            545,
+            150,
+            617,
+            150,
+            617,
+            168,
+            545,
+            168
+          ],
+          "score": 0.996999979019165,
+          "text": "D.internal",
+          "type": "line",
+          "angle": 0,
+          "id": 22
+        },
+        {
+          "id": 23,
+          "origin_position": [
+            1055,
+            879,
+            1055,
+            907,
+            1007,
+            907,
+            1007,
+            879
+          ],
+          "pos": [
+            764,
+            111,
+            793,
+            111,
+            793,
+            160,
+            764,
+            160
+          ],
+          "score": 0.5299999713897705,
+          "sub_type": "handwriting",
+          "text": "P",
+          "type": "line",
+          "angle": 0
+        },
+        {
+          "score": 0.7900000214576721,
+          "sub_type": "handwriting",
+          "text": "B",
+          "type": "line",
+          "angle": 0,
+          "id": 24,
+          "origin_position": [
+            993,
+            134,
+            993,
+            150,
+            967,
+            149,
+            967,
+            133
+          ],
+          "pos": [
+            9,
+            178,
+            25,
+            178,
+            25,
+            204,
+            9,
+            204
+          ]
+        },
+        {
+          "pos": [
+            22,
+            164,
+            66,
+            167,
+            63,
+            203,
+            20,
+            200
+          ],
+          "score": 0.5450000166893005,
+          "sub_type": "handwriting",
+          "text": "DB",
+          "type": "line",
+          "angle": 0,
+          "id": 25,
+          "origin_position": [
+            1007,
+            147,
+            1003,
+            191,
+            968,
+            187,
+            971,
+            144
+          ]
+        },
+        {
+          "pos": [
+            51,
+            170,
+            246,
+            172,
+            245,
+            191,
+            51,
+            189
+          ],
+          "score": 0.9990000128746033,
+          "text": "76.A.technology dependence",
+          "type": "line",
+          "angle": 0,
+          "id": 26,
+          "origin_position": [
+            1001,
+            176,
+            998,
+            370,
+            979,
+            369,
+            982,
+            176
+          ]
+        },
+        {
+          "pos": [
+            85,
+            193,
+            212,
+            193,
+            212,
+            210,
+            85,
+            210
+          ],
+          "score": 0.9990000128746033,
+          "text": "C.school discipline",
+          "type": "line",
+          "angle": 0,
+          "id": 27,
+          "origin_position": [
+            978,
+            210,
+            977,
+            336,
+            961,
+            336,
+            961,
+            209
+          ]
+        },
+        {
+          "type": "line",
+          "angle": 0,
+          "id": 28,
+          "origin_position": [
+            968,
+            142,
+            971,
+            192,
+            939,
+            193,
+            937,
+            144
+          ],
+          "pos": [
+            18,
+            203,
+            68,
+            200,
+            69,
+            232,
+            20,
+            234
+          ],
+          "score": 0.7940000295639038,
+          "sub_type": "handwriting",
+          "text": "BG"
+        },
+        {
+          "pos": [
+            54,
+            213,
+            133,
+            213,
+            133,
+            231,
+            54,
+            231
+          ],
+          "score": 0.996999979019165,
+          "text": "77.A.clues",
+          "type": "line",
+          "angle": 0,
+          "id": 29,
+          "origin_position": [
+            958,
+            178,
+            958,
+            257,
+            940,
+            257,
+            940,
+            178
+          ]
+        },
+        {
+          "angle": 0,
+          "id": 30,
+          "origin_position": [
+            1000,
+            512,
+            1000,
+            625,
+            978,
+            624,
+            979,
+            512
+          ],
+          "pos": [
+            390,
+            169,
+            504,
+            169,
+            504,
+            191,
+            390,
+            191
+          ],
+          "score": 0.9940000176429749,
+          "text": "B.digital literacy",
+          "type": "line"
+        },
+        {
+          "text": "D.social norm",
+          "type": "line",
+          "angle": 0,
+          "id": 31,
+          "origin_position": [
+            977,
+            514,
+            976,
+            607,
+            960,
+            607,
+            960,
+            514
+          ],
+          "pos": [
+            392,
+            193,
+            486,
+            193,
+            486,
+            210,
+            392,
+            210
+          ],
+          "score": 0.9980000257492065
+        },
+        {
+          "type": "line",
+          "angle": 0,
+          "id": 32,
+          "origin_position": [
+            958,
+            361,
+            958,
+            449,
+            938,
+            449,
+            938,
+            360
+          ],
+          "pos": [
+            237,
+            212,
+            326,
+            212,
+            326,
+            233,
+            237,
+            233
+          ],
+          "score": 0.9980000257492065,
+          "text": "B.prejudices"
+        },
+        {
+          "angle": 0,
+          "id": 33,
+          "origin_position": [
+            956,
+            514,
+            956,
+            575,
+            938,
+            575,
+            938,
+            514
+          ],
+          "pos": [
+            392,
+            214,
+            454,
+            214,
+            454,
+            232,
+            392,
+            232
+          ],
+          "score": 0.9950000047683716,
+          "text": "C.proofs",
+          "type": "line"
+        },
+        {
+          "id": 34,
+          "origin_position": [
+            955,
+            664,
+            955,
+            736,
+            938,
+            736,
+            938,
+            664
+          ],
+          "pos": [
+            545,
+            214,
+            618,
+            214,
+            618,
+            232,
+            545,
+            232
+          ],
+          "score": 0.9909999966621399,
+          "text": "D.patterns",
+          "type": "line",
+          "angle": 0
+        },
+        {
+          "type": "line",
+          "angle": 0,
+          "id": 35,
+          "origin_position": [
+            938,
+            178,
+            938,
+            323,
+            916,
+            322,
+            917,
+            178
+          ],
+          "pos": [
+            54,
+            233,
+            199,
+            233,
+            199,
+            255,
+            54,
+            255
+          ],
+          "score": 0.9990000128746033,
+          "text": "78.A.Controversially"
+        },
+        {
+          "angle": 0,
+          "id": 36,
+          "origin_position": [
+            938,
+            147,
+            942,
+            189,
+            862,
+            197,
+            858,
+            154
+          ],
+          "pos": [
+            23,
+            233,
+            65,
+            229,
+            74,
+            310,
+            31,
+            314
+          ],
+          "score": 0.21899999678134918,
+          "sub_type": "handwriting",
+          "text": "8",
+          "type": "line"
+        },
+        {
+          "angle": 0,
+          "id": 37,
+          "origin_position": [
+            918,
+            178,
+            917,
+            278,
+            896,
+            278,
+            896,
+            177
+          ],
+          "pos": [
+            54,
+            254,
+            155,
+            254,
+            155,
+            276,
+            54,
+            276
+          ],
+          "score": 0.996999979019165,
+          "text": "79.A.integrity",
+          "type": "line"
+        },
+        {
+          "text": "S0.A.neck and neck",
+          "type": "line",
+          "angle": 0,
+          "id": 38,
+          "origin_position": [
+            896,
+            179,
+            895,
+            312,
+            876,
+            311,
+            878,
+            178
+          ],
+          "pos": [
+            56,
+            276,
+            189,
+            277,
+            188,
+            296,
+            55,
+            294
+          ],
+          "score": 0.953000009059906
+        },
+        {
+          "text": "B.Luckily",
+          "type": "line",
+          "angle": 0,
+          "id": 39,
+          "origin_position": [
+            938,
+            360,
+            938,
+            433,
+            916,
+            432,
+            916,
+            360
+          ],
+          "pos": [
+            237,
+            233,
+            310,
+            233,
+            310,
+            255,
+            237,
+            255
+          ],
+          "score": 0.9990000128746033
+        },
+        {
+          "text": "C.Specifically",
+          "type": "line",
+          "angle": 0,
+          "id": 40,
+          "origin_position": [
+            937,
+            512,
+            937,
+            609,
+            915,
+            609,
+            916,
+            512
+          ],
+          "pos": [
+            390,
+            233,
+            489,
+            233,
+            489,
+            255,
+            390,
+            255
+          ],
+          "score": 0.9980000257492065
+        },
+        {
+          "text": "D.Literally",
+          "type": "line",
+          "angle": 0,
+          "id": 41,
+          "origin_position": [
+            937,
+            664,
+            937,
+            742,
+            915,
+            742,
+            915,
+            664
+          ],
+          "pos": [
+            545,
+            233,
+            624,
+            233,
+            624,
+            255,
+            545,
+            255
+          ],
+          "score": 0.9980000257492065
+        },
+        {
+          "text": "B.diversity",
+          "type": "line",
+          "angle": 0,
+          "id": 42,
+          "origin_position": [
+            917,
+            360,
+            917,
+            438,
+            895,
+            438,
+            895,
+            360
+          ],
+          "pos": [
+            237,
+            254,
+            316,
+            254,
+            316,
+            276,
+            237,
+            276
+          ],
+          "score": 0.9990000128746033
+        },
+        {
+          "angle": 0,
+          "id": 43,
+          "origin_position": [
+            917,
+            513,
+            914,
+            579,
+            895,
+            577,
+            898,
+            511
+          ],
+          "pos": [
+            391,
+            254,
+            458,
+            257,
+            457,
+            276,
+            390,
+            273
+          ],
+          "score": 0.996999979019165,
+          "text": "C.vitality",
+          "type": "line"
+        },
+        {
+          "pos": [
+            546,
+            257,
+            641,
+            257,
+            641,
+            274,
+            546,
+            274
+          ],
+          "score": 0.9990000128746033,
+          "text": "D.consistency",
+          "type": "line",
+          "angle": 0,
+          "id": 44,
+          "origin_position": [
+            913,
+            665,
+            913,
+            758,
+            897,
+            758,
+            897,
+            665
+          ]
+        },
+        {
+          "angle": 0,
+          "id": 45,
+          "origin_position": [
+            894,
+            361,
+            894,
+            440,
+            877,
+            440,
+            877,
+            361
+          ],
+          "pos": [
+            238,
+            277,
+            318,
+            277,
+            318,
+            295,
+            238,
+            295
+          ],
+          "score": 0.9959999918937683,
+          "text": "B.toe to toe",
+          "type": "line"
+        },
+        {
+          "type": "line",
+          "angle": 0,
+          "id": 46,
+          "origin_position": [
+            894,
+            513,
+            894,
+            606,
+            876,
+            606,
+            876,
+            513
+          ],
+          "pos": [
+            392,
+            277,
+            486,
+            277,
+            486,
+            295,
+            392,
+            295
+          ],
+          "score": 0.9869999885559082,
+          "text": "C.face to face"
+        },
+        {
+          "angle": 0,
+          "id": 47,
+          "origin_position": [
+            894,
+            665,
+            894,
+            767,
+            876,
+            767,
+            876,
+            665
+          ],
+          "pos": [
+            546,
+            277,
+            650,
+            277,
+            650,
+            295,
+            546,
+            295
+          ],
+          "score": 0.9739999771118164,
+          "text": "D.hand in hand",
+          "type": "line"
+        },
+        {
+          "id": 48,
+          "origin_position": [
+            852,
+            178,
+            852,
+            246,
+            836,
+            245,
+            836,
+            178
+          ],
+          "pos": [
+            56,
+            320,
+            123,
+            320,
+            123,
+            336,
+            56,
+            336
+          ],
+          "score": 0.9890000224113464,
+          "text": "Section B",
+          "type": "line",
+          "angle": 0
+        },
+        {
+          "pos": [
+            54,
+            339,
+            692,
+            339,
+            692,
+            362,
+            54,
+            362
+          ],
+          "score": 0.9779999852180481,
+          "text": "Directions: Read the following three passages. Each passage is followed by several questions or",
+          "type": "line",
+          "angle": 0,
+          "id": 49,
+          "origin_position": [
+            833,
+            176,
+            833,
+            808,
+            810,
+            807,
+            811,
+            176
+          ]
+        },
+        {
+          "pos": [
+            54,
+            361,
+            691,
+            361,
+            691,
+            383,
+            54,
+            383
+          ],
+          "score": 0.9829999804496765,
+          "text": "unfinished statements.For each of them there are four choices marked A,B,C and D.Choose the one",
+          "type": "line",
+          "angle": 0,
+          "id": 50,
+          "origin_position": [
+            812,
+            176,
+            811,
+            806,
+            790,
+            806,
+            790,
+            175
+          ]
+        },
+        {
+          "text": "that fits best according to the information given in the passage you have just read.",
+          "type": "line",
+          "angle": 0,
+          "id": 51,
+          "origin_position": [
+            792,
+            175,
+            792,
+            682,
+            770,
+            682,
+            770,
+            175
+          ],
+          "pos": [
+            54,
+            381,
+            564,
+            381,
+            564,
+            403,
+            54,
+            403
+          ],
+          "score": 0.9869999885559082
+        },
+        {
+          "score": 0.9900000095367432,
+          "text": "(A)",
+          "type": "line",
+          "angle": 0,
+          "id": 52,
+          "origin_position": [
+            769,
+            485,
+            769,
+            513,
+            751,
+            513,
+            751,
+            485
+          ],
+          "pos": [
+            365,
+            404,
+            393,
+            404,
+            393,
+            422,
+            365,
+            422
+          ]
+        },
+        {
+          "id": 53,
+          "origin_position": [
+            750,
+            206,
+            750,
+            807,
+            729,
+            807,
+            728,
+            205
+          ],
+          "pos": [
+            85,
+            423,
+            692,
+            423,
+            692,
+            445,
+            85,
+            445
+          ],
+          "score": 0.9760000109672546,
+          "text": "Several years ago,I began asking my friends and family to tell me their passwords. I had come to",
+          "type": "line",
+          "angle": 0
+        },
+        {
+          "score": 0.9929999709129333,
+          "text": "believe that these tiny personalized codes get a bum rap.",
+          "type": "line",
+          "angle": 0,
+          "id": 54,
+          "origin_position": [
+            728,
+            174,
+            728,
+            535,
+            707,
+            535,
+            706,
+            174
+          ],
+          "pos": [
+            54,
+            445,
+            416,
+            445,
+            416,
+            467,
+            54,
+            467
+          ]
+        },
+        {
+          "angle": 0,
+          "id": 55,
+          "origin_position": [
+            704,
+            208,
+            705,
+            806,
+            688,
+            806,
+            687,
+            208
+          ],
+          "pos": [
+            88,
+            469,
+            691,
+            469,
+            691,
+            486,
+            88,
+            486
+          ],
+          "score": 0.9860000014305115,
+          "text": "Yes,I understand why passwords are universally hated:the strains they put on our memory,the",
+          "type": "line"
+        },
+        {
+          "pos": [
+            53,
+            488,
+            692,
+            488,
+            692,
+            510,
+            53,
+            510
+          ],
+          "score": 0.9660000205039978,
+          "text": "endless demand to update them, their sheer number. I hate them too. But there is more to passwords",
+          "type": "line",
+          "angle": 0,
+          "id": 56,
+          "origin_position": [
+            685,
+            173,
+            686,
+            807,
+            665,
+            807,
+            663,
+            172
+          ]
+        },
+        {
+          "id": 57,
+          "origin_position": [
+            662,
+            175,
+            664,
+            806,
+            646,
+            806,
+            644,
+            175
+          ],
+          "pos": [
+            56,
+            511,
+            691,
+            511,
+            691,
+            529,
+            56,
+            529
+          ],
+          "score": 0.9760000109672546,
+          "text": "than their annoyance. In the fact that we construct them so that we (and only we) will remember them,",
+          "type": "line",
+          "angle": 0
+        },
+        {
+          "score": 0.9750000238418579,
+          "text": "they take on secret lives. Many of our passwords are filled with suffering,mischief,sometimes even",
+          "type": "line",
+          "angle": 0,
+          "id": 58,
+          "origin_position": [
+            643,
+            173,
+            645,
+            807,
+            623,
+            806,
+            621,
+            173
+          ],
+          "pos": [
+            54,
+            530,
+            692,
+            530,
+            692,
+            552,
+            54,
+            552
+          ]
+        },
+        {
+          "type": "line",
+          "angle": 0,
+          "id": 59,
+          "origin_position": [
+            620,
+            175,
+            622,
+            806,
+            605,
+            806,
+            602,
+            174
+          ],
+          "pos": [
+            56,
+            553,
+            692,
+            553,
+            692,
+            571,
+            56,
+            571
+          ],
+          "score": 0.9890000224113464,
+          "text": "poetry.Often they have rich backstories.There was the former prisoner whose password includes what"
+        },
+        {
+          "type": "line",
+          "angle": 0,
+          "id": 60,
+          "origin_position": [
+            601,
+            172,
+            604,
+            808,
+            582,
+            808,
+            579,
+            172
+          ],
+          "pos": [
+            54,
+            572,
+            694,
+            572,
+            694,
+            594,
+            54,
+            594
+          ],
+          "score": 0.9789999723434448,
+          "text": "used to be his identification number (\"a reminder not to go back\");the childless 45-year-old whose"
+        },
+        {
+          "angle": 0,
+          "id": 61,
+          "origin_position": [
+            580,
+            172,
+            583,
+            806,
+            561,
+            806,
+            558,
+            171
+          ],
+          "pos": [
+            54,
+            593,
+            692,
+            593,
+            692,
+            615,
+            54,
+            615
+          ],
+          "score": 0.9700000286102295,
+          "text": "password is the name of the baby boy she lost (\"my way of trying to keep him alive,I guess\").",
+          "type": "line"
+        },
+        {
+          "score": 0.9800000190734863,
+          "text": "Sometimes the passwords were playful. Several people said they used incorrect for theirs so that when",
+          "type": "line",
+          "angle": 0,
+          "id": 62,
+          "origin_position": [
+            558,
+            171,
+            561,
+            806,
+            539,
+            806,
+            536,
+            171
+          ],
+          "pos": [
+            54,
+            615,
+            692,
+            615,
+            692,
+            637,
+            54,
+            637
+          ]
+        },
+        {
+          "id": 63,
+          "origin_position": [
+            535,
+            173,
+            538,
+            771,
+            520,
+            770,
+            517,
+            173
+          ],
+          "pos": [
+            56,
+            638,
+            656,
+            638,
+            656,
+            656,
+            56,
+            656
+          ],
+          "score": 0.9739999771118164,
+          "text": "they forgot it, the software automatically gave them the right one(\"your password is incorrect\").",
+          "type": "line",
+          "angle": 0
+        },
+        {
+          "type": "line",
+          "angle": 0,
+          "id": 64,
+          "origin_position": [
+            516,
+            202,
+            520,
+            806,
+            498,
+            806,
+            494,
+            202
+          ],
+          "pos": [
+            85,
+            657,
+            692,
+            657,
+            692,
+            679,
+            85,
+            679
+          ],
+          "score": 0.9879999756813049,
+          "text": "Some passwords were striking for their creativity, folding big thoughts down into tidy little codes."
+        },
+        {
+          "text": "After being inspired by Sheryl Sandberg'sbook Lean In:Women,Work,and the Will to Lead.Cortni",
+          "type": "line",
+          "angle": 0,
+          "id": 65,
+          "origin_position": [
+            492,
+            170,
+            496,
+            806,
+            479,
+            806,
+            475,
+            170
+          ],
+          "pos": [
+            54,
+            681,
+            692,
+            681,
+            692,
+            698,
+            54,
+            698
+          ],
+          "score": 0.9890000224113464
+        },
+        {
+          "angle": 0,
+          "id": 66,
+          "origin_position": [
+            473,
+            170,
+            477,
+            808,
+            456,
+            807,
+            452,
+            170
+          ],
+          "pos": [
+            54,
+            700,
+            694,
+            700,
+            694,
+            721,
+            54,
+            721
+          ],
+          "score": 0.9660000205039978,
+          "text": "Kerr,a running partner of mine,began using WwSSdol3,which stood for\"What would Sheryl Sandberg",
+          "type": "line"
+        },
+        {
+          "text": "do\" plus \"13\" for the year (2013) of the password's creation. TnsitTpsif was the password of another",
+          "type": "line",
+          "angle": 0,
+          "id": 67,
+          "origin_position": [
+            452,
+            170,
+            456,
+            807,
+            434,
+            807,
+            430,
+            169
+          ],
+          "pos": [
+            54,
+            721,
+            694,
+            721,
+            694,
+            743,
+            54,
+            743
+          ],
+          "score": 0.9580000042915344
+        },
+        {
+          "id": 68,
+          "origin_position": [
+            428,
+            171,
+            432,
+            805,
+            415,
+            805,
+            411,
+            171
+          ],
+          "pos": [
+            56,
+            745,
+            692,
+            745,
+            692,
+            762,
+            56,
+            762
+          ],
+          "score": 0.9850000143051147,
+          "text": "friend,a computer scientist who loves wordplay.It stands for\"The next sentence is true.The previous",
+          "type": "line",
+          "angle": 0
+        },
+        {
+          "score": 0.9769999980926514,
+          "text": "sentence is false,\" which in philosophy iscalled a liar's paradox. For my friend, it was a playful",
+          "type": "line",
+          "angle": 0,
+          "id": 69,
+          "origin_position": [
+            409,
+            169,
+            413,
+            805,
+            391,
+            805,
+            386,
+            169
+          ],
+          "pos": [
+            54,
+            764,
+            692,
+            764,
+            692,
+            786,
+            54,
+            786
+          ]
+        },
+        {
+          "origin_position": [
+            385,
+            171,
+            388,
+            442,
+            369,
+            442,
+            367,
+            170
+          ],
+          "pos": [
+            56,
+            787,
+            326,
+            787,
+            326,
+            805,
+            56,
+            805
+          ],
+          "score": 0.9829999804496765,
+          "text": "reference to the knots that language can tie.",
+          "type": "line",
+          "angle": 0,
+          "id": 70
+        },
+        {
+          "angle": 0,
+          "id": 71,
+          "origin_position": [
+            364,
+            201,
+            369,
+            806,
+            350,
+            805,
+            345,
+            200
+          ],
+          "pos": [
+            86,
+            808,
+            693,
+            809,
+            692,
+            828,
+            86,
+            827
+          ],
+          "score": 0.984000027179718,
+          "text": "While asking strangers about their passwords is a touchy proposition,it's not every day that you",
+          "type": "line"
+        },
+        {
+          "text": "come across a conversation topic that teaches you new things about people you've known for years.",
+          "type": "line",
+          "angle": 0,
+          "id": 72,
+          "origin_position": [
+            344,
+            167,
+            349,
+            789,
+            328,
+            789,
+            322,
+            166
+          ],
+          "pos": [
+            53,
+            828,
+            676,
+            828,
+            676,
+            850,
+            53,
+            850
+          ],
+          "score": 0.9850000143051147
+        },
+        {
+          "angle": 0,
+          "id": 73,
+          "origin_position": [
+            322,
+            197,
+            328,
+            807,
+            306,
+            807,
+            300,
+            196
+          ],
+          "pos": [
+            83,
+            850,
+            694,
+            850,
+            694,
+            872,
+            83,
+            872
+          ],
+          "score": 0.984000027179718,
+          "text": "The 4622 that my wife uses in her passwords was not just the address of her own father's childhood",
+          "type": "line"
+        },
+        {
+          "text": "home but also a reminder of his weakness and strength. Apparently when the former 270-pound football",
+          "type": "line",
+          "angle": 0,
+          "id": 74,
+          "origin_position": [
+            302,
+            166,
+            308,
+            807,
+            286,
+            807,
+            279,
+            166
+          ],
+          "pos": [
+            53,
+            870,
+            694,
+            870,
+            694,
+            892,
+            53,
+            892
+          ],
+          "score": 0.9819999933242798
+        },
+        {
+          "id": 75,
+          "origin_position": [
+            279,
+            167,
+            286,
+            807,
+            264,
+            806,
+            257,
+            166
+          ],
+          "pos": [
+            54,
+            892,
+            694,
+            892,
+            694,
+            914,
+            54,
+            914
+          ],
+          "score": 0.9769999980926514,
+          "text": "standout,a scholarship athlete and the pride of his working-class neighborhood in west Tulsa,was a",
+          "type": "line",
+          "angle": 0
+        },
+        {
+          "text": "small boy,he had to sing his home address(4622 South 28th West Avenue) in one full breath rather",
+          "type": "line",
+          "angle": 0,
+          "id": 76,
+          "origin_position": [
+            258,
+            166,
+            265,
+            804,
+            243,
+            804,
+            236,
+            166
+          ],
+          "pos": [
+            54,
+            913,
+            692,
+            913,
+            692,
+            935,
+            54,
+            935
+          ],
+          "score": 0.9890000224113464
+        },
+        {
+          "text": "than try to say it normally,otherwise,his stutter（口吃） would trip him up.",
+          "type": "line",
+          "angle": 0,
+          "id": 77,
+          "origin_position": [
+            236,
+            165,
+            241,
+            634,
+            219,
+            634,
+            213,
+            165
+          ],
+          "pos": [
+            53,
+            935,
+            520,
+            935,
+            520,
+            957,
+            53,
+            957
+          ],
+          "score": 0.9800000190734863
+        },
+        {
+          "type": "line",
+          "angle": 0,
+          "id": 78,
+          "origin_position": [
+            1116,
+            907,
+            1116,
+            936,
+            1070,
+            936,
+            1070,
+            907
+          ],
+          "pos": [
+            793,
+            48,
+            823,
+            48,
+            823,
+            95,
+            793,
+            95
+          ],
+          "score": 0.871999979019165,
+          "sub_type": "handwriting",
+          "text": "A"
+        },
+        {
+          "score": 0.9570000171661377,
+          "text": "1.What does the phrase \"a bum rap\" in paragraph 1 most probably mean?",
+          "type": "line",
+          "angle": 0,
+          "id": 79,
+          "origin_position": [
+            1101,
+            925,
+            1098,
+            1378,
+            1076,
+            1378,
+            1079,
+            925
+          ],
+          "pos": [
+            812,
+            63,
+            1284,
+            63,
+            1284,
+            86,
+            812,
+            86
+          ]
+        },
+        {
+          "type": "line",
+          "angle": 0,
+          "id": 80,
+          "origin_position": [
+            1081,
+            950,
+            1080,
+            1095,
+            1058,
+            1095,
+            1059,
+            949
+          ],
+          "pos": [
+            837,
+            84,
+            988,
+            84,
+            988,
+            106,
+            837,
+            106
+          ],
+          "score": 0.9879999756813049,
+          "text": "A.an imaginative story"
+        },
+        {
+          "id": 81,
+          "origin_position": [
+            1077,
+            1246,
+            1076,
+            1419,
+            1060,
+            1419,
+            1061,
+            1246
+          ],
+          "pos": [
+            1145,
+            86,
+            1327,
+            86,
+            1327,
+            103,
+            1145,
+            103
+          ],
+          "score": 0.9879999756813049,
+          "text": "B.an unreasonable structure",
+          "type": "line",
+          "angle": 0
+        },
+        {
+          "angle": 0,
+          "id": 82,
+          "origin_position": [
+            1057,
+            949,
+            1057,
+            1050,
+            1040,
+            1050,
+            1041,
+            949
+          ],
+          "pos": [
+            837,
+            108,
+            941,
+            108,
+            941,
+            125,
+            837,
+            125
+          ],
+          "score": 0.996999979019165,
+          "text": "C.a false blame",
+          "type": "line"
+        },
+        {
+          "id": 83,
+          "origin_position": [
+            1059,
+            1245,
+            1058,
+            1384,
+            1037,
+            1384,
+            1037,
+            1245
+          ],
+          "pos": [
+            1144,
+            105,
+            1290,
+            105,
+            1290,
+            127,
+            1144,
+            127
+          ],
+          "score": 0.9829999804496765,
+          "text": "D.a notable exception",
+          "type": "line",
+          "angle": 0
+        },
+        {
+          "angle": 0,
+          "id": 84,
+          "origin_position": [
+            1046,
+            906,
+            1046,
+            936,
+            999,
+            936,
+            999,
+            906
+          ],
+          "pos": [
+            792,
+            120,
+            823,
+            120,
+            823,
+            168,
+            792,
+            168
+          ],
+          "score": 0.5329999923706055,
+          "sub_type": "handwriting",
+          "text": "D",
+          "type": "line"
+        },
+        {
+          "score": 0.9829999804496765,
+          "text": "2.Which of the following passwords does the writer use as an example of those with a touch of humour?",
+          "type": "line",
+          "angle": 0,
+          "id": 85,
+          "origin_position": [
+            1041,
+            924,
+            1038,
+            1535,
+            1017,
+            1535,
+            1020,
+            924
+          ],
+          "pos": [
+            811,
+            125,
+            1449,
+            125,
+            1449,
+            147,
+            811,
+            147
+          ]
+        },
+        {
+          "id": 86,
+          "origin_position": [
+            1018,
+            951,
+            1017,
+            1126,
+            1000,
+            1126,
+            1001,
+            951
+          ],
+          "pos": [
+            839,
+            149,
+            1020,
+            149,
+            1020,
+            166,
+            839,
+            166
+          ],
+          "score": 0.9909999966621399,
+          "text": "A.An identification number.",
+          "type": "line",
+          "angle": 0
+        },
+        {
+          "angle": 0,
+          "id": 87,
+          "origin_position": [
+            1019,
+            1245,
+            1018,
+            1395,
+            997,
+            1396,
+            998,
+            1245
+          ],
+          "pos": [
+            1144,
+            146,
+            1302,
+            146,
+            1302,
+            168,
+            1144,
+            168
+          ],
+          "score": 0.972000002861023,
+          "text": "B.The word\"incorrect\"",
+          "type": "line"
+        },
+        {
+          "sub_type": "handwriting",
+          "text": "A",
+          "type": "line",
+          "angle": 0,
+          "id": 88,
+          "origin_position": [
+            999,
+            904,
+            999,
+            941,
+            947,
+            940,
+            947,
+            904
+          ],
+          "pos": [
+            790,
+            168,
+            828,
+            168,
+            828,
+            222,
+            790,
+            222
+          ],
+          "score": 0.7559999823570251
+        },
+        {
+          "text": "C.WwSSdo13.",
+          "type": "line",
+          "angle": 0,
+          "id": 89,
+          "origin_position": [
+            999,
+            948,
+            999,
+            1047,
+            977,
+            1047,
+            978,
+            948
+          ],
+          "pos": [
+            836,
+            168,
+            938,
+            168,
+            938,
+            190,
+            836,
+            190
+          ],
+          "score": 0.9829999804496765
+        },
+        {
+          "pos": [
+            814,
+            188,
+            1264,
+            188,
+            1264,
+            210,
+            814,
+            210
+          ],
+          "score": 0.9670000076293945,
+          "text": "3.Why does the writer's wife use the number \"4622\" in her passwords?",
+          "type": "line",
+          "angle": 0,
+          "id": 90,
+          "origin_position": [
+            980,
+            927,
+            978,
+            1360,
+            957,
+            1360,
+            958,
+            927
+          ]
+        },
+        {
+          "id": 91,
+          "origin_position": [
+            956,
+            951,
+            956,
+            1144,
+            939,
+            1144,
+            940,
+            951
+          ],
+          "pos": [
+            839,
+            212,
+            1039,
+            212,
+            1039,
+            229,
+            839,
+            229
+          ],
+          "score": 0.9819999933242798,
+          "text": "A.It reminded her of her father.",
+          "type": "line",
+          "angle": 0
+        },
+        {
+          "score": 0.9599999785423279,
+          "text": "D.TnsitTpsif.",
+          "type": "line",
+          "angle": 0,
+          "id": 92,
+          "origin_position": [
+            997,
+            1246,
+            997,
+            1333,
+            979,
+            1333,
+            980,
+            1246
+          ],
+          "pos": [
+            1145,
+            169,
+            1236,
+            169,
+            1236,
+            187,
+            1145,
+            187
+          ]
+        },
+        {
+          "id": 93,
+          "origin_position": [
+            937,
+            951,
+            936,
+            1168,
+            919,
+            1168,
+            919,
+            951
+          ],
+          "pos": [
+            839,
+            232,
+            1064,
+            232,
+            1064,
+            250,
+            839,
+            250
+          ],
+          "score": 0.9850000143051147,
+          "text": "B.It helped her to overcome stutter.",
+          "type": "line",
+          "angle": 0
+        },
+        {
+          "origin_position": [
+            919,
+            949,
+            919,
+            1221,
+            898,
+            1221,
+            899,
+            949
+          ],
+          "pos": [
+            837,
+            250,
+            1119,
+            250,
+            1119,
+            271,
+            837,
+            271
+          ],
+          "score": 0.9869999885559082,
+          "text": "C.It was the address of her childhood home.",
+          "type": "line",
+          "angle": 0,
+          "id": 94
+        },
+        {
+          "pos": [
+            789,
+            274,
+            825,
+            274,
+            825,
+            321,
+            789,
+            321
+          ],
+          "score": 0.9279999732971191,
+          "sub_type": "handwriting",
+          "text": "B",
+          "type": "line",
+          "angle": 0,
+          "id": 95,
+          "origin_position": [
+            896,
+            902,
+            896,
+            937,
+            850,
+            937,
+            850,
+            902
+          ]
+        },
+        {
+          "text": "D.It was part of the name of her favourite song.",
+          "type": "line",
+          "angle": 0,
+          "id": 96,
+          "origin_position": [
+            899,
+            949,
+            898,
+            1241,
+            877,
+            1241,
+            878,
+            949
+          ],
+          "pos": [
+            837,
+            271,
+            1140,
+            271,
+            1140,
+            293,
+            837,
+            293
+          ],
+          "score": 0.9829999804496765
+        },
+        {
+          "angle": 0,
+          "id": 97,
+          "origin_position": [
+            857,
+            949,
+            857,
+            1166,
+            835,
+            1166,
+            836,
+            949
+          ],
+          "pos": [
+            837,
+            314,
+            1062,
+            314,
+            1062,
+            336,
+            837,
+            336
+          ],
+          "score": 0.9909999966621399,
+          "text": "A.The Development of Passwords.",
+          "type": "line"
+        },
+        {
+          "angle": 0,
+          "id": 98,
+          "origin_position": [
+            859,
+            1245,
+            858,
+            1456,
+            837,
+            1456,
+            837,
+            1245
+          ],
+          "pos": [
+            1144,
+            312,
+            1365,
+            312,
+            1365,
+            334,
+            1144,
+            334
+          ],
+          "score": 0.9850000143051147,
+          "text": "B.The Secret Lives of Passwords.",
+          "type": "line"
+        },
+        {
+          "text": "C.Why Everybody Hates Passwords.",
+          "type": "line",
+          "angle": 0,
+          "id": 99,
+          "origin_position": [
+            838,
+            949,
+            837,
+            1178,
+            816,
+            1178,
+            816,
+            949
+          ],
+          "pos": [
+            837,
+            334,
+            1074,
+            334,
+            1074,
+            356,
+            837,
+            356
+          ],
+          "score": 0.9959999918937683
+        },
+        {
+          "angle": 0,
+          "id": 100,
+          "origin_position": [
+            838,
+            1246,
+            838,
+            1518,
+            817,
+            1518,
+            817,
+            1246
+          ],
+          "pos": [
+            1145,
+            333,
+            1430,
+            333,
+            1430,
+            355,
+            1145,
+            355
+          ],
+          "score": 0.9860000014305115,
+          "text": "D.Passwords:What We Can't Live Without.",
+          "type": "line"
+        },
+        {
+          "pos": [
+            1112,
+            378,
+            1138,
+            378,
+            1138,
+            396,
+            1112,
+            396
+          ],
+          "score": 0.996999979019165,
+          "text": "(B)",
+          "type": "line",
+          "angle": 0,
+          "id": 101,
+          "origin_position": [
+            795,
+            1215,
+            795,
+            1240,
+            777,
+            1240,
+            777,
+            1215
+          ]
+        },
+        {
+          "text": "COURSE:History 101\"Introduction to American History\"",
+          "type": "line",
+          "angle": 90,
+          "id": 102,
+          "origin_position": [
+            770,
+            924,
+            770,
+            1291,
+            748,
+            1291,
+            748,
+            924
+          ],
+          "pos": [
+            812,
+            403,
+            1191,
+            403,
+            1191,
+            426,
+            812,
+            426
+          ],
+          "score": 0.9860000014305115
+        },
+        {
+          "type": "line",
+          "angle": 90,
+          "id": 103,
+          "origin_position": [
+            748,
+            926,
+            748,
+            1148,
+            730,
+            1148,
+            730,
+            926
+          ],
+          "pos": [
+            814,
+            426,
+            1043,
+            426,
+            1043,
+            444,
+            814,
+            444
+          ],
+          "score": 0.9929999709129333,
+          "text": "INSTRUCTOR:Dr.Jane Klammer"
+        },
+        {
+          "angle": 90,
+          "id": 104,
+          "origin_position": [
+            727,
+            926,
+            727,
+            1105,
+            711,
+            1105,
+            710,
+            926
+          ],
+          "pos": [
+            814,
+            447,
+            998,
+            447,
+            998,
+            464,
+            814,
+            464
+          ],
+          "score": 0.9909999966621399,
+          "text": "OFFICE:305 Marshall Hall",
+          "type": "line"
+        },
+        {
+          "text": "OFFICE HOURS:11:15-12:30 M W F(Monday Wednesday Friday)",
+          "type": "line",
+          "angle": 90,
+          "id": 105,
+          "origin_position": [
+            708,
+            924,
+            709,
+            1349,
+            687,
+            1349,
+            686,
+            924
+          ],
+          "pos": [
+            812,
+            466,
+            1252,
+            466,
+            1252,
+            489,
+            812,
+            489
+          ],
+          "score": 0.9810000061988831
+        },
+        {
+          "angle": 90,
+          "id": 106,
+          "origin_position": [
+            686,
+            926,
+            686,
+            1096,
+            668,
+            1096,
+            668,
+            926
+          ],
+          "pos": [
+            814,
+            489,
+            989,
+            489,
+            989,
+            507,
+            814,
+            507
+          ],
+          "score": 0.9919999837875366,
+          "text": "CLASS:363 Marshall Hall",
+          "type": "line"
+        },
+        {
+          "text": "3:35-5:00 T Th(Tuesday Thursday)",
+          "type": "line",
+          "angle": 90,
+          "id": 107,
+          "origin_position": [
+            667,
+            939,
+            668,
+            1161,
+            646,
+            1161,
+            645,
+            939
+          ],
+          "pos": [
+            827,
+            508,
+            1056,
+            508,
+            1056,
+            530,
+            827,
+            530
+          ],
+          "score": 0.9860000014305115
+        },
+        {
+          "pos": [
+            830,
+            529,
+            1134,
+            532,
+            1134,
+            550,
+            830,
+            548
+          ],
+          "score": 0.9810000061988831,
+          "text": "10:10-11:00 M W F Other times by appointment",
+          "type": "line",
+          "angle": 90,
+          "id": 108,
+          "origin_position": [
+            646,
+            941,
+            644,
+            1236,
+            627,
+            1236,
+            628,
+            941
+          ]
+        },
+        {
+          "id": 109,
+          "origin_position": [
+            625,
+            926,
+            625,
+            1089,
+            609,
+            1089,
+            608,
+            926
+          ],
+          "pos": [
+            814,
+            551,
+            982,
+            551,
+            982,
+            568,
+            814,
+            568
+          ],
+          "score": 0.9990000128746033,
+          "text": "TELEPHONE:255-4786",
+          "type": "line",
+          "angle": 90
+        },
+        {
+          "origin_position": [
+            605,
+            924,
+            607,
+            1528,
+            586,
+            1528,
+            583,
+            924
+          ],
+          "pos": [
+            812,
+            571,
+            1438,
+            571,
+            1438,
+            593,
+            812,
+            593
+          ],
+          "score": 0.9810000061988831,
+          "text": "TEXTBOOK:Green,Robert P,The Amnerican Tradition:A History of the United States.Charles E.",
+          "type": "line",
+          "angle": 90,
+          "id": 110
+        },
+        {
+          "origin_position": [
+            585,
+            924,
+            588,
+            1471,
+            566,
+            1472,
+            564,
+            924
+          ],
+          "pos": [
+            812,
+            591,
+            1379,
+            591,
+            1379,
+            613,
+            812,
+            613
+          ],
+          "score": 0.9779999852180481,
+          "text": "Merrill publishing Co.Columbus, Ohio 1984,which is available at the College Bookstore.",
+          "type": "line",
+          "angle": 90,
+          "id": 111
+        },
+        {
+          "origin_position": [
+            565,
+            924,
+            565,
+            1090,
+            544,
+            1090,
+            543,
+            924
+          ],
+          "pos": [
+            812,
+            612,
+            983,
+            612,
+            983,
+            634,
+            812,
+            634
+          ],
+          "score": 0.9990000128746033,
+          "text": "COURSE Requirements:",
+          "type": "line",
+          "angle": 90,
+          "id": 112
+        },
+        {
+          "score": 0.9800000190734863,
+          "text": "mid-term exam:October 10 20% of the final grade",
+          "type": "line",
+          "angle": 90,
+          "id": 113,
+          "origin_position": [
+            542,
+            927,
+            544,
+            1243,
+            526,
+            1243,
+            524,
+            926
+          ],
+          "pos": [
+            815,
+            635,
+            1141,
+            635,
+            1141,
+            653,
+            815,
+            653
+          ]
+        },
+        {
+          "angle": 90,
+          "id": 114,
+          "origin_position": [
+            523,
+            925,
+            525,
+            1226,
+            503,
+            1226,
+            501,
+            925
+          ],
+          "pos": [
+            814,
+            654,
+            1123,
+            654,
+            1123,
+            676,
+            814,
+            676
+          ],
+          "score": 0.9860000014305115,
+          "text": "final exam:December 10 40% of the final grade",
+          "type": "line"
+        },
+        {
+          "angle": 90,
+          "id": 115,
+          "origin_position": [
+            499,
+            926,
+            501,
+            1258,
+            485,
+            1258,
+            483,
+            926
+          ],
+          "pos": [
+            815,
+            678,
+            1156,
+            678,
+            1156,
+            695,
+            815,
+            695
+          ],
+          "score": 0.9750000238418579,
+          "text": "term paper due:December 15 40% of the final grade",
+          "type": "line"
+        },
+        {
+          "id": 116,
+          "origin_position": [
+            481,
+            954,
+            484,
+            1530,
+            463,
+            1531,
+            459,
+            954
+          ],
+          "pos": [
+            843,
+            697,
+            1440,
+            697,
+            1440,
+            719,
+            843,
+            719
+          ],
+          "score": 0.9850000143051147,
+          "text": "Attendance is not required,but you are responsible for all the information given in the class",
+          "type": "line",
+          "angle": 90
+        },
+        {
+          "id": 117,
+          "origin_position": [
+            461,
+            925,
+            465,
+            1531,
+            443,
+            1531,
+            439,
+            925
+          ],
+          "pos": [
+            814,
+            717,
+            1440,
+            717,
+            1440,
+            739,
+            814,
+            739
+          ],
+          "score": 0.9789999723434448,
+          "text": "lectures.In the lectures, I will talk about the chapters in the textbook and other material that I choose",
+          "type": "line",
+          "angle": 90
+        },
+        {
+          "angle": 90,
+          "id": 118,
+          "origin_position": [
+            439,
+            925,
+            443,
+            1531,
+            422,
+            1531,
+            417,
+            925
+          ],
+          "pos": [
+            814,
+            739,
+            1440,
+            739,
+            1440,
+            761,
+            814,
+            761
+          ],
+          "score": 0.9779999852180481,
+          "text": "to supplement the course. The exams will cover all this information. Therefore,I advise you to come",
+          "type": "line"
+        },
+        {
+          "origin_position": [
+            419,
+            925,
+            424,
+            1533,
+            402,
+            1533,
+            397,
+            925
+          ],
+          "pos": [
+            814,
+            759,
+            1442,
+            759,
+            1442,
+            781,
+            814,
+            781
+          ],
+          "score": 0.9800000190734863,
+          "text": "to the class as much as possible. If you have to missa class,be sure to get the class notes from another",
+          "type": "line",
+          "angle": 90,
+          "id": 119
+        },
+        {
+          "origin_position": [
+            395,
+            926,
+            396,
+            978,
+            380,
+            978,
+            380,
+            926
+          ],
+          "pos": [
+            815,
+            783,
+            868,
+            783,
+            868,
+            799,
+            815,
+            799
+          ],
+          "score": 0.9940000176429749,
+          "text": "student.",
+          "type": "line",
+          "angle": 90,
+          "id": 120
+        },
+        {
+          "pos": [
+            843,
+            802,
+            1442,
+            802,
+            1442,
+            824,
+            843,
+            824
+          ],
+          "score": 0.984000027179718,
+          "text": "Your homework assignments are listed on the next page. You are supposed to read the chapter",
+          "type": "line",
+          "angle": 90,
+          "id": 121,
+          "origin_position": [
+            377,
+            953,
+            382,
+            1533,
+            360,
+            1533,
+            355,
+            953
+          ]
+        },
+        {
+          "id": 122,
+          "origin_position": [
+            357,
+            925,
+            362,
+            1533,
+            340,
+            1534,
+            335,
+            925
+          ],
+          "pos": [
+            814,
+            822,
+            1442,
+            822,
+            1442,
+            844,
+            814,
+            844
+          ],
+          "score": 0.984000027179718,
+          "text": "about which I will be lecturing before you come to class. This is to make sure that you understand as",
+          "type": "line",
+          "angle": 90
+        },
+        {
+          "origin_position": [
+            336,
+            925,
+            341,
+            1534,
+            320,
+            1534,
+            314,
+            925
+          ],
+          "pos": [
+            814,
+            843,
+            1442,
+            843,
+            1442,
+            865,
+            814,
+            865
+          ],
+          "score": 0.9829999804496765,
+          "text": "much as possible while taking notes in my lectures. Be prepared when you come to class.If there are",
+          "type": "line",
+          "angle": 90,
+          "id": 123
+        },
+        {
+          "score": 0.9800000190734863,
+          "text": "any changes in the assigned homework reading,I will announce in class.",
+          "type": "line",
+          "angle": 90,
+          "id": 124,
+          "origin_position": [
+            313,
+            926,
+            317,
+            1367,
+            299,
+            1367,
+            295,
+            926
+          ],
+          "pos": [
+            815,
+            866,
+            1268,
+            866,
+            1268,
+            884,
+            815,
+            884
+          ]
+        },
+        {
+          "type": "line",
+          "angle": 90,
+          "id": 125,
+          "origin_position": [
+            294,
+            954,
+            300,
+            1534,
+            278,
+            1534,
+            272,
+            954
+          ],
+          "pos": [
+            844,
+            885,
+            1442,
+            885,
+            1442,
+            907,
+            844,
+            907
+          ],
+          "score": 0.9800000190734863,
+          "text": "The term paper is 40% of your final grade. It should not exceed fifteen pages.(Anyone thinking"
+        },
+        {
+          "id": 126,
+          "origin_position": [
+            272,
+            925,
+            278,
+            1534,
+            257,
+            1534,
+            250,
+            925
+          ],
+          "pos": [
+            814,
+            907,
+            1442,
+            907,
+            1442,
+            929,
+            814,
+            929
+          ],
+          "score": 0.984000027179718,
+          "text": "of majoring in history may write twenty-five pages.)Before the mid-term exam you will choose the",
+          "type": "line",
+          "angle": 90
+        },
+        {
+          "id": 127,
+          "origin_position": [
+            252,
+            925,
+            253,
+            1055,
+            232,
+            1055,
+            230,
+            925
+          ],
+          "pos": [
+            814,
+            927,
+            947,
+            927,
+            947,
+            949,
+            814,
+            949
+          ],
+          "score": 0.996999979019165,
+          "text": "topic for your paper.",
+          "type": "line",
+          "angle": 90
+        },
+        {
+          "angle": 90,
+          "id": 128,
+          "origin_position": [
+            231,
+            954,
+            233,
+            1075,
+            211,
+            1074,
+            209,
+            954
+          ],
+          "pos": [
+            844,
+            948,
+            967,
+            948,
+            967,
+            970,
+            844,
+            970
+          ],
+          "score": 0.9789999723434448,
+          "text": "Have a good term!",
+          "type": "line"
+        },
+        {
+          "origin_position": [
+            189,
+            165,
+            192,
+            446,
+            174,
+            445,
+            171,
+            165
+          ],
+          "pos": [
+            54,
+            981,
+            332,
+            981,
+            332,
+            999,
+            54,
+            999
+          ],
+          "score": 0.9990000128746033,
+          "text": "2025-2026学年度第二学期高一英语期中考试卷",
+          "type": "line",
+          "angle": 0,
+          "id": 129
+        },
+        {
+          "text": "第7页 共12页",
+          "type": "line",
+          "angle": 0,
+          "id": 130,
+          "origin_position": [
+            193,
+            693,
+            194,
+            781,
+            177,
+            781,
+            176,
+            693
+          ],
+          "pos": [
+            580,
+            983,
+            669,
+            983,
+            669,
+            1000,
+            580,
+            1000
+          ],
+          "score": 0.996999979019165
+        },
+        {
+          "type": "line",
+          "angle": 0,
+          "id": 131,
+          "origin_position": [
+            198,
+            919,
+            201,
+            1190,
+            179,
+            1190,
+            176,
+            918
+          ],
+          "pos": [
+            808,
+            981,
+            1085,
+            981,
+            1085,
+            1003,
+            808,
+            1003
+          ],
+          "score": 0.9990000128746033,
+          "text": "2025-2026学年度第二学期高一英语期中考试卷"
+        },
+        {
+          "score": 0.9940000176429749,
+          "text": "第8页 共12页",
+          "type": "line",
+          "angle": 0,
+          "id": 132,
+          "origin_position": [
+            202,
+            1432,
+            203,
+            1519,
+            186,
+            1519,
+            185,
+            1432
+          ],
+          "pos": [
+            1335,
+            983,
+            1426,
+            983,
+            1426,
+            1000,
+            1335,
+            1000
+          ]
+        }
+      ],
+      "durations": 2094.586669921875,
+      "structured": [
+        {
+          "text": "ルけが",
+          "type": "textblock",
+          "content": [
+            0
+          ],
+          "id": 10,
+          "origin_position": [
+            1119,
+            149,
+            1119,
+            190,
+            1017,
+            192,
+            1016,
+            151
+          ],
+          "outline_level": -1,
+          "pos": [
+            22,
+            50,
+            63,
+            49,
+            67,
+            153,
+            26,
+            154
+          ],
+          "sub_type": "text"
+        },
+        {
+          "type": "textblock",
+          "content": [
+            1
+          ],
+          "id": 1,
+          "origin_position": [
+            1104,
+            187,
+            1103,
+            268,
+            1090,
+            268,
+            1090,
+            187
+          ],
+          "outline_level": -1,
+          "pos": [
+            60,
+            65,
+            142,
+            65,
+            142,
+            79,
+            60,
+            79
+          ],
+          "sub_type": "text",
+          "text": "1.A.at ease"
+        },
+        {
+          "outline_level": -1,
+          "pos": [
+            240,
+            68,
+            307,
+            68,
+            307,
+            81,
+            240,
+            81
+          ],
+          "sub_type": "text",
+          "text": "B.at scale",
+          "type": "textblock",
+          "content": [
+            2
+          ],
+          "id": 2,
+          "origin_position": [
+            1100,
+            366,
+            1099,
+            432,
+            1087,
+            432,
+            1087,
+            365
+          ]
+        },
+        {
+          "pos": [
+            392,
+            69,
+            470,
+            69,
+            470,
+            81,
+            392,
+            81
+          ],
+          "sub_type": "text",
+          "text": "C.at leisure",
+          "type": "textblock",
+          "content": [
+            3
+          ],
+          "id": 4,
+          "origin_position": [
+            1098,
+            516,
+            1097,
+            592,
+            1086,
+            592,
+            1086,
+            515
+          ],
+          "outline_level": -1
+        },
+        {
+          "content": [
+            4
+          ],
+          "id": 3,
+          "origin_position": [
+            1098,
+            666,
+            1097,
+            750,
+            1085,
+            750,
+            1085,
+            666
+          ],
+          "outline_level": -1,
+          "pos": [
+            545,
+            68,
+            631,
+            68,
+            631,
+            81,
+            545,
+            81
+          ],
+          "sub_type": "text",
+          "text": "D.at random",
+          "type": "textblock"
+        },
+        {
+          "sub_type": "text",
+          "text": "C",
+          "type": "textblock",
+          "content": [
+            5
+          ],
+          "id": 61,
+          "origin_position": [
+            1126,
+            885,
+            1125,
+            909,
+            1085,
+            909,
+            1085,
+            885
+          ],
+          "outline_level": -1,
+          "pos": [
+            770,
+            38,
+            795,
+            38,
+            795,
+            80,
+            770,
+            80
+          ]
+        },
+        {
+          "origin_position": [
+            1086,
+            183,
+            1084,
+            278,
+            1062,
+            278,
+            1064,
+            183
+          ],
+          "outline_level": -1,
+          "pos": [
+            57,
+            83,
+            152,
+            85,
+            152,
+            107,
+            57,
+            105
+          ],
+          "sub_type": "text",
+          "text": "2.A.targeted",
+          "type": "textblock",
+          "content": [
+            6
+          ],
+          "id": 5
+        },
+        {
+          "text": "B.recognized",
+          "type": "textblock",
+          "content": [
+            7
+          ],
+          "id": 8,
+          "origin_position": [
+            1078,
+            365,
+            1078,
+            453,
+            1066,
+            453,
+            1066,
+            365
+          ],
+          "outline_level": -1,
+          "pos": [
+            240,
+            90,
+            329,
+            90,
+            329,
+            102,
+            240,
+            102
+          ],
+          "sub_type": "text"
+        },
+        {
+          "sub_type": "text",
+          "text": "C.analyzed",
+          "type": "textblock",
+          "content": [
+            8
+          ],
+          "id": 6,
+          "origin_position": [
+            1077,
+            515,
+            1077,
+            591,
+            1065,
+            591,
+            1066,
+            515
+          ],
+          "outline_level": -1,
+          "pos": [
+            392,
+            90,
+            469,
+            90,
+            469,
+            102,
+            392,
+            102
+          ]
+        },
+        {
+          "type": "textblock",
+          "content": [
+            9
+          ],
+          "id": 9,
+          "origin_position": [
+            1076,
+            666,
+            1076,
+            740,
+            1061,
+            740,
+            1062,
+            666
+          ],
+          "outline_level": -1,
+          "pos": [
+            546,
+            90,
+            621,
+            90,
+            621,
+            105,
+            546,
+            105
+          ],
+          "sub_type": "text",
+          "text": "D.signaled"
+        },
+        {
+          "pos": [
+            49,
+            107,
+            160,
+            110,
+            160,
+            125,
+            49,
+            122
+          ],
+          "sub_type": "text",
+          "text": "73.A.humanity",
+          "type": "textblock",
+          "content": [
+            10
+          ],
+          "id": 11,
+          "origin_position": [
+            1063,
+            175,
+            1059,
+            286,
+            1044,
+            285,
+            1048,
+            175
+          ],
+          "outline_level": -1
+        },
+        {
+          "id": 14,
+          "origin_position": [
+            1063,
+            363,
+            1062,
+            473,
+            1040,
+            473,
+            1041,
+            363
+          ],
+          "outline_level": -1,
+          "pos": [
+            238,
+            106,
+            349,
+            106,
+            349,
+            128,
+            238,
+            128
+          ],
+          "sub_type": "text",
+          "text": "B.accountability",
+          "type": "textblock",
+          "content": [
+            11
+          ]
+        },
+        {
+          "outline_level": -1,
+          "pos": [
+            391,
+            110,
+            460,
+            111,
+            460,
+            126,
+            391,
+            124
+          ],
+          "sub_type": "text",
+          "text": "C.priority",
+          "type": "textblock",
+          "content": [
+            12
+          ],
+          "id": 13,
+          "origin_position": [
+            1058,
+            514,
+            1056,
+            582,
+            1042,
+            582,
+            1044,
+            514
+          ]
+        },
+        {
+          "text": "D.quantity",
+          "type": "textblock",
+          "content": [
+            13
+          ],
+          "id": 15,
+          "origin_position": [
+            1056,
+            665,
+            1056,
+            737,
+            1041,
+            737,
+            1041,
+            665
+          ],
+          "outline_level": -1,
+          "pos": [
+            545,
+            111,
+            618,
+            111,
+            618,
+            126,
+            545,
+            126
+          ],
+          "sub_type": "text"
+        },
+        {
+          "outline_level": -1,
+          "pos": [
+            56,
+            129,
+            152,
+            129,
+            152,
+            149,
+            56,
+            149
+          ],
+          "sub_type": "text",
+          "text": "74.A.genuine",
+          "type": "textblock",
+          "content": [
+            14
+          ],
+          "id": 19,
+          "origin_position": [
+            1041,
+            182,
+            1040,
+            277,
+            1021,
+            277,
+            1021,
+            181
+          ]
+        },
+        {
+          "outline_level": -1,
+          "pos": [
+            239,
+            131,
+            324,
+            133,
+            324,
+            147,
+            239,
+            145
+          ],
+          "sub_type": "text",
+          "text": "B.temporary",
+          "type": "textblock",
+          "content": [
+            15
+          ],
+          "id": 20,
+          "origin_position": [
+            1038,
+            364,
+            1036,
+            448,
+            1022,
+            448,
+            1024,
+            364
+          ]
+        },
+        {
+          "pos": [
+            392,
+            132,
+            479,
+            132,
+            479,
+            144,
+            392,
+            144
+          ],
+          "sub_type": "text",
+          "text": "C.instinctive",
+          "type": "textblock",
+          "content": [
+            16
+          ],
+          "id": 18,
+          "origin_position": [
+            1036,
+            515,
+            1036,
+            600,
+            1024,
+            600,
+            1025,
+            515
+          ],
+          "outline_level": -1
+        },
+        {
+          "outline_level": -1,
+          "pos": [
+            545,
+            132,
+            612,
+            132,
+            612,
+            144,
+            545,
+            144
+          ],
+          "sub_type": "text",
+          "text": "D.mutual",
+          "type": "textblock",
+          "content": [
+            17
+          ],
+          "id": 17,
+          "origin_position": [
+            1036,
+            665,
+            1035,
+            731,
+            1024,
+            731,
+            1024,
+            665
+          ]
+        },
+        {
+          "origin_position": [
+            1026,
+            143,
+            1020,
+            284,
+            996,
+            284,
+            1002,
+            141
+          ],
+          "outline_level": -1,
+          "pos": [
+            18,
+            144,
+            159,
+            150,
+            159,
+            174,
+            16,
+            169
+          ],
+          "sub_type": "text",
+          "text": "CD75.A.extensive",
+          "type": "textblock",
+          "content": [
+            18,
+            19
+          ],
+          "id": 21
+        },
+        {
+          "origin_position": [
+            1016,
+            364,
+            1016,
+            460,
+            1003,
+            460,
+            1004,
+            364
+          ],
+          "outline_level": -1,
+          "pos": [
+            240,
+            153,
+            337,
+            153,
+            337,
+            166,
+            240,
+            166
+          ],
+          "sub_type": "text",
+          "text": "B.fundamental",
+          "type": "textblock",
+          "content": [
+            20
+          ],
+          "id": 25
+        },
+        {
+          "origin_position": [
+            1016,
+            515,
+            1015,
+            612,
+            1001,
+            612,
+            1001,
+            514
+          ],
+          "outline_level": -1,
+          "pos": [
+            392,
+            153,
+            491,
+            153,
+            491,
+            168,
+            392,
+            168
+          ],
+          "sub_type": "text",
+          "text": "C.professional",
+          "type": "textblock",
+          "content": [
+            21
+          ],
+          "id": 27
+        },
+        {
+          "content": [
+            22
+          ],
+          "id": 23,
+          "origin_position": [
+            1015,
+            665,
+            1015,
+            735,
+            1003,
+            735,
+            1003,
+            665
+          ],
+          "outline_level": -1,
+          "pos": [
+            545,
+            153,
+            617,
+            153,
+            617,
+            165,
+            545,
+            165
+          ],
+          "sub_type": "text",
+          "text": "D.internal",
+          "type": "textblock"
+        },
+        {
+          "text": "P",
+          "type": "textblock",
+          "content": [
+            23
+          ],
+          "id": 24,
+          "origin_position": [
+            1055,
+            879,
+            1055,
+            907,
+            1007,
+            907,
+            1007,
+            879
+          ],
+          "outline_level": -1,
+          "pos": [
+            764,
+            111,
+            793,
+            111,
+            793,
+            160,
+            764,
+            160
+          ],
+          "sub_type": "text"
+        },
+        {
+          "id": 44,
+          "origin_position": [
+            993,
+            134,
+            993,
+            150,
+            967,
+            149,
+            967,
+            133
+          ],
+          "outline_level": -1,
+          "pos": [
+            9,
+            178,
+            25,
+            178,
+            25,
+            204,
+            9,
+            204
+          ],
+          "sub_type": "text",
+          "text": "B",
+          "type": "textblock",
+          "content": [
+            24
+          ]
+        },
+        {
+          "sub_type": "text",
+          "text": "DB76.A.technology dependence C.school discipline BG77.A.clues",
+          "type": "textblock",
+          "content": [
+            25,
+            26,
+            27,
+            28,
+            29
+          ],
+          "id": 28,
+          "origin_position": [
+            1007,
+            143,
+            1003,
+            370,
+            939,
+            368,
+            937,
+            144
+          ],
+          "outline_level": -1,
+          "pos": [
+            18,
+            164,
+            246,
+            167,
+            245,
+            232,
+            20,
+            234
+          ]
+        },
+        {
+          "outline_level": -1,
+          "pos": [
+            390,
+            173,
+            504,
+            173,
+            504,
+            189,
+            390,
+            189
+          ],
+          "sub_type": "text",
+          "text": "B.digital literacy",
+          "type": "textblock",
+          "content": [
+            30
+          ],
+          "id": 29,
+          "origin_position": [
+            996,
+            512,
+            996,
+            625,
+            980,
+            624,
+            980,
+            512
+          ]
+        },
+        {
+          "id": 32,
+          "origin_position": [
+            975,
+            514,
+            974,
+            607,
+            963,
+            607,
+            963,
+            514
+          ],
+          "outline_level": -1,
+          "pos": [
+            392,
+            195,
+            486,
+            195,
+            486,
+            207,
+            392,
+            207
+          ],
+          "sub_type": "text",
+          "text": "D.social norm",
+          "type": "textblock",
+          "content": [
+            31
+          ]
+        },
+        {
+          "pos": [
+            237,
+            216,
+            326,
+            216,
+            326,
+            231,
+            237,
+            231
+          ],
+          "sub_type": "text",
+          "text": "B.prejudices",
+          "type": "textblock",
+          "content": [
+            32
+          ],
+          "id": 37,
+          "origin_position": [
+            955,
+            361,
+            954,
+            449,
+            939,
+            449,
+            940,
+            360
+          ],
+          "outline_level": -1
+        },
+        {
+          "id": 36,
+          "origin_position": [
+            953,
+            514,
+            953,
+            575,
+            940,
+            575,
+            940,
+            514
+          ],
+          "outline_level": -1,
+          "pos": [
+            392,
+            217,
+            454,
+            217,
+            454,
+            230,
+            392,
+            230
+          ],
+          "sub_type": "text",
+          "text": "C.proofs",
+          "type": "textblock",
+          "content": [
+            33
+          ]
+        },
+        {
+          "pos": [
+            545,
+            216,
+            618,
+            216,
+            618,
+            229,
+            545,
+            229
+          ],
+          "sub_type": "text",
+          "text": "D.patterns",
+          "type": "textblock",
+          "content": [
+            34
+          ],
+          "id": 35,
+          "origin_position": [
+            953,
+            664,
+            953,
+            736,
+            941,
+            736,
+            941,
+            664
+          ],
+          "outline_level": -1
+        },
+        {
+          "pos": [
+            23,
+            233,
+            199,
+            229,
+            199,
+            310,
+            31,
+            314
+          ],
+          "sub_type": "text",
+          "text": "78.A.Controversially 879.A.integrity S0.A.neck and neck",
+          "type": "textblock",
+          "content": [
+            35,
+            36,
+            37,
+            38
+          ],
+          "id": 40,
+          "origin_position": [
+            938,
+            147,
+            942,
+            323,
+            862,
+            321,
+            858,
+            154
+          ],
+          "outline_level": -1
+        },
+        {
+          "pos": [
+            237,
+            236,
+            310,
+            236,
+            310,
+            250,
+            237,
+            250
+          ],
+          "sub_type": "text",
+          "text": "B.Luckily",
+          "type": "textblock",
+          "content": [
+            39
+          ],
+          "id": 38,
+          "origin_position": [
+            935,
+            360,
+            935,
+            433,
+            921,
+            433,
+            921,
+            360
+          ],
+          "outline_level": -1
+        },
+        {
+          "sub_type": "text",
+          "text": "C.Specifically",
+          "type": "textblock",
+          "content": [
+            40
+          ],
+          "id": 39,
+          "origin_position": [
+            934,
+            512,
+            934,
+            609,
+            919,
+            609,
+            920,
+            512
+          ],
+          "outline_level": -1,
+          "pos": [
+            390,
+            236,
+            489,
+            236,
+            489,
+            251,
+            390,
+            251
+          ]
+        },
+        {
+          "content": [
+            41
+          ],
+          "id": 41,
+          "origin_position": [
+            933,
+            664,
+            933,
+            742,
+            919,
+            742,
+            919,
+            664
+          ],
+          "outline_level": -1,
+          "pos": [
+            545,
+            237,
+            624,
+            237,
+            624,
+            251,
+            545,
+            251
+          ],
+          "sub_type": "text",
+          "text": "D.Literally",
+          "type": "textblock"
+        },
+        {
+          "outline_level": -1,
+          "pos": [
+            237,
+            254,
+            316,
+            254,
+            316,
+            276,
+            237,
+            276
+          ],
+          "sub_type": "text",
+          "text": "B.diversity",
+          "type": "textblock",
+          "content": [
+            42
+          ],
+          "id": 46,
+          "origin_position": [
+            917,
+            360,
+            917,
+            438,
+            895,
+            438,
+            895,
+            360
+          ]
+        },
+        {
+          "pos": [
+            390,
+            256,
+            457,
+            259,
+            457,
+            274,
+            390,
+            271
+          ],
+          "sub_type": "text",
+          "text": "C.vitality",
+          "type": "textblock",
+          "content": [
+            43
+          ],
+          "id": 45,
+          "origin_position": [
+            915,
+            512,
+            912,
+            578,
+            897,
+            577,
+            900,
+            511
+          ],
+          "outline_level": -1
+        },
+        {
+          "type": "textblock",
+          "content": [
+            44
+          ],
+          "id": 43,
+          "origin_position": [
+            911,
+            665,
+            911,
+            758,
+            898,
+            758,
+            899,
+            665
+          ],
+          "outline_level": -1,
+          "pos": [
+            546,
+            259,
+            641,
+            259,
+            641,
+            272,
+            546,
+            272
+          ],
+          "sub_type": "text",
+          "text": "D.consistency"
+        },
+        {
+          "text": "B.toe to toe",
+          "type": "textblock",
+          "content": [
+            45
+          ],
+          "id": 50,
+          "origin_position": [
+            892,
+            361,
+            892,
+            440,
+            879,
+            440,
+            880,
+            361
+          ],
+          "outline_level": -1,
+          "pos": [
+            238,
+            279,
+            318,
+            279,
+            318,
+            292,
+            238,
+            292
+          ],
+          "sub_type": "text"
+        },
+        {
+          "type": "textblock",
+          "content": [
+            46
+          ],
+          "id": 51,
+          "origin_position": [
+            892,
+            513,
+            892,
+            606,
+            879,
+            606,
+            879,
+            513
+          ],
+          "outline_level": -1,
+          "pos": [
+            392,
+            279,
+            486,
+            279,
+            486,
+            292,
+            392,
+            292
+          ],
+          "sub_type": "text",
+          "text": "C.face to face"
+        },
+        {
+          "content": [
+            47
+          ],
+          "id": 52,
+          "origin_position": [
+            891,
+            665,
+            891,
+            767,
+            879,
+            767,
+            879,
+            665
+          ],
+          "outline_level": -1,
+          "pos": [
+            546,
+            280,
+            650,
+            280,
+            650,
+            292,
+            546,
+            292
+          ],
+          "sub_type": "text",
+          "text": "D.hand in hand",
+          "type": "textblock"
+        },
+        {
+          "id": 53,
+          "origin_position": [
+            850,
+            178,
+            850,
+            245,
+            839,
+            245,
+            839,
+            178
+          ],
+          "outline_level": 0,
+          "pos": [
+            56,
+            322,
+            123,
+            322,
+            123,
+            333,
+            56,
+            333
+          ],
+          "sub_type": "text_title",
+          "text": "Section B",
+          "type": "textblock",
+          "content": [
+            48
+          ]
+        },
+        {
+          "pos": [
+            54,
+            339,
+            692,
+            339,
+            692,
+            403,
+            54,
+            403
+          ],
+          "sub_type": "text",
+          "text": "Directions: Read the following three passages. Each passage is followed by several questions or unfinished statements.For each of them there are four choices marked A,B,C and D.Choose the one that fits best according to the information given in the passage you have just read.",
+          "type": "textblock",
+          "content": [
+            49,
+            50,
+            51
+          ],
+          "id": 54,
+          "origin_position": [
+            833,
+            176,
+            833,
+            808,
+            770,
+            807,
+            770,
+            175
+          ],
+          "outline_level": -1
+        },
+        {
+          "outline_level": -1,
+          "pos": [
+            365,
+            408,
+            393,
+            408,
+            393,
+            420,
+            365,
+            420
+          ],
+          "sub_type": "text",
+          "text": "(A)",
+          "type": "textblock",
+          "content": [
+            52
+          ],
+          "id": 55,
+          "origin_position": [
+            765,
+            485,
+            765,
+            513,
+            753,
+            513,
+            753,
+            485
+          ]
+        },
+        {
+          "content": [
+            53,
+            54
+          ],
+          "id": 56,
+          "origin_position": [
+            750,
+            175,
+            750,
+            807,
+            707,
+            807,
+            706,
+            174
+          ],
+          "outline_level": -1,
+          "pos": [
+            54,
+            423,
+            692,
+            423,
+            692,
+            467,
+            54,
+            467
+          ],
+          "sub_type": "text",
+          "text": "Several years ago,I began asking my friends and family to tell me their passwords. I had come to believe that these tiny personalized codes get a bum rap.",
+          "type": "textblock"
+        },
+        {
+          "pos": [
+            53,
+            470,
+            694,
+            470,
+            694,
+            656,
+            53,
+            656
+          ],
+          "sub_type": "text",
+          "text": "Yes,I understand why passwords are universally hated:the strains they put on our memory,the endless demand to update them, their sheer number. I hate them too. But there is more to passwords than their annoyance. In the fact that we construct them so that we (and only we) will remember them, they take on secret lives. Many of our passwords are filled with suffering,mischief,sometimes even poetry.Often they have rich backstories.There was the former prisoner whose password includes what used to be his identification number (\"a reminder not to go back\");the childless 45-year-old whose password is the name of the baby boy she lost (\"my way of trying to keep him alive,I guess\"). Sometimes the passwords were playful. Several people said they used incorrect for theirs so that when they forgot it, the software automatically gave them the right one(\"your password is incorrect\").",
+          "type": "textblock",
+          "content": [
+            55,
+            56,
+            57,
+            58,
+            59,
+            60,
+            61,
+            62,
+            63
+          ],
+          "id": 57,
+          "origin_position": [
+            703,
+            173,
+            704,
+            809,
+            521,
+            808,
+            517,
+            170
+          ],
+          "outline_level": -1
+        },
+        {
+          "outline_level": -1,
+          "pos": [
+            54,
+            657,
+            694,
+            657,
+            694,
+            802,
+            54,
+            802
+          ],
+          "sub_type": "text",
+          "text": "Some passwords were striking for their creativity, folding big thoughts down into tidy little codes. After being inspired by Sheryl Sandberg'sbook Lean In:Women,Work,and the Will to Lead.Cortni Kerr,a running partner of mine,began using WwSSdol3,which stood for\"What would Sheryl Sandberg do\" plus \"13\" for the year (2013) of the password's creation. TnsitTpsif was the password of another friend,a computer scientist who loves wordplay.It stands for\"The next sentence is true.The previous sentence is false,\" which in philosophy iscalled a liar's paradox. For my friend, it was a playful reference to the knots that language can tie.",
+          "type": "textblock",
+          "content": [
+            64,
+            65,
+            66,
+            67,
+            68,
+            69,
+            70
+          ],
+          "id": 58,
+          "origin_position": [
+            516,
+            171,
+            520,
+            808,
+            376,
+            807,
+            370,
+            168
+          ]
+        },
+        {
+          "pos": [
+            53,
+            809,
+            692,
+            809,
+            692,
+            850,
+            53,
+            850
+          ],
+          "sub_type": "text",
+          "text": "While asking strangers about their passwords is a touchy proposition,it's not every day that you come across a conversation topic that teaches you new things about people you've known for years.",
+          "type": "textblock",
+          "content": [
+            71,
+            72
+          ],
+          "id": 59,
+          "origin_position": [
+            363,
+            167,
+            369,
+            805,
+            328,
+            805,
+            322,
+            166
+          ],
+          "outline_level": -1
+        },
+        {
+          "text": "The 4622 that my wife uses in her passwords was not just the address of her own father's childhood home but also a reminder of his weakness and strength. Apparently when the former 270-pound football standout,a scholarship athlete and the pride of his working-class neighborhood in west Tulsa,was a small boy,he had to sing his home address(4622 South 28th West Avenue) in one full breath rather than try to say it normally,otherwise,his stutter（口吃） would trip him up.",
+          "type": "textblock",
+          "content": [
+            73,
+            74,
+            75,
+            76,
+            77
+          ],
+          "id": 60,
+          "origin_position": [
+            319,
+            166,
+            325,
+            807,
+            225,
+            806,
+            217,
+            165
+          ],
+          "outline_level": -1,
+          "pos": [
+            53,
+            853,
+            694,
+            853,
+            694,
+            953,
+            53,
+            953
+          ],
+          "sub_type": "text"
+        },
+        {
+          "outline_level": -1,
+          "pos": [
+            793,
+            48,
+            1284,
+            48,
+            1284,
+            103,
+            793,
+            103
+          ],
+          "sub_type": "text",
+          "text": "A1.What does the phrase \"a bum rap\" in paragraph 1 most probably mean? A.an imaginative story",
+          "type": "textblock",
+          "content": [
+            78,
+            79,
+            80
+          ],
+          "id": 62,
+          "origin_position": [
+            1116,
+            907,
+            1113,
+            1378,
+            1060,
+            1378,
+            1062,
+            907
+          ]
+        },
+        {
+          "id": 65,
+          "origin_position": [
+            1075,
+            1246,
+            1074,
+            1419,
+            1062,
+            1419,
+            1063,
+            1246
+          ],
+          "outline_level": -1,
+          "pos": [
+            1145,
+            88,
+            1327,
+            88,
+            1327,
+            100,
+            1145,
+            100
+          ],
+          "sub_type": "text",
+          "text": "B.an unreasonable structure",
+          "type": "textblock",
+          "content": [
+            81
+          ]
+        },
+        {
+          "id": 67,
+          "origin_position": [
+            1055,
+            949,
+            1055,
+            1050,
+            1043,
+            1050,
+            1044,
+            949
+          ],
+          "outline_level": -1,
+          "pos": [
+            837,
+            110,
+            941,
+            110,
+            941,
+            122,
+            837,
+            122
+          ],
+          "sub_type": "text",
+          "text": "C.a false blame",
+          "type": "textblock",
+          "content": [
+            82
+          ]
+        },
+        {
+          "pos": [
+            1144,
+            105,
+            1290,
+            105,
+            1290,
+            127,
+            1144,
+            127
+          ],
+          "sub_type": "text",
+          "text": "D.a notable exception",
+          "type": "textblock",
+          "content": [
+            83
+          ],
+          "id": 66,
+          "origin_position": [
+            1059,
+            1245,
+            1058,
+            1384,
+            1037,
+            1384,
+            1037,
+            1245
+          ],
+          "outline_level": -1
+        },
+        {
+          "pos": [
+            792,
+            120,
+            1449,
+            120,
+            1449,
+            168,
+            792,
+            168
+          ],
+          "sub_type": "text",
+          "text": "D2.Which of the following passwords does the writer use as an example of those with a touch of humour? A.An identification number.",
+          "type": "textblock",
+          "content": [
+            84,
+            85,
+            86
+          ],
+          "id": 68,
+          "origin_position": [
+            1046,
+            906,
+            1043,
+            1535,
+            997,
+            1535,
+            999,
+            906
+          ],
+          "outline_level": -1
+        },
+        {
+          "sub_type": "text",
+          "text": "B.The word\"incorrect\"",
+          "type": "textblock",
+          "content": [
+            87
+          ],
+          "id": 70,
+          "origin_position": [
+            1019,
+            1245,
+            1018,
+            1395,
+            997,
+            1396,
+            998,
+            1245
+          ],
+          "outline_level": -1,
+          "pos": [
+            1144,
+            146,
+            1302,
+            146,
+            1302,
+            168,
+            1144,
+            168
+          ]
+        },
+        {
+          "id": 73,
+          "origin_position": [
+            999,
+            904,
+            997,
+            1359,
+            941,
+            1360,
+            942,
+            904
+          ],
+          "outline_level": -1,
+          "pos": [
+            790,
+            168,
+            1264,
+            168,
+            1264,
+            227,
+            790,
+            227
+          ],
+          "sub_type": "text",
+          "text": "AC.WwSSdo13. 3.Why does the writer's wife use the number \"4622\" in her passwords? A.It reminded her of her father.",
+          "type": "textblock",
+          "content": [
+            88,
+            89,
+            90,
+            91
+          ]
+        },
+        {
+          "outline_level": -1,
+          "pos": [
+            1145,
+            169,
+            1236,
+            169,
+            1236,
+            187,
+            1145,
+            187
+          ],
+          "sub_type": "text",
+          "text": "D.TnsitTpsif.",
+          "type": "textblock",
+          "content": [
+            92
+          ],
+          "id": 72,
+          "origin_position": [
+            997,
+            1246,
+            997,
+            1333,
+            979,
+            1333,
+            980,
+            1246
+          ]
+        },
+        {
+          "content": [
+            93
+          ],
+          "id": 77,
+          "origin_position": [
+            934,
+            951,
+            933,
+            1168,
+            921,
+            1168,
+            921,
+            951
+          ],
+          "outline_level": -1,
+          "pos": [
+            839,
+            235,
+            1064,
+            235,
+            1064,
+            248,
+            839,
+            248
+          ],
+          "sub_type": "text",
+          "text": "B.It helped her to overcome stutter.",
+          "type": "textblock"
+        },
+        {
+          "pos": [
+            837,
+            250,
+            1119,
+            250,
+            1119,
+            271,
+            837,
+            271
+          ],
+          "sub_type": "text",
+          "text": "C.It was the address of her childhood home.",
+          "type": "textblock",
+          "content": [
+            94
+          ],
+          "id": 78,
+          "origin_position": [
+            919,
+            949,
+            919,
+            1221,
+            898,
+            1221,
+            899,
+            949
+          ],
+          "outline_level": -1
+        },
+        {
+          "origin_position": [
+            899,
+            902,
+            898,
+            1241,
+            835,
+            1241,
+            836,
+            902
+          ],
+          "outline_level": -1,
+          "pos": [
+            789,
+            271,
+            1140,
+            271,
+            1140,
+            336,
+            789,
+            336
+          ],
+          "sub_type": "text",
+          "text": "BD.It was part of the name of her favourite song. A.The Development of Passwords.",
+          "type": "textblock",
+          "content": [
+            95,
+            96,
+            97
+          ],
+          "id": 79
+        },
+        {
+          "outline_level": -1,
+          "pos": [
+            1144,
+            312,
+            1365,
+            312,
+            1365,
+            334,
+            1144,
+            334
+          ],
+          "sub_type": "text",
+          "text": "B.The Secret Lives of Passwords.",
+          "type": "textblock",
+          "content": [
+            98
+          ],
+          "id": 82,
+          "origin_position": [
+            859,
+            1245,
+            858,
+            1456,
+            837,
+            1456,
+            837,
+            1245
+          ]
+        },
+        {
+          "sub_type": "text",
+          "text": "C.Why Everybody Hates Passwords.",
+          "type": "textblock",
+          "content": [
+            99
+          ],
+          "id": 88,
+          "origin_position": [
+            833,
+            949,
+            832,
+            1178,
+            818,
+            1178,
+            818,
+            949
+          ],
+          "outline_level": -1,
+          "pos": [
+            837,
+            339,
+            1074,
+            339,
+            1074,
+            354,
+            837,
+            354
+          ]
+        },
+        {
+          "id": 87,
+          "origin_position": [
+            838,
+            1246,
+            838,
+            1518,
+            817,
+            1518,
+            817,
+            1246
+          ],
+          "outline_level": -1,
+          "pos": [
+            1145,
+            333,
+            1430,
+            333,
+            1430,
+            355,
+            1145,
+            355
+          ],
+          "sub_type": "text",
+          "text": "D.Passwords:What We Can't Live Without.",
+          "type": "textblock",
+          "content": [
+            100
+          ]
+        },
+        {
+          "text": "(B)",
+          "type": "textblock",
+          "content": [
+            101
+          ],
+          "id": 89,
+          "origin_position": [
+            793,
+            1215,
+            793,
+            1240,
+            779,
+            1240,
+            779,
+            1215
+          ],
+          "outline_level": 1,
+          "pos": [
+            1112,
+            380,
+            1138,
+            380,
+            1138,
+            394,
+            1112,
+            394
+          ],
+          "sub_type": "text_title"
+        },
+        {
+          "text": "<table border=\"1\" ><tr>\n<td>COURSE:History 101\"Introduction to American History\"<br>INSTRUCTOR:Dr.Jane Klammer<br>OFFICE:305 Marshall Hall<br>OFFICE HOURS:11:15-12:30 M W F(Monday Wednesday Friday)<br>CLASS:363 Marshall Hall<br>3:35-5:00 T Th(Tuesday Thursday)<br>10:10-11:00 M W F Other times by appointment<br>TELEPHONE:255-4786<br>TEXTBOOK:Green,Robert P,The Amnerican Tradition:A History of the United States.Charles E. Merrill publishing Co.Columbus, Ohio 1984,which is available at the College Bookstore.<br>COURSE Requirements:<br>mid-term exam:October 10 20% of the final grade<br>final exam:December 10 40% of the final grade<br>term paper due:December 15 40% of the final grade<br>Attendance is not required,but you are responsible for all the information given in the class lectures.In the lectures, I will talk about the chapters in the textbook and other material that I choose to supplement the course. The exams will cover all this information. Therefore,I advise you to come to the class as much as possible. If you have to missa class,be sure to get the class notes from another student.<br>Your homework assignments are listed on the next page. You are supposed to read the chapter about which I will be lecturing before you come to class. This is to make sure that you understand as much as possible while taking notes in my lectures. Be prepared when you come to class.If there are any changes in the assigned homework reading,I will announce in class.<br>The term paper is 40% of your final grade. It should not exceed fifteen pages.(Anyone thinking of majoring in history may write twenty-five pages.)Before the mid-term exam you will choose the topic for your paper.<br>Have a good term!</td>\n</tr></table>",
+          "cells": [
+            {
+              "col_span": 1,
+              "content": [
+                {
+                  "content": [
+                    102,
+                    103,
+                    104,
+                    105,
+                    106,
+                    107,
+                    108,
+                    109,
+                    110,
+                    111,
+                    112,
+                    113,
+                    114,
+                    115,
+                    116,
+                    117,
+                    118,
+                    119,
+                    120,
+                    121,
+                    122,
+                    123,
+                    124,
+                    125,
+                    126,
+                    127,
+                    128
+                  ],
+                  "origin_position": [
+                    777,
+                    919,
+                    777,
+                    1529,
+                    223,
+                    1533,
+                    216,
+                    918
+                  ],
+                  "pos": [
+                    807,
+                    396,
+                    1441,
+                    396,
+                    1441,
+                    963,
+                    807,
+                    963
+                  ],
+                  "type": "textblock"
+                }
+              ],
+              "origin_position": [
+                777,
+                919,
+                777,
+                1529,
+                223,
+                1533,
+                216,
+                918
+              ],
+              "pos": [
+                807,
+                396,
+                1441,
+                396,
+                1441,
+                963,
+                807,
+                963
+              ],
+              "row": 0,
+              "row_span": 1,
+              "col": 0
+            }
+          ],
+          "columns_width": [
+            634
+          ],
+          "rows_height": [
+            567
+          ],
+          "type": "table",
+          "cols": 1,
+          "id": 90,
+          "origin_position": [
+            785,
+            915,
+            783,
+            1536,
+            216,
+            1538,
+            209,
+            911
+          ],
+          "outline_level": -1,
+          "pos": [
+            802,
+            388,
+            1448,
+            390,
+            1446,
+            970,
+            800,
+            970
+          ],
+          "rows": 1,
+          "sub_type": "bordered"
+        },
+        {
+          "blocks": [
+            {
+              "id": 92,
+              "origin_position": [
+                186,
+                165,
+                189,
+                446,
+                176,
+                445,
+                173,
+                165
+              ],
+              "outline_level": -1,
+              "pos": [
+                54,
+                984,
+                332,
+                984,
+                332,
+                997,
+                54,
+                997
+              ],
+              "sub_type": "text",
+              "text": "2025-2026学年度第二学期高一英语期中考试卷",
+              "type": "textblock",
+              "content": [
+                129
+              ]
+            }
+          ],
+          "origin_position": [
+            186,
+            165,
+            189,
+            446,
+            176,
+            445,
+            173,
+            165
+          ],
+          "pos": [
+            54,
+            984,
+            332,
+            984,
+            332,
+            997,
+            54,
+            997
+          ],
+          "type": "footer"
+        },
+        {
+          "origin_position": [
+            192,
+            693,
+            193,
+            781,
+            179,
+            781,
+            178,
+            693
+          ],
+          "pos": [
+            580,
+            984,
+            669,
+            984,
+            669,
+            998,
+            580,
+            998
+          ],
+          "type": "footer",
+          "blocks": [
+            {
+              "id": 93,
+              "origin_position": [
+                192,
+                693,
+                193,
+                781,
+                179,
+                781,
+                178,
+                693
+              ],
+              "outline_level": -1,
+              "pos": [
+                580,
+                984,
+                669,
+                984,
+                669,
+                998,
+                580,
+                998
+              ],
+              "sub_type": "text",
+              "text": "第7页 共12页",
+              "type": "textblock",
+              "content": [
+                130
+              ]
+            }
+          ]
+        },
+        {
+          "blocks": [
+            {
+              "id": 95,
+              "origin_position": [
+                194,
+                919,
+                197,
+                1190,
+                183,
+                1190,
+                180,
+                918
+              ],
+              "outline_level": -1,
+              "pos": [
+                808,
+                985,
+                1085,
+                985,
+                1085,
+                999,
+                808,
+                999
+              ],
+              "sub_type": "text",
+              "text": "2025-2026学年度第二学期高一英语期中考试卷",
+              "type": "textblock",
+              "content": [
+                131
+              ]
+            }
+          ],
+          "origin_position": [
+            194,
+            919,
+            197,
+            1190,
+            183,
+            1190,
+            180,
+            918
+          ],
+          "pos": [
+            808,
+            985,
+            1085,
+            985,
+            1085,
+            999,
+            808,
+            999
+          ],
+          "type": "footer"
+        },
+        {
+          "origin_position": [
+            199,
+            1432,
+            200,
+            1519,
+            186,
+            1519,
+            185,
+            1432
+          ],
+          "pos": [
+            1335,
+            986,
+            1426,
+            986,
+            1426,
+            1000,
+            1335,
+            1000
+          ],
+          "type": "footer",
+          "blocks": [
+            {
+              "pos": [
+                1335,
+                986,
+                1426,
+                986,
+                1426,
+                1000,
+                1335,
+                1000
+              ],
+              "sub_type": "text",
+              "text": "第8页 共12页",
+              "type": "textblock",
+              "content": [
+                132
+              ],
+              "id": 96,
+              "origin_position": [
+                199,
+                1432,
+                200,
+                1519,
+                186,
+                1519,
+                185,
+                1432
+              ],
+              "outline_level": -1
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "success_count": 1,
+  "total_count": 1,
+  "total_page_number": 1
+}

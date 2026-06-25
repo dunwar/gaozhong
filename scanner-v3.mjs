@@ -1881,17 +1881,24 @@ function validateQuestionNumbers(pageResults) {
     page.totalErrors = page.errors.length;
   }
   
-  // Check for gaps
+  // Check for gaps — WARN level if substantial gaps found
   const sorted = [...new Set(allNumbers)].sort((a, b) => a - b);
   if (sorted.length > 1) {
     const gaps = [];
     for (let i = 1; i < sorted.length; i++) {
       if (sorted[i] - sorted[i - 1] > 1) {
-        gaps.push(`${sorted[i - 1]}→${sorted[i]}`);
+        const missingCount = sorted[i] - sorted[i - 1] - 1;
+        const missingNums = [];
+        for (let n = sorted[i - 1] + 1; n < sorted[i]; n++) {
+          missingNums.push(n);
+        }
+        gaps.push({ from: sorted[i - 1], to: sorted[i], missingCount, missingNums });
       }
     }
     if (gaps.length) {
-      console.log(`[scanner] ℹ️ Question number gaps detected: ${gaps.join(', ')} (may be normal — different sections)`);
+      const gapDetails = gaps.map(g => `${g.from}→${g.to} (缺${g.missingCount}题: ${g.missingNums.join(',')})`).join('; ');
+      console.log(`[scanner] ⚠️ WARN: 题号断档 — ${gapDetails}`);
+      console.log(`[scanner] ⚠️ 共缺失 ${gaps.reduce((s, g) => s + g.missingCount, 0)} 题，可能是标题误判为题目或段落嵌入题号被跳过`);
     }
   }
   

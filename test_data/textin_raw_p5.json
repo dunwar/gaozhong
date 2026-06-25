@@ -1,0 +1,5849 @@
+{
+  "success_count": 1,
+  "total_count": 1,
+  "total_page_number": 1,
+  "valid_page_number": 1,
+  "detail": [
+    {
+      "content": 0,
+      "origin_position": [
+        1159,
+        108,
+        1159,
+        140,
+        1106,
+        140,
+        1106,
+        108
+      ],
+      "position": [
+        12,
+        47,
+        44,
+        47,
+        44,
+        101,
+        12,
+        101
+      ],
+      "sub_type": "text",
+      "tags": [
+        "handwritten"
+      ],
+      "text": "B",
+      "type": "paragraph",
+      "outline_level": -1,
+      "page_id": 1,
+      "paragraph_id": 1
+    },
+    {
+      "tags": [],
+      "text": "85. If a student wants to know what the homework assignments are,",
+      "type": "paragraph",
+      "outline_level": -1,
+      "paragraph_id": 0,
+      "sub_type": "text",
+      "content": 0,
+      "origin_position": [
+        1142,
+        140,
+        1147,
+        581,
+        1131,
+        582,
+        1127,
+        141
+      ],
+      "page_id": 1,
+      "position": [
+        44,
+        65,
+        486,
+        66,
+        487,
+        82,
+        45,
+        80
+      ]
+    },
+    {
+      "content": 0,
+      "outline_level": -1,
+      "page_id": 1,
+      "paragraph_id": 2,
+      "position": [
+        80,
+        89,
+        361,
+        89,
+        361,
+        103,
+        80,
+        103
+      ],
+      "sub_type": "text",
+      "tags": [],
+      "text": "A.Prof.Klammer announces them in class",
+      "origin_position": [
+        1119,
+        177,
+        1123,
+        458,
+        1109,
+        458,
+        1105,
+        177
+      ],
+      "type": "paragraph"
+    },
+    {
+      "origin_position": [
+        1098,
+        178,
+        1102,
+        465,
+        1086,
+        465,
+        1081,
+        178
+      ],
+      "outline_level": -1,
+      "page_id": 1,
+      "paragraph_id": 4,
+      "position": [
+        81,
+        110,
+        368,
+        110,
+        368,
+        127,
+        81,
+        127
+      ],
+      "sub_type": "text",
+      "tags": [],
+      "type": "paragraph",
+      "content": 0,
+      "text": "B.the student reads the list on the next page"
+    },
+    {
+      "content": 0,
+      "origin_position": [
+        1079,
+        177,
+        1083,
+        447,
+        1062,
+        447,
+        1058,
+        177
+      ],
+      "paragraph_id": 5,
+      "sub_type": "text",
+      "tags": [],
+      "text": "C.Prof. Klammer gives a list every week",
+      "type": "paragraph",
+      "outline_level": -1,
+      "page_id": 1,
+      "position": [
+        80,
+        129,
+        350,
+        129,
+        350,
+        151,
+        80,
+        151
+      ]
+    },
+    {
+      "sub_type": "text",
+      "type": "paragraph",
+      "origin_position": [
+        1054,
+        178,
+        1058,
+        464,
+        1042,
+        464,
+        1038,
+        178
+      ],
+      "outline_level": -1,
+      "page_id": 1,
+      "paragraph_id": 6,
+      "tags": [],
+      "text": "D.The student goes to the professor's office",
+      "content": 0,
+      "position": [
+        81,
+        155,
+        367,
+        155,
+        367,
+        171,
+        81,
+        171
+      ]
+    },
+    {
+      "type": "paragraph",
+      "paragraph_id": 7,
+      "tags": [],
+      "text": "86.According to the passage,which of the following is TRUE?",
+      "content": 0,
+      "origin_position": [
+        1033,
+        142,
+        1040,
+        559,
+        1023,
+        559,
+        1017,
+        142
+      ],
+      "outline_level": -1,
+      "page_id": 1,
+      "position": [
+        45,
+        175,
+        462,
+        175,
+        462,
+        192,
+        45,
+        192
+      ],
+      "sub_type": "text"
+    },
+    {
+      "outline_level": -1,
+      "page_id": 1,
+      "position": [
+        81,
+        198,
+        415,
+        198,
+        415,
+        217,
+        81,
+        217
+      ],
+      "sub_type": "text",
+      "text": "A.The textbook is written by Dr.Jane Klammer.x",
+      "origin_position": [
+        1011,
+        178,
+        1017,
+        512,
+        998,
+        513,
+        992,
+        178
+      ],
+      "paragraph_id": 9,
+      "tags": [],
+      "type": "paragraph",
+      "content": 0
+    },
+    {
+      "outline_level": -1,
+      "page_id": 1,
+      "paragraph_id": 11,
+      "position": [
+        81,
+        216,
+        501,
+        213,
+        501,
+        238,
+        81,
+        241
+      ],
+      "sub_type": "text",
+      "tags": [],
+      "text": "B.If you miss a class, be sure to say sorry to Prof. Klammer.X",
+      "type": "paragraph",
+      "content": 0,
+      "origin_position": [
+        993,
+        178,
+        1004,
+        598,
+        979,
+        598,
+        969,
+        178
+      ]
+    },
+    {
+      "sub_type": "text",
+      "tags": [],
+      "text": "C.Prof. Klammer advises her students to preview the chapters to be covered in class.",
+      "page_id": 1,
+      "paragraph_id": 12,
+      "type": "paragraph",
+      "content": 0,
+      "origin_position": [
+        971,
+        178,
+        982,
+        725,
+        962,
+        725,
+        949,
+        177
+      ],
+      "outline_level": -1,
+      "position": [
+        81,
+        239,
+        630,
+        237,
+        629,
+        258,
+        80,
+        261
+      ]
+    },
+    {
+      "content": 0,
+      "outline_level": -1,
+      "page_id": 1,
+      "tags": [],
+      "text": "D.The students can buy \"Introduction to American History\"at the College Bookstore.",
+      "type": "paragraph",
+      "origin_position": [
+        947,
+        177,
+        957,
+        735,
+        938,
+        735,
+        928,
+        177
+      ],
+      "paragraph_id": 13,
+      "position": [
+        80,
+        263,
+        639,
+        263,
+        639,
+        282,
+        80,
+        282
+      ],
+      "sub_type": "text"
+    },
+    {
+      "paragraph_id": 14,
+      "position": [
+        47,
+        280,
+        711,
+        280,
+        711,
+        323,
+        47,
+        323
+      ],
+      "sub_type": "text",
+      "tags": [],
+      "text": "&#36;7.If Amber Chen,a freshman, thinks that she might major in history,what is the maximum length of her paper can be?",
+      "type": "paragraph",
+      "content": 0,
+      "origin_position": [
+        929,
+        144,
+        942,
+        806,
+        900,
+        806,
+        887,
+        144
+      ],
+      "outline_level": -1,
+      "page_id": 1
+    },
+    {
+      "content": 0,
+      "origin_position": [
+        885,
+        178,
+        886,
+        296,
+        863,
+        296,
+        861,
+        178
+      ],
+      "outline_level": -1,
+      "position": [
+        81,
+        325,
+        197,
+        327,
+        197,
+        350,
+        81,
+        349
+      ],
+      "page_id": 1,
+      "paragraph_id": 15,
+      "sub_type": "text",
+      "tags": [],
+      "text": "A.Fifteen pages",
+      "type": "paragraph"
+    },
+    {
+      "outline_level": -1,
+      "paragraph_id": 17,
+      "position": [
+        239,
+        327,
+        495,
+        327,
+        495,
+        351,
+        239,
+        351
+      ],
+      "text": "B.Twenty-five pages. C. Ten pagesy",
+      "origin_position": [
+        886,
+        338,
+        892,
+        593,
+        868,
+        594,
+        863,
+        338
+      ],
+      "page_id": 1,
+      "sub_type": "text",
+      "tags": [],
+      "type": "paragraph",
+      "content": 0
+    },
+    {
+      "content": 0,
+      "outline_level": -1,
+      "page_id": 1,
+      "position": [
+        558,
+        326,
+        677,
+        326,
+        677,
+        351,
+        558,
+        351
+      ],
+      "tags": [],
+      "text": "D.No maximum.",
+      "origin_position": [
+        894,
+        656,
+        896,
+        773,
+        872,
+        774,
+        869,
+        656
+      ],
+      "paragraph_id": 16,
+      "sub_type": "text",
+      "type": "paragraph"
+    },
+    {
+      "content": 0,
+      "origin_position": [
+        898,
+        767,
+        898,
+        793,
+        863,
+        793,
+        863,
+        768
+      ],
+      "outline_level": -1,
+      "page_id": 1,
+      "image_url": "",
+      "paragraph_id": 18,
+      "position": [
+        671,
+        324,
+        697,
+        324,
+        697,
+        360,
+        671,
+        360
+      ],
+      "text": "",
+      "type": "image"
+    },
+    {
+      "outline_level": 0,
+      "page_id": 1,
+      "paragraph_id": 19,
+      "tags": [],
+      "position": [
+        364,
+        369,
+        394,
+        369,
+        394,
+        392,
+        364,
+        392
+      ],
+      "sub_type": "text_title",
+      "text": "(C)",
+      "type": "paragraph",
+      "content": 0,
+      "origin_position": [
+        847,
+        463,
+        848,
+        493,
+        825,
+        494,
+        825,
+        464
+      ]
+    },
+    {
+      "outline_level": -1,
+      "page_id": 1,
+      "position": [
+        49,
+        390,
+        711,
+        390,
+        711,
+        455,
+        49,
+        455
+      ],
+      "sub_type": "text",
+      "tags": [],
+      "type": "paragraph",
+      "paragraph_id": 20,
+      "text": "Bad luck always seems to strike at the worst possible moment. A man about to interview for his dream job gets stuck in traffic. A law student taking her final exam wakes up with a blinding headache. A runner twists his ankle minutes before a big race. These are all perfect examples of cruel fate.",
+      "content": 0,
+      "origin_position": [
+        820,
+        146,
+        834,
+        808,
+        770,
+        809,
+        755,
+        146
+      ]
+    },
+    {
+      "tags": [],
+      "type": "paragraph",
+      "origin_position": [
+        749,
+        147,
+        764,
+        811,
+        621,
+        814,
+        602,
+        147
+      ],
+      "sub_type": "text",
+      "text": "Or are they? Psychologists who study such common accidents now believe that in many instances they may be carefully arranged schemes of the subconscious mind and that people often engage in a form of self-defeating behavior known as self-handicapping---or, in plain termns,excuse-making.It's a simple process:By taking on a crippling handicap,a person makes it more likely that he or she will fail at an endeavor. Though it seems like a crazy thing to do,researchers say it is actually a clever trick of the mind, one that sets up a win-win situation by allowing a person to save face when he or shedoes fail.",
+      "content": 0,
+      "outline_level": -1,
+      "page_id": 1,
+      "paragraph_id": 21,
+      "position": [
+        50,
+        461,
+        713,
+        461,
+        713,
+        606,
+        50,
+        606
+      ]
+    },
+    {
+      "content": 0,
+      "origin_position": [
+        594,
+        146,
+        613,
+        814,
+        462,
+        817,
+        441,
+        146
+      ],
+      "paragraph_id": 22,
+      "position": [
+        49,
+        614,
+        713,
+        614,
+        713,
+        765,
+        49,
+        765
+      ],
+      "sub_type": "text",
+      "type": "paragraph",
+      "outline_level": -1,
+      "page_id": 1,
+      "tags": [],
+      "text": "A classic self-handicapper is the French chess player Deschapelles who quickcly became champion of his region. But when competition grew tougher,he adopted a new condition for all matches:He would compete only if his opponent would remove one of Deschapelles'pawns（国际象棋中的兵）and make the first move,increasing the chance that Deschapelles would lose. If he did lose,he could blame it on the other player's advantage; but if he won, he would be more respected for his amazing talents. Psychologists now use the term \"Deschapelles coup\" to refer to acts of self-handicapping prevailing in today's world."
+    },
+    {
+      "page_id": 1,
+      "paragraph_id": 23,
+      "position": [
+        50,
+        770,
+        713,
+        770,
+        713,
+        855,
+        50,
+        855
+      ],
+      "sub_type": "text",
+      "tags": [],
+      "text": "Overall,men are more likely than women to make excuses. Several studies suggest that men feel the need to appear competent in all realms,while women worry only about the skills in which they've invested heavily.Ask a man and a woman to go diving for the first time; the woman is likely to jump in,while the man is likely to first make itknown that he's not feeling too well.",
+      "content": 0,
+      "origin_position": [
+        436,
+        147,
+        457,
+        817,
+        372,
+        819,
+        349,
+        148
+      ],
+      "outline_level": -1,
+      "type": "paragraph"
+    },
+    {
+      "outline_level": -1,
+      "page_id": 1,
+      "paragraph_id": 24,
+      "sub_type": "text",
+      "tags": [],
+      "type": "paragraph",
+      "content": 0,
+      "position": [
+        48,
+        855,
+        713,
+        855,
+        713,
+        921,
+        48,
+        921
+      ],
+      "text": "In fact,the people most likely to become chronic excuse makers are those obsessed with success, says the researcher.Such people are so afraid of being labeled a failure at anything that they constantly develop one handicap or another in order to explain their failures.",
+      "origin_position": [
+        349,
+        146,
+        372,
+        819,
+        305,
+        820,
+        281,
+        146
+      ]
+    },
+    {
+      "sub_type": "text",
+      "type": "paragraph",
+      "outline_level": -1,
+      "page_id": 1,
+      "tags": [],
+      "text": "Self-handicapping may be an effective way of coping with performance anxiety. In the end. researchers say,it is a **Faustian** bargain.Over the long run,excuse makers fail to live up to their true potential.And despite their protests to the contrary,they have only themselves to blame.",
+      "content": 0,
+      "origin_position": [
+        279,
+        146,
+        303,
+        818,
+        238,
+        819,
+        213,
+        146
+      ],
+      "paragraph_id": 25,
+      "position": [
+        48,
+        923,
+        711,
+        923,
+        711,
+        987,
+        48,
+        987
+      ]
+    },
+    {
+      "content": 0,
+      "origin_position": [
+        1161,
+        920,
+        1165,
+        1287,
+        1142,
+        1288,
+        1138,
+        920
+      ],
+      "page_id": 1,
+      "paragraph_id": 27,
+      "sub_type": "text",
+      "tags": [],
+      "text": "8.Which of the following is the chief topic of the passage?",
+      "type": "paragraph",
+      "outline_level": -1,
+      "position": [
+        833,
+        56,
+        1217,
+        56,
+        1217,
+        80,
+        833,
+        80
+      ]
+    },
+    {
+      "sub_type": "text",
+      "tags": [],
+      "origin_position": [
+        1139,
+        943,
+        1142,
+        1218,
+        1122,
+        1218,
+        1119,
+        944
+      ],
+      "outline_level": -1,
+      "page_id": 1,
+      "paragraph_id": 29,
+      "position": [
+        857,
+        79,
+        1143,
+        79,
+        1143,
+        100,
+        857,
+        100
+      ],
+      "text": "A.An analysis on how people avoid faiure.",
+      "type": "paragraph",
+      "content": 0
+    },
+    {
+      "origin_position": [
+        1118,
+        944,
+        1123,
+        1354,
+        1101,
+        1355,
+        1095,
+        944
+      ],
+      "page_id": 1,
+      "position": [
+        857,
+        101,
+        1286,
+        101,
+        1286,
+        124,
+        857,
+        124
+      ],
+      "sub_type": "text",
+      "type": "paragraph",
+      "content": 0,
+      "outline_level": -1,
+      "paragraph_id": 30,
+      "tags": [],
+      "text": "B.A comparison between the ways men and women avoid failure."
+    },
+    {
+      "paragraph_id": 31,
+      "sub_type": "text",
+      "position": [
+        857,
+        127,
+        1223,
+        127,
+        1223,
+        142,
+        857,
+        142
+      ],
+      "tags": [],
+      "text": "C.The story of a classic self-handicapper,Deschapelles.",
+      "type": "paragraph",
+      "content": 0,
+      "origin_position": [
+        1093,
+        944,
+        1098,
+        1295,
+        1083,
+        1296,
+        1078,
+        945
+      ],
+      "outline_level": -1,
+      "page_id": 1
+    },
+    {
+      "origin_position": [
+        1072,
+        944,
+        1076,
+        1325,
+        1060,
+        1326,
+        1056,
+        945
+      ],
+      "page_id": 1,
+      "paragraph_id": 32,
+      "sub_type": "text",
+      "tags": [],
+      "type": "paragraph",
+      "outline_level": -1,
+      "position": [
+        856,
+        148,
+        1253,
+        150,
+        1254,
+        167,
+        857,
+        165
+      ],
+      "text": "D.The psychological tricks some people use to avoid failure.",
+      "content": 0
+    },
+    {
+      "origin_position": [
+        1050,
+        915,
+        1060,
+        1548,
+        1023,
+        1549,
+        1013,
+        916
+      ],
+      "outline_level": -1,
+      "tags": [],
+      "text": "89.It can be inferred from the passage that a student who wanted to engage in self-handicapping would most probably",
+      "type": "paragraph",
+      "content": 0,
+      "page_id": 1,
+      "paragraph_id": 34,
+      "position": [
+        826,
+        171,
+        1489,
+        171,
+        1489,
+        209,
+        826,
+        209
+      ],
+      "sub_type": "text"
+    },
+    {
+      "position": [
+        859,
+        216,
+        1185,
+        216,
+        1185,
+        230,
+        859,
+        230
+      ],
+      "text": "A.work as hard as possible for an important exam",
+      "type": "paragraph",
+      "origin_position": [
+        1007,
+        948,
+        1012,
+        1262,
+        998,
+        1262,
+        993,
+        949
+      ],
+      "sub_type": "text",
+      "tags": [],
+      "content": 0,
+      "outline_level": -1,
+      "page_id": 1,
+      "paragraph_id": 35
+    },
+    {
+      "position": [
+        860,
+        238,
+        1132,
+        238,
+        1132,
+        255,
+        860,
+        255
+      ],
+      "tags": [],
+      "text": "B.try to cheat on a test to get a high score",
+      "type": "paragraph",
+      "content": 0,
+      "origin_position": [
+        985,
+        950,
+        990,
+        1212,
+        973,
+        1213,
+        969,
+        950
+      ],
+      "outline_level": -1,
+      "page_id": 1,
+      "paragraph_id": 36,
+      "sub_type": "text"
+    },
+    {
+      "origin_position": [
+        964,
+        949,
+        969,
+        1206,
+        953,
+        1207,
+        948,
+        950
+      ],
+      "outline_level": -1,
+      "sub_type": "text",
+      "content": 0,
+      "page_id": 1,
+      "paragraph_id": 37,
+      "position": [
+        859,
+        260,
+        1125,
+        260,
+        1125,
+        276,
+        859,
+        276
+      ],
+      "tags": [],
+      "text": "C.get drunk the night before a big exam",
+      "type": "paragraph"
+    },
+    {
+      "page_id": 1,
+      "position": [
+        859,
+        280,
+        1152,
+        280,
+        1152,
+        299,
+        859,
+        299
+      ],
+      "sub_type": "text",
+      "tags": [],
+      "text": "D.take down only the key points in the class",
+      "type": "paragraph",
+      "content": 0,
+      "origin_position": [
+        944,
+        950,
+        950,
+        1232,
+        931,
+        1233,
+        926,
+        950
+      ],
+      "outline_level": -1,
+      "paragraph_id": 38
+    },
+    {
+      "content": 0,
+      "origin_position": [
+        925,
+        921,
+        932,
+        1379,
+        909,
+        1380,
+        903,
+        922
+      ],
+      "outline_level": -1,
+      "position": [
+        829,
+        299,
+        1305,
+        301,
+        1305,
+        325,
+        829,
+        322
+      ],
+      "sub_type": "text",
+      "tags": [],
+      "page_id": 1,
+      "paragraph_id": 39,
+      "text": "90.Which of the following statements is TRUE according to the passage?",
+      "type": "paragraph"
+    },
+    {
+      "tags": [],
+      "text": "A.Men are more eompetent than women in most trades.",
+      "type": "paragraph",
+      "content": 0,
+      "origin_position": [
+        899,
+        951,
+        906,
+        1305,
+        892,
+        1305,
+        885,
+        951
+      ],
+      "page_id": 1,
+      "position": [
+        859,
+        327,
+        1226,
+        327,
+        1226,
+        341,
+        859,
+        341
+      ],
+      "outline_level": -1,
+      "paragraph_id": 41,
+      "sub_type": "text"
+    },
+    {
+      "content": 0,
+      "origin_position": [
+        877,
+        952,
+        888,
+        1494,
+        870,
+        1494,
+        859,
+        953
+      ],
+      "outline_level": -1,
+      "page_id": 1,
+      "paragraph_id": 42,
+      "position": [
+        860,
+        349,
+        1424,
+        349,
+        1424,
+        368,
+        860,
+        368
+      ],
+      "tags": [],
+      "text": "B.Deschapelles' way of self-handicapping was to give his opponents more advantages.",
+      "sub_type": "text",
+      "type": "paragraph"
+    },
+    {
+      "outline_level": -1,
+      "page_id": 1,
+      "paragraph_id": 43,
+      "tags": [],
+      "text": "C.By self-handicapping.Deschapelles succeeded in showing the true limits of his ability.",
+      "type": "paragraph",
+      "position": [
+        860,
+        368,
+        1438,
+        368,
+        1438,
+        390,
+        860,
+        390
+      ],
+      "sub_type": "text",
+      "content": 0,
+      "origin_position": [
+        859,
+        953,
+        870,
+        1507,
+        849,
+        1508,
+        837,
+        953
+      ]
+    },
+    {
+      "content": 0,
+      "origin_position": [
+        835,
+        953,
+        842,
+        1329,
+        828,
+        1330,
+        822,
+        954
+      ],
+      "outline_level": -1,
+      "page_id": 1,
+      "paragraph_id": 44,
+      "position": [
+        859,
+        392,
+        1249,
+        393,
+        1250,
+        408,
+        860,
+        406
+      ],
+      "tags": [],
+      "text": "D.Men are more ready to face new challenges than women.",
+      "sub_type": "text",
+      "type": "paragraph"
+    },
+    {
+      "content": 0,
+      "origin_position": [
+        816,
+        921,
+        823,
+        1328,
+        800,
+        1328,
+        792,
+        921
+      ],
+      "page_id": 1,
+      "paragraph_id": 46,
+      "tags": [],
+      "outline_level": -1,
+      "position": [
+        826,
+        411,
+        1247,
+        413,
+        1247,
+        437,
+        826,
+        435
+      ],
+      "sub_type": "text",
+      "text": "914By saying\"it is a **Faustian** bargain,\"researchers mean that",
+      "type": "paragraph"
+    },
+    {
+      "page_id": 1,
+      "paragraph_id": 47,
+      "position": [
+        862,
+        433,
+        1354,
+        433,
+        1354,
+        454,
+        862,
+        454
+      ],
+      "tags": [],
+      "text": "A.self-handicapping is often an effective method of dealing with anxietyX",
+      "type": "paragraph",
+      "origin_position": [
+        795,
+        956,
+        806,
+        1430,
+        786,
+        1431,
+        774,
+        957
+      ],
+      "sub_type": "text",
+      "content": 0,
+      "outline_level": -1
+    },
+    {
+      "content": 0,
+      "origin_position": [
+        768,
+        958,
+        777,
+        1343,
+        764,
+        1344,
+        755,
+        958
+      ],
+      "paragraph_id": 52,
+      "sub_type": "text",
+      "tags": [],
+      "text": "B.chronic excuse-making is an indication of one's depression",
+      "type": "paragraph",
+      "outline_level": -1,
+      "page_id": 1,
+      "position": [
+        863,
+        461,
+        1262,
+        461,
+        1262,
+        474,
+        863,
+        474
+      ]
+    },
+    {
+      "content": 0,
+      "origin_position": [
+        752,
+        957,
+        760,
+        1393,
+        738,
+        1394,
+        729,
+        958
+      ],
+      "outline_level": -1,
+      "sub_type": "text",
+      "text": "C.excuse-makers will suffer from the destructive behavior eventually",
+      "type": "paragraph",
+      "page_id": 1,
+      "paragraph_id": 53,
+      "position": [
+        862,
+        477,
+        1313,
+        479,
+        1313,
+        502,
+        862,
+        500
+      ],
+      "tags": []
+    },
+    {
+      "content": 0,
+      "origin_position": [
+        726,
+        958,
+        739,
+        1471,
+        719,
+        1472,
+        706,
+        959
+      ],
+      "page_id": 1,
+      "paragraph_id": 54,
+      "position": [
+        862,
+        503,
+        1394,
+        503,
+        1394,
+        524,
+        862,
+        524
+      ],
+      "sub_type": "text",
+      "tags": [],
+      "outline_level": -1,
+      "text": "D.self-handicapping behavior is a difficult and complex process to understandX",
+      "type": "paragraph"
+    },
+    {
+      "paragraph_id": 56,
+      "position": [
+        829,
+        548,
+        905,
+        548,
+        905,
+        562,
+        829,
+        562
+      ],
+      "sub_type": "text_title",
+      "tags": [],
+      "text": "Section C",
+      "content": 0,
+      "origin_position": [
+        681,
+        927,
+        683,
+        1001,
+        669,
+        1001,
+        667,
+        927
+      ],
+      "outline_level": 0,
+      "page_id": 1,
+      "type": "paragraph"
+    },
+    {
+      "position": [
+        829,
+        568,
+        1489,
+        568,
+        1489,
+        608,
+        829,
+        608
+      ],
+      "text": "Directions:Read the following passage. Fill in each blank with a proper sentence given in the box. Each sentence can be used only once. Note that there are two more sentences than you need.",
+      "type": "paragraph",
+      "outline_level": -1,
+      "sub_type": "text",
+      "tags": [],
+      "content": 0,
+      "origin_position": [
+        661,
+        927,
+        678,
+        1563,
+        639,
+        1565,
+        622,
+        928
+      ],
+      "page_id": 1,
+      "paragraph_id": 57
+    },
+    {
+      "type": "paragraph",
+      "content": 0,
+      "paragraph_id": 58,
+      "position": [
+        1147,
+        615,
+        1176,
+        615,
+        1176,
+        627,
+        1147,
+        627
+      ],
+      "text": "(D)",
+      "origin_position": [
+        623,
+        1238,
+        624,
+        1266,
+        612,
+        1266,
+        612,
+        1238
+      ],
+      "outline_level": 1,
+      "page_id": 1,
+      "sub_type": "text_title",
+      "tags": []
+    },
+    {
+      "text": "<table border=\"1\" ><tr>\n<td>A.A study revealed a \"significant negative correlation between frequent A.I.tool usage and critical thinking abilities.\"<br>B.A reduced ability to use our brains also has worrying personal effects.<br>CASs we weaken our brains,we also threaten to weaken our economy.<br>D.The rise of social media platforms has led to a global decline in literacy rates.<br>E.A meta-analysis released last fall showed that consuming short-form video content is associated with poorer cognition and reduced attention.<br>F.A recent study in neuroscience suggests that human brains are naturally evolving to adapt to the advance of A.I.</td>\n</tr></table>",
+      "cells": [
+        {
+          "row_span": 1,
+          "col": 0,
+          "col_span": 1,
+          "page_id": 1,
+          "position": [
+            831,
+            631,
+            1486,
+            631,
+            1486,
+            841,
+            831,
+            841
+          ],
+          "row": 0,
+          "text": "A.A study revealed a \"significant negative correlation between frequent A.I.tool usage and critical thinking abilities.\"<br>B.A reduced ability to use our brains also has worrying personal effects.<br>CASs we weaken our brains,we also threaten to weaken our economy.<br>D.The rise of social media platforms has led to a global decline in literacy rates.<br>E.A meta-analysis released last fall showed that consuming short-form video content is associated with poorer cognition and reduced attention.<br>F.A recent study in neuroscience suggests that human brains are naturally evolving to adapt to the advance of A.I.",
+          "type": "cell",
+          "origin_position": [
+            599,
+            931,
+            617,
+            1563,
+            411,
+            1571,
+            390,
+            935
+          ]
+        }
+      ],
+      "content": 0,
+      "origin_position": [
+        598,
+        935,
+        616,
+        1571,
+        406,
+        1578,
+        386,
+        938
+      ],
+      "page_id": 1,
+      "paragraph_id": 59,
+      "type": "table",
+      "outline_level": -1,
+      "position": [
+        835,
+        632,
+        1494,
+        632,
+        1493,
+        846,
+        834,
+        845
+      ],
+      "sub_type": "bordered"
+    },
+    {
+      "origin_position": [
+        360,
+        937,
+        382,
+        1581,
+        297,
+        1585,
+        273,
+        939
+      ],
+      "page_id": 1,
+      "paragraph_id": 60,
+      "type": "paragraph",
+      "content": 0,
+      "outline_level": -1,
+      "position": [
+        832,
+        871,
+        1495,
+        871,
+        1495,
+        957,
+        832,
+        957
+      ],
+      "sub_type": "text",
+      "tags": [],
+      "text": "Research from Gloria Mark,a professor of informatics at the University of California,indicates that our attention spans are about one-third as long as they were in 2004, with the biggest drops happening around 2012. Long-running surveys reveal that the percentage of 18-year-olds who report difficulty thinking and concentrating has jumped markedly over the past decade."
+    },
+    {
+      "type": "paragraph",
+      "content": 1,
+      "origin_position": [
+        187,
+        148,
+        198,
+        443,
+        185,
+        443,
+        173,
+        148
+      ],
+      "outline_level": -1,
+      "page_id": 1,
+      "paragraph_id": 62,
+      "position": [
+        50,
+        1012,
+        337,
+        1012,
+        337,
+        1025,
+        50,
+        1025
+      ],
+      "sub_type": "footer",
+      "tags": [],
+      "text": "2025-2026学年度第二学期高一英语期中考试卷"
+    },
+    {
+      "outline_level": -1,
+      "page_id": 1,
+      "paragraph_id": 63,
+      "position": [
+        594,
+        1013,
+        687,
+        1013,
+        687,
+        1027,
+        594,
+        1027
+      ],
+      "tags": [],
+      "text": "第9页 共12页",
+      "content": 1,
+      "origin_position": [
+        207,
+        703,
+        211,
+        796,
+        196,
+        796,
+        193,
+        703
+      ],
+      "sub_type": "footer",
+      "type": "paragraph"
+    },
+    {
+      "type": "paragraph",
+      "content": 1,
+      "outline_level": -1,
+      "page_id": 1,
+      "paragraph_id": 66,
+      "tags": [],
+      "text": "2025-2026学年度第二学期高一英语期中考试卷",
+      "origin_position": [
+        215,
+        941,
+        226,
+        1227,
+        212,
+        1227,
+        201,
+        942
+      ],
+      "position": [
+        833,
+        1014,
+        1123,
+        1014,
+        1123,
+        1028,
+        833,
+        1028
+      ],
+      "sub_type": "footer"
+    },
+    {
+      "origin_position": [
+        237,
+        1470,
+        240,
+        1567,
+        226,
+        1567,
+        223,
+        1470
+      ],
+      "outline_level": -1,
+      "page_id": 1,
+      "paragraph_id": 64,
+      "position": [
+        1373,
+        1013,
+        1474,
+        1013,
+        1474,
+        1027,
+        1373,
+        1027
+      ],
+      "sub_type": "footer",
+      "text": "第10页 共12页",
+      "type": "paragraph",
+      "content": 1,
+      "tags": []
+    }
+  ],
+  "markdown": "B\n\n85. If a student wants to know what the homework assignments are,\n\nA.Prof.Klammer announces them in class\n\nB.the student reads the list on the next page\n\nC.Prof. Klammer gives a list every week\n\nD.The student goes to the professor's office\n\n86.According to the passage,which of the following is TRUE?\n\nA.The textbook is written by Dr.Jane Klammer.x\n\nB.If you miss a class, be sure to say sorry to Prof. Klammer.X\n\nC.Prof. Klammer advises her students to preview the chapters to be covered in class.\n\nD.The students can buy \"Introduction to American History\"at the College Bookstore.\n\n&#36;7.If Amber Chen,a freshman, thinks that she might major in history,what is the maximum length of her paper can be?\n\nA.Fifteen pages\n\nB.Twenty-five pages. C. Ten pagesy\n\nD.No maximum.\n\n# (C)\n\nBad luck always seems to strike at the worst possible moment. A man about to interview for his dream job gets stuck in traffic. A law student taking her final exam wakes up with a blinding headache. A runner twists his ankle minutes before a big race. These are all perfect examples of cruel fate.\n\nOr are they? Psychologists who study such common accidents now believe that in many instances they may be carefully arranged schemes of the subconscious mind and that people often engage in a form of self-defeating behavior known as self-handicapping---or, in plain termns,excuse-making.It's a simple process:By taking on a crippling handicap,a person makes it more likely that he or she will fail at an endeavor. Though it seems like a crazy thing to do,researchers say it is actually a clever trick of the mind, one that sets up a win-win situation by allowing a person to save face when he or shedoes fail.\n\nA classic self-handicapper is the French chess player Deschapelles who quickcly became champion of his region. But when competition grew tougher,he adopted a new condition for all matches:He would compete only if his opponent would remove one of Deschapelles'pawns（国际象棋中的兵）and make the first move,increasing the chance that Deschapelles would lose. If he did lose,he could blame it on the other player's advantage; but if he won, he would be more respected for his amazing talents. Psychologists now use the term \"Deschapelles coup\" to refer to acts of self-handicapping prevailing in today's world.\n\nOverall,men are more likely than women to make excuses. Several studies suggest that men feel the need to appear competent in all realms,while women worry only about the skills in which they've invested heavily.Ask a man and a woman to go diving for the first time; the woman is likely to jump in,while the man is likely to first make itknown that he's not feeling too well.\n\nIn fact,the people most likely to become chronic excuse makers are those obsessed with success, says the researcher.Such people are so afraid of being labeled a failure at anything that they constantly develop one handicap or another in order to explain their failures.\n\nSelf-handicapping may be an effective way of coping with performance anxiety. In the end. researchers say,it is a **Faustian** bargain.Over the long run,excuse makers fail to live up to their true potential.And despite their protests to the contrary,they have only themselves to blame.\n\n8.Which of the following is the chief topic of the passage?\n\nA.An analysis on how people avoid faiure.\n\nB.A comparison between the ways men and women avoid failure.\n\nC.The story of a classic self-handicapper,Deschapelles.\n\nD.The psychological tricks some people use to avoid failure.\n\n89.It can be inferred from the passage that a student who wanted to engage in self-handicapping would most probably\n\nA.work as hard as possible for an important exam\n\nB.try to cheat on a test to get a high score\n\nC.get drunk the night before a big exam\n\nD.take down only the key points in the class\n\n90.Which of the following statements is TRUE according to the passage?\n\nA.Men are more eompetent than women in most trades.\n\nB.Deschapelles' way of self-handicapping was to give his opponents more advantages.\n\nC.By self-handicapping.Deschapelles succeeded in showing the true limits of his ability.\n\nD.Men are more ready to face new challenges than women.\n\n914By saying\"it is a **Faustian** bargain,\"researchers mean that\n\nA.self-handicapping is often an effective method of dealing with anxietyX\n\nB.chronic excuse-making is an indication of one's depression\n\nC.excuse-makers will suffer from the destructive behavior eventually\n\nD.self-handicapping behavior is a difficult and complex process to understandX\n\n# Section C\n\nDirections:Read the following passage. Fill in each blank with a proper sentence given in the box. Each sentence can be used only once. Note that there are two more sentences than you need.\n\n## (D)\n\n<table border=\"1\" ><tr>\n<td>A.A study revealed a \"significant negative correlation between frequent A.I.tool usage and critical thinking abilities.\"<br>B.A reduced ability to use our brains also has worrying personal effects.<br>CASs we weaken our brains,we also threaten to weaken our economy.<br>D.The rise of social media platforms has led to a global decline in literacy rates.<br>E.A meta-analysis released last fall showed that consuming short-form video content is associated with poorer cognition and reduced attention.<br>F.A recent study in neuroscience suggests that human brains are naturally evolving to adapt to the advance of A.I.</td>\n</tr></table>\n\nResearch from Gloria Mark,a professor of informatics at the University of California,indicates that our attention spans are about one-third as long as they were in 2004, with the biggest drops happening around 2012. Long-running surveys reveal that the percentage of 18-year-olds who report difficulty thinking and concentrating has jumped markedly over the past decade.\n\n<!-- 2025-2026学年度第二学期高一英语期中考试卷 -->\n\n<!-- 第9页 共12页 -->\n\n<!-- 2025-2026学年度第二学期高一英语期中考试卷 -->\n\n<!-- 第10页 共12页 -->\n\n",
+  "pages": [
+    {
+      "page_id": 1,
+      "status": "Success",
+      "structured": [
+        {
+          "pos": [
+            12,
+            47,
+            44,
+            47,
+            44,
+            101,
+            12,
+            101
+          ],
+          "sub_type": "text",
+          "text": "B",
+          "type": "textblock",
+          "content": [
+            0
+          ],
+          "id": 1,
+          "origin_position": [
+            1159,
+            108,
+            1159,
+            140,
+            1106,
+            140,
+            1106,
+            108
+          ],
+          "outline_level": -1
+        },
+        {
+          "outline_level": -1,
+          "pos": [
+            44,
+            65,
+            486,
+            66,
+            487,
+            82,
+            45,
+            80
+          ],
+          "sub_type": "text",
+          "text": "85. If a student wants to know what the homework assignments are,",
+          "type": "textblock",
+          "content": [
+            1
+          ],
+          "id": 0,
+          "origin_position": [
+            1142,
+            140,
+            1147,
+            581,
+            1131,
+            582,
+            1127,
+            141
+          ]
+        },
+        {
+          "text": "A.Prof.Klammer announces them in class",
+          "type": "textblock",
+          "content": [
+            2
+          ],
+          "id": 2,
+          "origin_position": [
+            1119,
+            177,
+            1123,
+            458,
+            1109,
+            458,
+            1105,
+            177
+          ],
+          "outline_level": -1,
+          "pos": [
+            80,
+            89,
+            361,
+            89,
+            361,
+            103,
+            80,
+            103
+          ],
+          "sub_type": "text"
+        },
+        {
+          "content": [
+            3
+          ],
+          "id": 4,
+          "origin_position": [
+            1098,
+            178,
+            1102,
+            465,
+            1086,
+            465,
+            1081,
+            178
+          ],
+          "outline_level": -1,
+          "pos": [
+            81,
+            110,
+            368,
+            110,
+            368,
+            127,
+            81,
+            127
+          ],
+          "sub_type": "text",
+          "text": "B.the student reads the list on the next page",
+          "type": "textblock"
+        },
+        {
+          "type": "textblock",
+          "content": [
+            4
+          ],
+          "id": 5,
+          "origin_position": [
+            1079,
+            177,
+            1083,
+            447,
+            1062,
+            447,
+            1058,
+            177
+          ],
+          "outline_level": -1,
+          "pos": [
+            80,
+            129,
+            350,
+            129,
+            350,
+            151,
+            80,
+            151
+          ],
+          "sub_type": "text",
+          "text": "C.Prof. Klammer gives a list every week"
+        },
+        {
+          "content": [
+            5
+          ],
+          "id": 6,
+          "origin_position": [
+            1054,
+            178,
+            1058,
+            464,
+            1042,
+            464,
+            1038,
+            178
+          ],
+          "outline_level": -1,
+          "pos": [
+            81,
+            155,
+            367,
+            155,
+            367,
+            171,
+            81,
+            171
+          ],
+          "sub_type": "text",
+          "text": "D.The student goes to the professor's office",
+          "type": "textblock"
+        },
+        {
+          "text": "86.According to the passage,which of the following is TRUE?",
+          "type": "textblock",
+          "content": [
+            6,
+            7
+          ],
+          "id": 7,
+          "origin_position": [
+            1033,
+            142,
+            1040,
+            559,
+            1023,
+            559,
+            1017,
+            142
+          ],
+          "outline_level": -1,
+          "pos": [
+            45,
+            175,
+            462,
+            175,
+            462,
+            192,
+            45,
+            192
+          ],
+          "sub_type": "text"
+        },
+        {
+          "origin_position": [
+            1011,
+            178,
+            1017,
+            512,
+            998,
+            513,
+            992,
+            178
+          ],
+          "outline_level": -1,
+          "pos": [
+            81,
+            198,
+            415,
+            198,
+            415,
+            217,
+            81,
+            217
+          ],
+          "sub_type": "text",
+          "text": "A.The textbook is written by Dr.Jane Klammer.x",
+          "type": "textblock",
+          "content": [
+            8
+          ],
+          "id": 9
+        },
+        {
+          "id": 11,
+          "origin_position": [
+            993,
+            178,
+            1004,
+            598,
+            979,
+            598,
+            969,
+            178
+          ],
+          "outline_level": -1,
+          "pos": [
+            81,
+            216,
+            501,
+            213,
+            501,
+            238,
+            81,
+            241
+          ],
+          "sub_type": "text",
+          "text": "B.If you miss a class, be sure to say sorry to Prof. Klammer.X",
+          "type": "textblock",
+          "content": [
+            9
+          ]
+        },
+        {
+          "text": "C.Prof. Klammer advises her students to preview the chapters to be covered in class.",
+          "type": "textblock",
+          "content": [
+            10
+          ],
+          "id": 12,
+          "origin_position": [
+            971,
+            178,
+            982,
+            725,
+            962,
+            725,
+            949,
+            177
+          ],
+          "outline_level": -1,
+          "pos": [
+            81,
+            239,
+            630,
+            237,
+            629,
+            258,
+            80,
+            261
+          ],
+          "sub_type": "text"
+        },
+        {
+          "pos": [
+            80,
+            263,
+            639,
+            263,
+            639,
+            282,
+            80,
+            282
+          ],
+          "sub_type": "text",
+          "text": "D.The students can buy \"Introduction to American History\"at the College Bookstore.",
+          "type": "textblock",
+          "content": [
+            11
+          ],
+          "id": 13,
+          "origin_position": [
+            947,
+            177,
+            957,
+            735,
+            938,
+            735,
+            928,
+            177
+          ],
+          "outline_level": -1
+        },
+        {
+          "id": 14,
+          "origin_position": [
+            929,
+            144,
+            942,
+            806,
+            900,
+            806,
+            887,
+            144
+          ],
+          "outline_level": -1,
+          "pos": [
+            47,
+            280,
+            711,
+            280,
+            711,
+            323,
+            47,
+            323
+          ],
+          "sub_type": "text",
+          "text": "$7.If Amber Chen,a freshman, thinks that she might major in history,what is the maximum length of her paper can be?",
+          "type": "textblock",
+          "content": [
+            12,
+            13
+          ]
+        },
+        {
+          "pos": [
+            81,
+            325,
+            197,
+            327,
+            197,
+            350,
+            81,
+            349
+          ],
+          "sub_type": "text",
+          "text": "A.Fifteen pages",
+          "type": "textblock",
+          "content": [
+            14
+          ],
+          "id": 15,
+          "origin_position": [
+            885,
+            178,
+            886,
+            296,
+            863,
+            296,
+            861,
+            178
+          ],
+          "outline_level": -1
+        },
+        {
+          "sub_type": "text",
+          "text": "B.Twenty-five pages.  C. Ten pagesy",
+          "type": "textblock",
+          "content": [
+            15,
+            16
+          ],
+          "id": 17,
+          "origin_position": [
+            886,
+            338,
+            892,
+            593,
+            868,
+            594,
+            863,
+            338
+          ],
+          "outline_level": -1,
+          "pos": [
+            239,
+            327,
+            495,
+            327,
+            495,
+            351,
+            239,
+            351
+          ]
+        },
+        {
+          "id": 16,
+          "origin_position": [
+            894,
+            656,
+            896,
+            773,
+            872,
+            774,
+            869,
+            656
+          ],
+          "outline_level": -1,
+          "pos": [
+            558,
+            326,
+            677,
+            326,
+            677,
+            351,
+            558,
+            351
+          ],
+          "sub_type": "text",
+          "text": "D.No maximum.",
+          "type": "textblock",
+          "content": [
+            17
+          ]
+        },
+        {
+          "pos": [
+            671,
+            324,
+            697,
+            324,
+            697,
+            360,
+            671,
+            360
+          ],
+          "text": "",
+          "type": "image",
+          "content": [
+            19
+          ],
+          "id": 18,
+          "image_url": "",
+          "lines": [
+            18
+          ],
+          "origin_position": [
+            898,
+            767,
+            898,
+            793,
+            863,
+            793,
+            863,
+            768
+          ]
+        },
+        {
+          "outline_level": 0,
+          "pos": [
+            364,
+            369,
+            394,
+            369,
+            394,
+            392,
+            364,
+            392
+          ],
+          "sub_type": "text_title",
+          "text": "(C)",
+          "type": "textblock",
+          "content": [
+            20
+          ],
+          "id": 19,
+          "origin_position": [
+            847,
+            463,
+            848,
+            493,
+            825,
+            494,
+            825,
+            464
+          ]
+        },
+        {
+          "id": 20,
+          "origin_position": [
+            820,
+            146,
+            834,
+            808,
+            770,
+            809,
+            755,
+            146
+          ],
+          "outline_level": -1,
+          "pos": [
+            49,
+            390,
+            711,
+            390,
+            711,
+            455,
+            49,
+            455
+          ],
+          "sub_type": "text",
+          "text": "Bad luck always seems to strike at the worst possible moment. A man about to interview for his dream job gets stuck in traffic. A law student taking her final exam wakes up with a blinding headache. A runner twists his ankle minutes before a big race. These are all perfect examples of cruel fate.",
+          "type": "textblock",
+          "content": [
+            21,
+            22,
+            23
+          ]
+        },
+        {
+          "outline_level": -1,
+          "pos": [
+            50,
+            461,
+            713,
+            461,
+            713,
+            606,
+            50,
+            606
+          ],
+          "sub_type": "text",
+          "text": "Or are they? Psychologists who study such common accidents now believe that in many instances they may be carefully arranged schemes of the subconscious mind and that people often engage in a form of self-defeating behavior known as self-handicapping---or, in plain termns,excuse-making.It's a simple process:By taking on a crippling handicap,a person makes it more likely that he or she will fail at an endeavor. Though it seems like a crazy thing to do,researchers say it is actually a clever trick of the mind, one that sets up a win-win situation by allowing a person to save face when he or shedoes fail.",
+          "type": "textblock",
+          "content": [
+            24,
+            25,
+            26,
+            27,
+            28,
+            29,
+            30
+          ],
+          "id": 21,
+          "origin_position": [
+            749,
+            147,
+            764,
+            811,
+            621,
+            814,
+            602,
+            147
+          ]
+        },
+        {
+          "content": [
+            31,
+            32,
+            33,
+            34,
+            35,
+            36,
+            37
+          ],
+          "id": 22,
+          "origin_position": [
+            594,
+            146,
+            613,
+            814,
+            462,
+            817,
+            441,
+            146
+          ],
+          "outline_level": -1,
+          "pos": [
+            49,
+            614,
+            713,
+            614,
+            713,
+            765,
+            49,
+            765
+          ],
+          "sub_type": "text",
+          "text": "A classic self-handicapper is the French chess player Deschapelles who quickcly became champion of his region. But when competition grew tougher,he adopted a new condition for all matches:He would compete only if his opponent would remove one of Deschapelles'pawns（国际象棋中的兵）and make the first move,increasing the chance that Deschapelles would lose. If he did lose,he could blame it on the other player's advantage; but if he won, he would be more respected for his amazing talents. Psychologists now use the term \"Deschapelles coup\" to refer to acts of self-handicapping prevailing in today's world.",
+          "type": "textblock"
+        },
+        {
+          "origin_position": [
+            436,
+            147,
+            457,
+            817,
+            372,
+            819,
+            349,
+            148
+          ],
+          "outline_level": -1,
+          "pos": [
+            50,
+            770,
+            713,
+            770,
+            713,
+            855,
+            50,
+            855
+          ],
+          "sub_type": "text",
+          "text": "Overall,men are more likely than women to make excuses. Several studies suggest that men feel the need to appear competent in all realms,while women worry only about the skills in which they've invested heavily.Ask a man and a woman to go diving for the first time; the woman is likely to jump in,while the man is likely to first make itknown that he's not feeling too well.",
+          "type": "textblock",
+          "content": [
+            38,
+            39,
+            40,
+            41
+          ],
+          "id": 23
+        },
+        {
+          "id": 24,
+          "origin_position": [
+            349,
+            146,
+            372,
+            819,
+            305,
+            820,
+            281,
+            146
+          ],
+          "outline_level": -1,
+          "pos": [
+            48,
+            855,
+            713,
+            855,
+            713,
+            921,
+            48,
+            921
+          ],
+          "sub_type": "text",
+          "text": "In fact,the people most likely to become chronic excuse makers are those obsessed with success, says the researcher.Such people are so afraid of being labeled a failure at anything that they constantly develop one handicap or another in order to explain their failures.",
+          "type": "textblock",
+          "content": [
+            42,
+            43,
+            44
+          ]
+        },
+        {
+          "outline_level": -1,
+          "pos": [
+            48,
+            923,
+            711,
+            923,
+            711,
+            987,
+            48,
+            987
+          ],
+          "sub_type": "text",
+          "text": "Self-handicapping may be an effective way of coping with performance anxiety. In the end. researchers say,it is a Faustian bargain.Over the long run,excuse makers fail to live up to their true potential.And despite their protests to the contrary,they have only themselves to blame.",
+          "type": "textblock",
+          "content": [
+            45,
+            46,
+            47
+          ],
+          "id": 25,
+          "origin_position": [
+            279,
+            146,
+            303,
+            818,
+            238,
+            819,
+            213,
+            146
+          ]
+        },
+        {
+          "content": [
+            48
+          ],
+          "id": 27,
+          "origin_position": [
+            1161,
+            920,
+            1165,
+            1287,
+            1142,
+            1288,
+            1138,
+            920
+          ],
+          "outline_level": -1,
+          "pos": [
+            833,
+            56,
+            1217,
+            56,
+            1217,
+            80,
+            833,
+            80
+          ],
+          "sub_type": "text",
+          "text": "8.Which of the following is the chief topic of the passage?",
+          "type": "textblock"
+        },
+        {
+          "id": 29,
+          "origin_position": [
+            1139,
+            943,
+            1142,
+            1218,
+            1122,
+            1218,
+            1119,
+            944
+          ],
+          "outline_level": -1,
+          "pos": [
+            857,
+            79,
+            1143,
+            79,
+            1143,
+            100,
+            857,
+            100
+          ],
+          "sub_type": "text",
+          "text": "A.An analysis on how people avoid faiure.",
+          "type": "textblock",
+          "content": [
+            49
+          ]
+        },
+        {
+          "sub_type": "text",
+          "text": "B.A comparison between the ways men and women avoid failure.",
+          "type": "textblock",
+          "content": [
+            50
+          ],
+          "id": 30,
+          "origin_position": [
+            1118,
+            944,
+            1123,
+            1354,
+            1101,
+            1355,
+            1095,
+            944
+          ],
+          "outline_level": -1,
+          "pos": [
+            857,
+            101,
+            1286,
+            101,
+            1286,
+            124,
+            857,
+            124
+          ]
+        },
+        {
+          "id": 31,
+          "origin_position": [
+            1093,
+            944,
+            1098,
+            1295,
+            1083,
+            1296,
+            1078,
+            945
+          ],
+          "outline_level": -1,
+          "pos": [
+            857,
+            127,
+            1223,
+            127,
+            1223,
+            142,
+            857,
+            142
+          ],
+          "sub_type": "text",
+          "text": "C.The story of a classic self-handicapper,Deschapelles.",
+          "type": "textblock",
+          "content": [
+            51
+          ]
+        },
+        {
+          "content": [
+            52
+          ],
+          "id": 32,
+          "origin_position": [
+            1072,
+            944,
+            1076,
+            1325,
+            1060,
+            1326,
+            1056,
+            945
+          ],
+          "outline_level": -1,
+          "pos": [
+            856,
+            148,
+            1253,
+            150,
+            1254,
+            167,
+            857,
+            165
+          ],
+          "sub_type": "text",
+          "text": "D.The psychological tricks some people use to avoid failure.",
+          "type": "textblock"
+        },
+        {
+          "type": "textblock",
+          "content": [
+            53,
+            54
+          ],
+          "id": 34,
+          "origin_position": [
+            1050,
+            915,
+            1060,
+            1548,
+            1023,
+            1549,
+            1013,
+            916
+          ],
+          "outline_level": -1,
+          "pos": [
+            826,
+            171,
+            1489,
+            171,
+            1489,
+            209,
+            826,
+            209
+          ],
+          "sub_type": "text",
+          "text": "89.It can be inferred from the passage that a student who wanted to engage in self-handicapping would most probably"
+        },
+        {
+          "text": "A.work as hard as possible for an important exam",
+          "type": "textblock",
+          "content": [
+            55
+          ],
+          "id": 35,
+          "origin_position": [
+            1007,
+            948,
+            1012,
+            1262,
+            998,
+            1262,
+            993,
+            949
+          ],
+          "outline_level": -1,
+          "pos": [
+            859,
+            216,
+            1185,
+            216,
+            1185,
+            230,
+            859,
+            230
+          ],
+          "sub_type": "text"
+        },
+        {
+          "sub_type": "text",
+          "text": "B.try to cheat on a test to get a high score",
+          "type": "textblock",
+          "content": [
+            56
+          ],
+          "id": 36,
+          "origin_position": [
+            985,
+            950,
+            990,
+            1212,
+            973,
+            1213,
+            969,
+            950
+          ],
+          "outline_level": -1,
+          "pos": [
+            860,
+            238,
+            1132,
+            238,
+            1132,
+            255,
+            860,
+            255
+          ]
+        },
+        {
+          "sub_type": "text",
+          "text": "C.get drunk the night before a big exam",
+          "type": "textblock",
+          "content": [
+            57
+          ],
+          "id": 37,
+          "origin_position": [
+            964,
+            949,
+            969,
+            1206,
+            953,
+            1207,
+            948,
+            950
+          ],
+          "outline_level": -1,
+          "pos": [
+            859,
+            260,
+            1125,
+            260,
+            1125,
+            276,
+            859,
+            276
+          ]
+        },
+        {
+          "text": "D.take down only the key points in the class",
+          "type": "textblock",
+          "content": [
+            58
+          ],
+          "id": 38,
+          "origin_position": [
+            944,
+            950,
+            950,
+            1232,
+            931,
+            1233,
+            926,
+            950
+          ],
+          "outline_level": -1,
+          "pos": [
+            859,
+            280,
+            1152,
+            280,
+            1152,
+            299,
+            859,
+            299
+          ],
+          "sub_type": "text"
+        },
+        {
+          "content": [
+            59
+          ],
+          "id": 39,
+          "origin_position": [
+            925,
+            921,
+            932,
+            1379,
+            909,
+            1380,
+            903,
+            922
+          ],
+          "outline_level": -1,
+          "pos": [
+            829,
+            299,
+            1305,
+            301,
+            1305,
+            325,
+            829,
+            322
+          ],
+          "sub_type": "text",
+          "text": "90.Which of the following statements is TRUE according to the passage?",
+          "type": "textblock"
+        },
+        {
+          "origin_position": [
+            899,
+            951,
+            906,
+            1305,
+            892,
+            1305,
+            885,
+            951
+          ],
+          "outline_level": -1,
+          "pos": [
+            859,
+            327,
+            1226,
+            327,
+            1226,
+            341,
+            859,
+            341
+          ],
+          "sub_type": "text",
+          "text": "A.Men are more eompetent than women in most trades.",
+          "type": "textblock",
+          "content": [
+            60
+          ],
+          "id": 41
+        },
+        {
+          "type": "textblock",
+          "content": [
+            61
+          ],
+          "id": 42,
+          "origin_position": [
+            877,
+            952,
+            888,
+            1494,
+            870,
+            1494,
+            859,
+            953
+          ],
+          "outline_level": -1,
+          "pos": [
+            860,
+            349,
+            1424,
+            349,
+            1424,
+            368,
+            860,
+            368
+          ],
+          "sub_type": "text",
+          "text": "B.Deschapelles' way of self-handicapping was to give his opponents more advantages."
+        },
+        {
+          "sub_type": "text",
+          "text": "C.By self-handicapping.Deschapelles succeeded in showing the true limits of his ability.",
+          "type": "textblock",
+          "content": [
+            62
+          ],
+          "id": 43,
+          "origin_position": [
+            859,
+            953,
+            870,
+            1507,
+            849,
+            1508,
+            837,
+            953
+          ],
+          "outline_level": -1,
+          "pos": [
+            860,
+            368,
+            1438,
+            368,
+            1438,
+            390,
+            860,
+            390
+          ]
+        },
+        {
+          "origin_position": [
+            835,
+            953,
+            842,
+            1329,
+            828,
+            1330,
+            822,
+            954
+          ],
+          "outline_level": -1,
+          "pos": [
+            859,
+            392,
+            1249,
+            393,
+            1250,
+            408,
+            860,
+            406
+          ],
+          "sub_type": "text",
+          "text": "D.Men are more ready to face new challenges than women.",
+          "type": "textblock",
+          "content": [
+            63
+          ],
+          "id": 44
+        },
+        {
+          "id": 46,
+          "origin_position": [
+            816,
+            921,
+            823,
+            1328,
+            800,
+            1328,
+            792,
+            921
+          ],
+          "outline_level": -1,
+          "pos": [
+            826,
+            411,
+            1247,
+            413,
+            1247,
+            437,
+            826,
+            435
+          ],
+          "sub_type": "text",
+          "text": "914By saying\"it is a Faustian bargain,\"researchers mean that",
+          "type": "textblock",
+          "content": [
+            64
+          ]
+        },
+        {
+          "outline_level": -1,
+          "pos": [
+            862,
+            433,
+            1354,
+            433,
+            1354,
+            454,
+            862,
+            454
+          ],
+          "sub_type": "text",
+          "text": "A.self-handicapping is often an effective method of dealing with anxietyX",
+          "type": "textblock",
+          "content": [
+            65
+          ],
+          "id": 47,
+          "origin_position": [
+            795,
+            956,
+            806,
+            1430,
+            786,
+            1431,
+            774,
+            957
+          ]
+        },
+        {
+          "pos": [
+            863,
+            461,
+            1262,
+            461,
+            1262,
+            474,
+            863,
+            474
+          ],
+          "sub_type": "text",
+          "text": "B.chronic excuse-making is an indication of one's depression",
+          "type": "textblock",
+          "content": [
+            66
+          ],
+          "id": 52,
+          "origin_position": [
+            768,
+            958,
+            777,
+            1343,
+            764,
+            1344,
+            755,
+            958
+          ],
+          "outline_level": -1
+        },
+        {
+          "id": 53,
+          "origin_position": [
+            752,
+            957,
+            760,
+            1393,
+            738,
+            1394,
+            729,
+            958
+          ],
+          "outline_level": -1,
+          "pos": [
+            862,
+            477,
+            1313,
+            479,
+            1313,
+            502,
+            862,
+            500
+          ],
+          "sub_type": "text",
+          "text": "C.excuse-makers will suffer from the destructive behavior eventually",
+          "type": "textblock",
+          "content": [
+            67
+          ]
+        },
+        {
+          "content": [
+            68
+          ],
+          "id": 54,
+          "origin_position": [
+            726,
+            958,
+            739,
+            1471,
+            719,
+            1472,
+            706,
+            959
+          ],
+          "outline_level": -1,
+          "pos": [
+            862,
+            503,
+            1394,
+            503,
+            1394,
+            524,
+            862,
+            524
+          ],
+          "sub_type": "text",
+          "text": "D.self-handicapping behavior is a difficult and complex process to understandX",
+          "type": "textblock"
+        },
+        {
+          "type": "textblock",
+          "content": [
+            69
+          ],
+          "id": 56,
+          "origin_position": [
+            681,
+            927,
+            683,
+            1001,
+            669,
+            1001,
+            667,
+            927
+          ],
+          "outline_level": 0,
+          "pos": [
+            829,
+            548,
+            905,
+            548,
+            905,
+            562,
+            829,
+            562
+          ],
+          "sub_type": "text_title",
+          "text": "Section C"
+        },
+        {
+          "content": [
+            70,
+            71
+          ],
+          "id": 57,
+          "origin_position": [
+            661,
+            927,
+            678,
+            1563,
+            639,
+            1565,
+            622,
+            928
+          ],
+          "outline_level": -1,
+          "pos": [
+            829,
+            568,
+            1489,
+            568,
+            1489,
+            608,
+            829,
+            608
+          ],
+          "sub_type": "text",
+          "text": "Directions:Read the following passage. Fill in each blank with a proper sentence given in the box. Each sentence can be used only once. Note that there are two more sentences than you need.",
+          "type": "textblock"
+        },
+        {
+          "pos": [
+            1147,
+            615,
+            1176,
+            615,
+            1176,
+            627,
+            1147,
+            627
+          ],
+          "sub_type": "text_title",
+          "text": "(D)",
+          "type": "textblock",
+          "content": [
+            72
+          ],
+          "id": 58,
+          "origin_position": [
+            623,
+            1238,
+            624,
+            1266,
+            612,
+            1266,
+            612,
+            1238
+          ],
+          "outline_level": 1
+        },
+        {
+          "cells": [
+            {
+              "pos": [
+                831,
+                631,
+                1486,
+                631,
+                1486,
+                841,
+                831,
+                841
+              ],
+              "row": 0,
+              "row_span": 1,
+              "col": 0,
+              "col_span": 1,
+              "content": [
+                {
+                  "content": [
+                    73,
+                    74,
+                    75,
+                    76,
+                    77,
+                    78,
+                    79,
+                    80,
+                    81,
+                    82
+                  ],
+                  "origin_position": [
+                    599,
+                    931,
+                    617,
+                    1563,
+                    411,
+                    1571,
+                    390,
+                    935
+                  ],
+                  "pos": [
+                    831,
+                    631,
+                    1486,
+                    631,
+                    1486,
+                    841,
+                    831,
+                    841
+                  ],
+                  "type": "textblock"
+                }
+              ],
+              "origin_position": [
+                599,
+                931,
+                617,
+                1563,
+                411,
+                1571,
+                390,
+                935
+              ]
+            }
+          ],
+          "cols": 1,
+          "columns_width": [
+            655
+          ],
+          "id": 59,
+          "origin_position": [
+            598,
+            935,
+            616,
+            1571,
+            406,
+            1578,
+            386,
+            938
+          ],
+          "outline_level": -1,
+          "rows": 1,
+          "rows_height": [
+            210
+          ],
+          "pos": [
+            835,
+            632,
+            1494,
+            632,
+            1493,
+            846,
+            834,
+            845
+          ],
+          "sub_type": "bordered",
+          "text": "<table border=\"1\" ><tr>\n<td>A.A study revealed a \"significant negative correlation between frequent A.I.tool usage and critical thinking abilities.\"<br>B.A reduced ability to use our brains also has worrying personal effects.<br>CASs we weaken our brains,we also threaten to weaken our economy.<br>D.The rise of social media platforms has led to a global decline in literacy rates.<br>E.A meta-analysis released last fall showed that consuming short-form video content is associated with poorer cognition and reduced attention.<br>F.A recent study in neuroscience suggests that human brains are naturally evolving to adapt to the advance of A.I.</td>\n</tr></table>",
+          "type": "table"
+        },
+        {
+          "type": "textblock",
+          "content": [
+            83,
+            84,
+            85,
+            86
+          ],
+          "id": 60,
+          "origin_position": [
+            360,
+            937,
+            382,
+            1581,
+            297,
+            1585,
+            273,
+            939
+          ],
+          "outline_level": -1,
+          "pos": [
+            832,
+            871,
+            1495,
+            871,
+            1495,
+            957,
+            832,
+            957
+          ],
+          "sub_type": "text",
+          "text": "Research from Gloria Mark,a professor of informatics at the University of California,indicates that our attention spans are about one-third as long as they were in 2004, with the biggest drops happening around 2012. Long-running surveys reveal that the percentage of 18-year-olds who report difficulty thinking and concentrating has jumped markedly over the past decade."
+        },
+        {
+          "blocks": [
+            {
+              "outline_level": -1,
+              "pos": [
+                50,
+                1012,
+                337,
+                1012,
+                337,
+                1025,
+                50,
+                1025
+              ],
+              "sub_type": "text",
+              "text": "2025-2026学年度第二学期高一英语期中考试卷",
+              "type": "textblock",
+              "content": [
+                87
+              ],
+              "id": 62,
+              "origin_position": [
+                187,
+                148,
+                198,
+                443,
+                185,
+                443,
+                173,
+                148
+              ]
+            }
+          ],
+          "origin_position": [
+            187,
+            148,
+            198,
+            443,
+            185,
+            443,
+            173,
+            148
+          ],
+          "pos": [
+            50,
+            1012,
+            337,
+            1012,
+            337,
+            1025,
+            50,
+            1025
+          ],
+          "type": "footer"
+        },
+        {
+          "pos": [
+            594,
+            1013,
+            687,
+            1013,
+            687,
+            1027,
+            594,
+            1027
+          ],
+          "type": "footer",
+          "blocks": [
+            {
+              "text": "第9页 共12页",
+              "type": "textblock",
+              "content": [
+                88
+              ],
+              "id": 63,
+              "origin_position": [
+                207,
+                703,
+                211,
+                796,
+                196,
+                796,
+                193,
+                703
+              ],
+              "outline_level": -1,
+              "pos": [
+                594,
+                1013,
+                687,
+                1013,
+                687,
+                1027,
+                594,
+                1027
+              ],
+              "sub_type": "text"
+            }
+          ],
+          "origin_position": [
+            207,
+            703,
+            211,
+            796,
+            196,
+            796,
+            193,
+            703
+          ]
+        },
+        {
+          "blocks": [
+            {
+              "id": 66,
+              "origin_position": [
+                215,
+                941,
+                226,
+                1227,
+                212,
+                1227,
+                201,
+                942
+              ],
+              "outline_level": -1,
+              "pos": [
+                833,
+                1014,
+                1123,
+                1014,
+                1123,
+                1028,
+                833,
+                1028
+              ],
+              "sub_type": "text",
+              "text": "2025-2026学年度第二学期高一英语期中考试卷",
+              "type": "textblock",
+              "content": [
+                89
+              ]
+            }
+          ],
+          "origin_position": [
+            215,
+            941,
+            226,
+            1227,
+            212,
+            1227,
+            201,
+            942
+          ],
+          "pos": [
+            833,
+            1014,
+            1123,
+            1014,
+            1123,
+            1028,
+            833,
+            1028
+          ],
+          "type": "footer"
+        },
+        {
+          "origin_position": [
+            237,
+            1470,
+            240,
+            1567,
+            226,
+            1567,
+            223,
+            1470
+          ],
+          "pos": [
+            1373,
+            1013,
+            1474,
+            1013,
+            1474,
+            1027,
+            1373,
+            1027
+          ],
+          "type": "footer",
+          "blocks": [
+            {
+              "text": "第10页 共12页",
+              "type": "textblock",
+              "content": [
+                90
+              ],
+              "id": 64,
+              "origin_position": [
+                237,
+                1470,
+                240,
+                1567,
+                226,
+                1567,
+                223,
+                1470
+              ],
+              "outline_level": -1,
+              "pos": [
+                1373,
+                1013,
+                1474,
+                1013,
+                1474,
+                1027,
+                1373,
+                1027
+              ],
+              "sub_type": "text"
+            }
+          ]
+        }
+      ],
+      "angle": 90,
+      "content": [
+        {
+          "id": 0,
+          "origin_position": [
+            1159,
+            108,
+            1159,
+            140,
+            1106,
+            140,
+            1106,
+            108
+          ],
+          "pos": [
+            12,
+            47,
+            44,
+            47,
+            44,
+            101,
+            12,
+            101
+          ],
+          "score": 0.8539999723434448,
+          "sub_type": "handwriting",
+          "text": "B",
+          "type": "line",
+          "angle": 0
+        },
+        {
+          "text": "85. If a student wants to know what the homework assignments are,",
+          "type": "line",
+          "angle": 0,
+          "id": 1,
+          "origin_position": [
+            1145,
+            141,
+            1149,
+            582,
+            1126,
+            582,
+            1122,
+            141
+          ],
+          "pos": [
+            45,
+            62,
+            487,
+            63,
+            487,
+            87,
+            45,
+            85
+          ],
+          "score": 0.9819999933242798
+        },
+        {
+          "angle": 0,
+          "id": 2,
+          "origin_position": [
+            1123,
+            177,
+            1126,
+            458,
+            1105,
+            458,
+            1101,
+            177
+          ],
+          "pos": [
+            80,
+            85,
+            361,
+            85,
+            361,
+            107,
+            80,
+            107
+          ],
+          "score": 0.9900000095367432,
+          "text": "A.Prof.Klammer announces them in class",
+          "type": "line"
+        },
+        {
+          "text": "B.the student reads the list on the next page",
+          "type": "line",
+          "angle": 0,
+          "id": 3,
+          "origin_position": [
+            1099,
+            178,
+            1103,
+            465,
+            1086,
+            465,
+            1081,
+            178
+          ],
+          "pos": [
+            81,
+            109,
+            368,
+            109,
+            368,
+            127,
+            81,
+            127
+          ],
+          "score": 0.9819999933242798
+        },
+        {
+          "origin_position": [
+            1079,
+            177,
+            1083,
+            447,
+            1062,
+            447,
+            1058,
+            177
+          ],
+          "pos": [
+            80,
+            129,
+            350,
+            129,
+            350,
+            151,
+            80,
+            151
+          ],
+          "score": 0.9819999933242798,
+          "text": "C.Prof. Klammer gives a list every week",
+          "type": "line",
+          "angle": 0,
+          "id": 4
+        },
+        {
+          "pos": [
+            81,
+            153,
+            367,
+            153,
+            367,
+            171,
+            81,
+            171
+          ],
+          "score": 0.9800000190734863,
+          "text": "D.The student goes to the professor's office",
+          "type": "line",
+          "angle": 0,
+          "id": 5,
+          "origin_position": [
+            1056,
+            178,
+            1060,
+            464,
+            1042,
+            464,
+            1038,
+            178
+          ]
+        },
+        {
+          "type": "line",
+          "angle": 0,
+          "id": 6,
+          "origin_position": [
+            1037,
+            142,
+            1038,
+            171,
+            1016,
+            171,
+            1016,
+            142
+          ],
+          "pos": [
+            45,
+            171,
+            74,
+            171,
+            74,
+            193,
+            45,
+            193
+          ],
+          "score": 0.8489999771118164,
+          "text": "86."
+        },
+        {
+          "origin_position": [
+            1038,
+            169,
+            1044,
+            559,
+            1020,
+            559,
+            1014,
+            169
+          ],
+          "pos": [
+            72,
+            171,
+            462,
+            171,
+            462,
+            195,
+            72,
+            195
+          ],
+          "score": 0.9860000014305115,
+          "text": "According to the passage,which of the following is TRUE?",
+          "type": "line",
+          "angle": 0,
+          "id": 7
+        },
+        {
+          "pos": [
+            81,
+            193,
+            415,
+            193,
+            415,
+            217,
+            81,
+            217
+          ],
+          "score": 0.972000002861023,
+          "text": "A.The textbook is written by Dr.Jane Klammer.x",
+          "type": "line",
+          "angle": 0,
+          "id": 8,
+          "origin_position": [
+            1016,
+            178,
+            1022,
+            512,
+            998,
+            513,
+            992,
+            178
+          ]
+        },
+        {
+          "score": 0.9700000286102295,
+          "text": "B.If you miss a class, be sure to say sorry to Prof. Klammer.X",
+          "type": "line",
+          "angle": 0,
+          "id": 9,
+          "origin_position": [
+            993,
+            178,
+            1004,
+            598,
+            979,
+            598,
+            969,
+            178
+          ],
+          "pos": [
+            81,
+            216,
+            501,
+            213,
+            501,
+            238,
+            81,
+            241
+          ]
+        },
+        {
+          "angle": 0,
+          "id": 10,
+          "origin_position": [
+            972,
+            178,
+            983,
+            725,
+            961,
+            726,
+            948,
+            178
+          ],
+          "pos": [
+            81,
+            238,
+            630,
+            236,
+            630,
+            259,
+            81,
+            262
+          ],
+          "score": 0.984000027179718,
+          "text": "C.Prof. Klammer advises her students to preview the chapters to be covered in class.",
+          "type": "line"
+        },
+        {
+          "type": "line",
+          "angle": 0,
+          "id": 11,
+          "origin_position": [
+            951,
+            177,
+            961,
+            735,
+            938,
+            735,
+            928,
+            177
+          ],
+          "pos": [
+            80,
+            259,
+            639,
+            259,
+            639,
+            282,
+            80,
+            282
+          ],
+          "score": 0.9789999723434448,
+          "text": "D.The students can buy \"Introduction to American History\"at the College Bookstore."
+        },
+        {
+          "origin_position": [
+            929,
+            144,
+            942,
+            806,
+            918,
+            806,
+            905,
+            144
+          ],
+          "pos": [
+            47,
+            280,
+            711,
+            280,
+            711,
+            304,
+            47,
+            304
+          ],
+          "score": 0.9810000061988831,
+          "text": "$7.If Amber Chen,a freshman, thinks that she might major in history,what is the maximum length of",
+          "type": "line",
+          "angle": 0,
+          "id": 12
+        },
+        {
+          "type": "line",
+          "angle": 0,
+          "id": 13,
+          "origin_position": [
+            905,
+            144,
+            908,
+            268,
+            885,
+            268,
+            883,
+            144
+          ],
+          "pos": [
+            47,
+            304,
+            170,
+            304,
+            170,
+            327,
+            47,
+            327
+          ],
+          "score": 0.9879999756813049,
+          "text": "her paper can be?"
+        },
+        {
+          "origin_position": [
+            885,
+            178,
+            886,
+            296,
+            863,
+            296,
+            861,
+            178
+          ],
+          "pos": [
+            81,
+            325,
+            197,
+            327,
+            197,
+            350,
+            81,
+            349
+          ],
+          "score": 0.9869999885559082,
+          "text": "A.Fifteen pages",
+          "type": "line",
+          "angle": 0,
+          "id": 14
+        },
+        {
+          "angle": 0,
+          "id": 15,
+          "origin_position": [
+            887,
+            338,
+            890,
+            486,
+            867,
+            486,
+            864,
+            338
+          ],
+          "pos": [
+            239,
+            326,
+            387,
+            326,
+            387,
+            350,
+            239,
+            350
+          ],
+          "score": 0.9890000224113464,
+          "text": "B.Twenty-five pages.",
+          "type": "line"
+        },
+        {
+          "type": "line",
+          "angle": 0,
+          "id": 16,
+          "origin_position": [
+            890,
+            501,
+            892,
+            593,
+            868,
+            594,
+            866,
+            501
+          ],
+          "pos": [
+            402,
+            327,
+            495,
+            327,
+            495,
+            351,
+            402,
+            351
+          ],
+          "score": 0.9049999713897705,
+          "text": "C. Ten pagesy"
+        },
+        {
+          "text": "D.No maximum.",
+          "type": "line",
+          "angle": 0,
+          "id": 17,
+          "origin_position": [
+            894,
+            656,
+            896,
+            773,
+            872,
+            774,
+            869,
+            656
+          ],
+          "pos": [
+            558,
+            326,
+            677,
+            326,
+            677,
+            351,
+            558,
+            351
+          ],
+          "score": 0.984000027179718
+        },
+        {
+          "angle": 0,
+          "id": 18,
+          "origin_position": [
+            898,
+            767,
+            898,
+            793,
+            863,
+            793,
+            863,
+            768
+          ],
+          "pos": [
+            671,
+            324,
+            697,
+            324,
+            697,
+            360,
+            671,
+            360
+          ],
+          "score": 1,
+          "text": "",
+          "type": "line"
+        },
+        {
+          "origin_position": [
+            898,
+            767,
+            898,
+            793,
+            863,
+            793,
+            863,
+            768
+          ],
+          "pos": [
+            671,
+            324,
+            697,
+            324,
+            697,
+            360,
+            671,
+            360
+          ],
+          "size": [
+            23,
+            32
+          ],
+          "type": "image",
+          "data": {
+            "path": "",
+            "region": [
+              671,
+              324,
+              697,
+              324,
+              697,
+              360,
+              671,
+              360
+            ]
+          },
+          "id": 19
+        },
+        {
+          "pos": [
+            364,
+            369,
+            394,
+            369,
+            394,
+            392,
+            364,
+            392
+          ],
+          "score": 0.9819999933242798,
+          "text": "(C)",
+          "type": "line",
+          "angle": 0,
+          "id": 20,
+          "origin_position": [
+            847,
+            463,
+            848,
+            493,
+            825,
+            494,
+            825,
+            464
+          ]
+        },
+        {
+          "angle": 0,
+          "id": 21,
+          "origin_position": [
+            818,
+            178,
+            834,
+            808,
+            811,
+            808,
+            795,
+            179
+          ],
+          "pos": [
+            81,
+            392,
+            711,
+            390,
+            711,
+            413,
+            81,
+            415
+          ],
+          "score": 0.9829999804496765,
+          "text": "Bad luck always seems to strike at the worst possible moment. A man about to interview for his",
+          "type": "line"
+        },
+        {
+          "pos": [
+            50,
+            414,
+            710,
+            413,
+            710,
+            435,
+            50,
+            437
+          ],
+          "score": 0.9860000014305115,
+          "text": "dream job gets stuck in traffic. A law student taking her final exam wakes up with a blinding headache.",
+          "type": "line",
+          "angle": 0,
+          "id": 22,
+          "origin_position": [
+            796,
+            147,
+            811,
+            807,
+            790,
+            808,
+            773,
+            147
+          ]
+        },
+        {
+          "angle": 0,
+          "id": 23,
+          "origin_position": [
+            775,
+            147,
+            789,
+            764,
+            766,
+            765,
+            752,
+            147
+          ],
+          "pos": [
+            50,
+            435,
+            666,
+            435,
+            666,
+            458,
+            50,
+            458
+          ],
+          "score": 0.9860000014305115,
+          "text": "A runner twists his ankle minutes before a big race. These are all perfect examples of cruel fate.",
+          "type": "line"
+        },
+        {
+          "angle": 0,
+          "id": 24,
+          "origin_position": [
+            752,
+            179,
+            767,
+            809,
+            745,
+            809,
+            730,
+            179
+          ],
+          "pos": [
+            81,
+            458,
+            711,
+            458,
+            711,
+            480,
+            81,
+            480
+          ],
+          "score": 0.984000027179718,
+          "text": "Or are they? Psychologists who study such common accidents now believe that in many instances",
+          "type": "line"
+        },
+        {
+          "text": "they may be carefully arranged schemes of the subconscious mind and that people often engage in a",
+          "type": "line",
+          "angle": 0,
+          "id": 25,
+          "origin_position": [
+            730,
+            147,
+            745,
+            808,
+            723,
+            809,
+            706,
+            147
+          ],
+          "pos": [
+            50,
+            480,
+            710,
+            480,
+            710,
+            503,
+            50,
+            503
+          ],
+          "score": 0.9909999966621399
+        },
+        {
+          "angle": 0,
+          "id": 26,
+          "origin_position": [
+            708,
+            147,
+            725,
+            810,
+            702,
+            810,
+            685,
+            147
+          ],
+          "pos": [
+            50,
+            501,
+            711,
+            501,
+            711,
+            524,
+            50,
+            524
+          ],
+          "score": 0.9789999723434448,
+          "text": "form of self-defeating behavior known as self-handicapping---or, in plain termns,excuse-making.It's a",
+          "type": "line"
+        },
+        {
+          "score": 0.9829999804496765,
+          "text": "simple process:By taking on a crippling handicap,a person makes it more likely that he or she will fail",
+          "type": "line",
+          "angle": 0,
+          "id": 27,
+          "origin_position": [
+            686,
+            147,
+            703,
+            810,
+            681,
+            811,
+            664,
+            147
+          ],
+          "pos": [
+            50,
+            523,
+            711,
+            523,
+            711,
+            545,
+            50,
+            545
+          ]
+        },
+        {
+          "type": "line",
+          "angle": 0,
+          "id": 28,
+          "origin_position": [
+            664,
+            147,
+            681,
+            813,
+            658,
+            813,
+            641,
+            147
+          ],
+          "pos": [
+            50,
+            545,
+            713,
+            545,
+            713,
+            568,
+            50,
+            568
+          ],
+          "score": 0.9729999899864197,
+          "text": "at an endeavor. Though it seems like a crazy thing to do,researchers say it is actually a clever trick of"
+        },
+        {
+          "pos": [
+            51,
+            569,
+            710,
+            569,
+            710,
+            587,
+            51,
+            587
+          ],
+          "score": 0.9760000109672546,
+          "text": "the mind, one that sets up a win-win situation by allowing a person to save face when he or shedoes",
+          "type": "line",
+          "angle": 0,
+          "id": 29,
+          "origin_position": [
+            640,
+            148,
+            657,
+            810,
+            639,
+            811,
+            622,
+            148
+          ]
+        },
+        {
+          "text": "fail.",
+          "type": "line",
+          "angle": 0,
+          "id": 30,
+          "origin_position": [
+            619,
+            148,
+            620,
+            179,
+            601,
+            179,
+            600,
+            148
+          ],
+          "pos": [
+            51,
+            590,
+            81,
+            590,
+            81,
+            608,
+            51,
+            608
+          ],
+          "score": 0.9980000257492065
+        },
+        {
+          "type": "line",
+          "angle": 0,
+          "id": 31,
+          "origin_position": [
+            596,
+            181,
+            614,
+            811,
+            596,
+            811,
+            578,
+            181
+          ],
+          "pos": [
+            83,
+            613,
+            710,
+            613,
+            710,
+            631,
+            83,
+            631
+          ],
+          "score": 0.9769999980926514,
+          "text": "A classic self-handicapper is the French chess player Deschapelles who quickcly became champion"
+        },
+        {
+          "score": 0.9890000224113464,
+          "text": "of his region. But when competition grew tougher,he adopted a new condition for all matches:He",
+          "type": "line",
+          "angle": 0,
+          "id": 32,
+          "origin_position": [
+            576,
+            147,
+            595,
+            812,
+            572,
+            813,
+            553,
+            147
+          ],
+          "pos": [
+            50,
+            632,
+            711,
+            632,
+            711,
+            655,
+            50,
+            655
+          ]
+        },
+        {
+          "score": 0.9890000224113464,
+          "text": "would compete only if his opponent would remove one of Deschapelles'pawns（国际象棋中的兵）and",
+          "type": "line",
+          "angle": 0,
+          "id": 33,
+          "origin_position": [
+            553,
+            147,
+            572,
+            815,
+            550,
+            815,
+            530,
+            147
+          ],
+          "pos": [
+            50,
+            655,
+            713,
+            655,
+            713,
+            677,
+            50,
+            677
+          ]
+        },
+        {
+          "angle": 0,
+          "id": 34,
+          "origin_position": [
+            528,
+            147,
+            548,
+            815,
+            526,
+            816,
+            506,
+            147
+          ],
+          "pos": [
+            50,
+            679,
+            713,
+            679,
+            713,
+            701,
+            50,
+            701
+          ],
+          "score": 0.9850000143051147,
+          "text": "make the first move,increasing the chance that Deschapelles would lose. If he did lose,he could blame",
+          "type": "line"
+        },
+        {
+          "score": 0.9779999852180481,
+          "text": "it on the other player's advantage; but if he won, he would be more respected for his amazing talents.",
+          "type": "line",
+          "angle": 0,
+          "id": 35,
+          "origin_position": [
+            504,
+            148,
+            524,
+            813,
+            506,
+            813,
+            486,
+            148
+          ],
+          "pos": [
+            51,
+            703,
+            710,
+            703,
+            710,
+            721,
+            51,
+            721
+          ]
+        },
+        {
+          "angle": 0,
+          "id": 36,
+          "origin_position": [
+            486,
+            147,
+            504,
+            814,
+            480,
+            815,
+            461,
+            147
+          ],
+          "pos": [
+            50,
+            721,
+            711,
+            723,
+            711,
+            747,
+            50,
+            745
+          ],
+          "score": 0.9819999933242798,
+          "text": "Psychologists now use the term \"Deschapelles coup\" to refer to acts of self-handicapping prevailing in",
+          "type": "line"
+        },
+        {
+          "id": 37,
+          "origin_position": [
+            459,
+            148,
+            462,
+            246,
+            444,
+            246,
+            441,
+            148
+          ],
+          "pos": [
+            51,
+            747,
+            146,
+            747,
+            146,
+            765,
+            51,
+            765
+          ],
+          "score": 0.9919999837875366,
+          "text": "today's world.",
+          "type": "line",
+          "angle": 0
+        },
+        {
+          "id": 38,
+          "origin_position": [
+            441,
+            179,
+            461,
+            817,
+            438,
+            817,
+            417,
+            179
+          ],
+          "pos": [
+            81,
+            766,
+            713,
+            766,
+            713,
+            789,
+            81,
+            789
+          ],
+          "score": 0.9779999852180481,
+          "text": "Overall,men are more likely than women to make excuses. Several studies suggest that men feel",
+          "type": "line",
+          "angle": 0
+        },
+        {
+          "type": "line",
+          "angle": 0,
+          "id": 39,
+          "origin_position": [
+            416,
+            148,
+            438,
+            817,
+            416,
+            818,
+            394,
+            148
+          ],
+          "pos": [
+            50,
+            789,
+            713,
+            789,
+            713,
+            811,
+            50,
+            811
+          ],
+          "score": 0.9879999756813049,
+          "text": "the need to appear competent in all realms,while women worry only about the skills in which they've"
+        },
+        {
+          "id": 40,
+          "origin_position": [
+            394,
+            148,
+            416,
+            818,
+            393,
+            818,
+            370,
+            148
+          ],
+          "pos": [
+            50,
+            811,
+            713,
+            811,
+            713,
+            834,
+            50,
+            834
+          ],
+          "score": 0.9819999933242798,
+          "text": "invested heavily.Ask a man and a woman to go diving for the first time; the woman is likely to jump",
+          "type": "line",
+          "angle": 0
+        },
+        {
+          "score": 0.9829999804496765,
+          "text": "in,while the man is likely to first make itknown that he's not feeling too well.",
+          "type": "line",
+          "angle": 0,
+          "id": 41,
+          "origin_position": [
+            372,
+            148,
+            389,
+            662,
+            366,
+            662,
+            349,
+            148
+          ],
+          "pos": [
+            50,
+            832,
+            556,
+            832,
+            556,
+            855,
+            50,
+            855
+          ]
+        },
+        {
+          "pos": [
+            80,
+            855,
+            713,
+            855,
+            713,
+            877,
+            80,
+            877
+          ],
+          "score": 0.9850000143051147,
+          "text": "In fact,the people most likely to become chronic excuse makers are those obsessed with success,",
+          "type": "line",
+          "angle": 0,
+          "id": 42,
+          "origin_position": [
+            350,
+            178,
+            372,
+            819,
+            349,
+            819,
+            327,
+            179
+          ]
+        },
+        {
+          "origin_position": [
+            326,
+            146,
+            349,
+            819,
+            326,
+            820,
+            302,
+            146
+          ],
+          "pos": [
+            48,
+            877,
+            713,
+            877,
+            713,
+            900,
+            48,
+            900
+          ],
+          "score": 0.984000027179718,
+          "text": "says the researcher.Such people are so afraid of being labeled a failure at anything that they constantly",
+          "type": "line",
+          "angle": 0,
+          "id": 43
+        },
+        {
+          "angle": 0,
+          "id": 44,
+          "origin_position": [
+            303,
+            146,
+            319,
+            581,
+            296,
+            581,
+            281,
+            146
+          ],
+          "pos": [
+            48,
+            899,
+            475,
+            899,
+            475,
+            921,
+            48,
+            921
+          ],
+          "score": 0.9819999933242798,
+          "text": "develop one handicap or another in order to explain their failures.",
+          "type": "line"
+        },
+        {
+          "pos": [
+            78,
+            921,
+            711,
+            920,
+            711,
+            943,
+            78,
+            945
+          ],
+          "score": 0.9789999723434448,
+          "text": "Self-handicapping may be an effective way of coping with performance anxiety. In the end.",
+          "type": "line",
+          "angle": 0,
+          "id": 45,
+          "origin_position": [
+            282,
+            177,
+            306,
+            818,
+            283,
+            819,
+            257,
+            177
+          ]
+        },
+        {
+          "type": "line",
+          "angle": 0,
+          "id": 46,
+          "origin_position": [
+            256,
+            148,
+            281,
+            818,
+            262,
+            818,
+            238,
+            148
+          ],
+          "pos": [
+            50,
+            945,
+            710,
+            945,
+            710,
+            963,
+            50,
+            963
+          ],
+          "score": 0.9789999723434448,
+          "text": "researchers say,it is a Faustian bargain.Over the long run,excuse makers fail to live up to their true"
+        },
+        {
+          "pos": [
+            48,
+            965,
+            620,
+            965,
+            620,
+            987,
+            48,
+            987
+          ],
+          "score": 0.9860000014305115,
+          "text": "potential.And despite their protests to the contrary,they have only themselves to blame.",
+          "type": "line",
+          "angle": 0,
+          "id": 47,
+          "origin_position": [
+            235,
+            146,
+            257,
+            728,
+            235,
+            728,
+            213,
+            146
+          ]
+        },
+        {
+          "origin_position": [
+            1161,
+            920,
+            1165,
+            1287,
+            1142,
+            1288,
+            1138,
+            920
+          ],
+          "pos": [
+            833,
+            56,
+            1217,
+            56,
+            1217,
+            80,
+            833,
+            80
+          ],
+          "score": 0.9760000109672546,
+          "text": "8.Which of the following is the chief topic of the passage?",
+          "type": "line",
+          "angle": 0,
+          "id": 48
+        },
+        {
+          "origin_position": [
+            1139,
+            943,
+            1142,
+            1218,
+            1121,
+            1218,
+            1118,
+            944
+          ],
+          "pos": [
+            857,
+            79,
+            1143,
+            79,
+            1143,
+            101,
+            857,
+            101
+          ],
+          "score": 0.9810000061988831,
+          "text": "A.An analysis on how people avoid faiure.",
+          "type": "line",
+          "angle": 0,
+          "id": 49
+        },
+        {
+          "type": "line",
+          "angle": 0,
+          "id": 50,
+          "origin_position": [
+            1118,
+            944,
+            1123,
+            1354,
+            1101,
+            1355,
+            1095,
+            944
+          ],
+          "pos": [
+            857,
+            101,
+            1286,
+            101,
+            1286,
+            124,
+            857,
+            124
+          ],
+          "score": 0.9890000224113464,
+          "text": "B.A comparison between the ways men and women avoid failure."
+        },
+        {
+          "angle": 0,
+          "id": 51,
+          "origin_position": [
+            1095,
+            944,
+            1101,
+            1295,
+            1079,
+            1296,
+            1073,
+            945
+          ],
+          "pos": [
+            857,
+            124,
+            1223,
+            124,
+            1223,
+            147,
+            857,
+            147
+          ],
+          "score": 0.9959999918937683,
+          "text": "C.The story of a classic self-handicapper,Deschapelles.",
+          "type": "line"
+        },
+        {
+          "type": "line",
+          "angle": 0,
+          "id": 52,
+          "origin_position": [
+            1075,
+            945,
+            1079,
+            1325,
+            1057,
+            1326,
+            1053,
+            945
+          ],
+          "pos": [
+            857,
+            145,
+            1254,
+            147,
+            1254,
+            170,
+            857,
+            168
+          ],
+          "score": 0.9900000095367432,
+          "text": "D.The psychological tricks some people use to avoid failure."
+        },
+        {
+          "pos": [
+            826,
+            168,
+            1489,
+            168,
+            1489,
+            190,
+            826,
+            190
+          ],
+          "score": 0.9789999723434448,
+          "text": "89.It can be inferred from the passage that a student who wanted to engage in self-handicapping would",
+          "type": "line",
+          "angle": 0,
+          "id": 53,
+          "origin_position": [
+            1052,
+            915,
+            1062,
+            1548,
+            1042,
+            1549,
+            1031,
+            916
+          ]
+        },
+        {
+          "angle": 0,
+          "id": 54,
+          "origin_position": [
+            1028,
+            917,
+            1030,
+            1012,
+            1012,
+            1012,
+            1011,
+            917
+          ],
+          "pos": [
+            827,
+            193,
+            925,
+            193,
+            925,
+            211,
+            827,
+            211
+          ],
+          "score": 0.9950000047683716,
+          "text": "most probably",
+          "type": "line"
+        },
+        {
+          "angle": 0,
+          "id": 55,
+          "origin_position": [
+            1008,
+            948,
+            1014,
+            1262,
+            996,
+            1263,
+            991,
+            949
+          ],
+          "pos": [
+            859,
+            214,
+            1185,
+            214,
+            1185,
+            232,
+            859,
+            232
+          ],
+          "score": 0.9890000224113464,
+          "text": "A.work as hard as possible for an important exam",
+          "type": "line"
+        },
+        {
+          "angle": 0,
+          "id": 56,
+          "origin_position": [
+            986,
+            950,
+            991,
+            1212,
+            973,
+            1213,
+            969,
+            950
+          ],
+          "pos": [
+            860,
+            237,
+            1132,
+            237,
+            1132,
+            255,
+            860,
+            255
+          ],
+          "score": 0.984000027179718,
+          "text": "B.try to cheat on a test to get a high score",
+          "type": "line"
+        },
+        {
+          "text": "C.get drunk the night before a big exam",
+          "type": "line",
+          "angle": 0,
+          "id": 57,
+          "origin_position": [
+            968,
+            949,
+            972,
+            1206,
+            950,
+            1207,
+            945,
+            950
+          ],
+          "pos": [
+            859,
+            256,
+            1125,
+            256,
+            1125,
+            279,
+            859,
+            279
+          ],
+          "score": 0.9900000095367432
+        },
+        {
+          "angle": 0,
+          "id": 58,
+          "origin_position": [
+            945,
+            950,
+            951,
+            1232,
+            929,
+            1233,
+            924,
+            950
+          ],
+          "pos": [
+            859,
+            279,
+            1152,
+            279,
+            1152,
+            301,
+            859,
+            301
+          ],
+          "score": 0.9860000014305115,
+          "text": "D.take down only the key points in the class",
+          "type": "line"
+        },
+        {
+          "origin_position": [
+            925,
+            921,
+            932,
+            1379,
+            909,
+            1380,
+            903,
+            922
+          ],
+          "pos": [
+            829,
+            299,
+            1305,
+            301,
+            1305,
+            325,
+            829,
+            322
+          ],
+          "score": 0.9779999852180481,
+          "text": "90.Which of the following statements is TRUE according to the passage?",
+          "type": "line",
+          "angle": 0,
+          "id": 59
+        },
+        {
+          "pos": [
+            859,
+            323,
+            1226,
+            323,
+            1226,
+            345,
+            859,
+            345
+          ],
+          "score": 0.9789999723434448,
+          "text": "A.Men are more eompetent than women in most trades.",
+          "type": "line",
+          "angle": 0,
+          "id": 60,
+          "origin_position": [
+            903,
+            951,
+            910,
+            1305,
+            888,
+            1305,
+            881,
+            951
+          ]
+        },
+        {
+          "angle": 0,
+          "id": 61,
+          "origin_position": [
+            881,
+            952,
+            892,
+            1493,
+            870,
+            1494,
+            859,
+            953
+          ],
+          "pos": [
+            860,
+            345,
+            1424,
+            345,
+            1424,
+            368,
+            860,
+            368
+          ],
+          "score": 0.9810000061988831,
+          "text": "B.Deschapelles' way of self-handicapping was to give his opponents more advantages.",
+          "type": "line"
+        },
+        {
+          "pos": [
+            860,
+            368,
+            1438,
+            368,
+            1438,
+            390,
+            860,
+            390
+          ],
+          "score": 0.9760000109672546,
+          "text": "C.By self-handicapping.Deschapelles succeeded in showing the true limits of his ability.",
+          "type": "line",
+          "angle": 0,
+          "id": 62,
+          "origin_position": [
+            859,
+            953,
+            870,
+            1507,
+            849,
+            1508,
+            837,
+            953
+          ]
+        },
+        {
+          "angle": 0,
+          "id": 63,
+          "origin_position": [
+            838,
+            953,
+            845,
+            1330,
+            822,
+            1330,
+            816,
+            954
+          ],
+          "pos": [
+            860,
+            389,
+            1250,
+            390,
+            1250,
+            414,
+            860,
+            412
+          ],
+          "score": 0.9929999709129333,
+          "text": "D.Men are more ready to face new challenges than women.",
+          "type": "line"
+        },
+        {
+          "type": "line",
+          "angle": 0,
+          "id": 64,
+          "origin_position": [
+            816,
+            921,
+            823,
+            1328,
+            800,
+            1328,
+            792,
+            921
+          ],
+          "pos": [
+            826,
+            411,
+            1247,
+            413,
+            1247,
+            437,
+            826,
+            435
+          ],
+          "score": 0.9549999833106995,
+          "text": "914By saying\"it is a Faustian bargain,\"researchers mean that"
+        },
+        {
+          "score": 0.9810000061988831,
+          "text": "A.self-handicapping is often an effective method of dealing with anxietyX",
+          "type": "line",
+          "angle": 0,
+          "id": 65,
+          "origin_position": [
+            796,
+            956,
+            807,
+            1430,
+            784,
+            1431,
+            773,
+            957
+          ],
+          "pos": [
+            862,
+            432,
+            1354,
+            432,
+            1354,
+            456,
+            862,
+            456
+          ]
+        },
+        {
+          "type": "line",
+          "angle": 0,
+          "id": 66,
+          "origin_position": [
+            771,
+            958,
+            780,
+            1343,
+            762,
+            1344,
+            753,
+            958
+          ],
+          "pos": [
+            863,
+            458,
+            1262,
+            458,
+            1262,
+            476,
+            863,
+            476
+          ],
+          "score": 0.9850000143051147,
+          "text": "B.chronic excuse-making is an indication of one's depression"
+        },
+        {
+          "angle": 0,
+          "id": 67,
+          "origin_position": [
+            752,
+            957,
+            760,
+            1393,
+            738,
+            1394,
+            729,
+            958
+          ],
+          "pos": [
+            862,
+            477,
+            1313,
+            479,
+            1313,
+            502,
+            862,
+            500
+          ],
+          "score": 0.9909999966621399,
+          "text": "C.excuse-makers will suffer from the destructive behavior eventually",
+          "type": "line"
+        },
+        {
+          "angle": 0,
+          "id": 68,
+          "origin_position": [
+            729,
+            958,
+            742,
+            1471,
+            717,
+            1472,
+            704,
+            959
+          ],
+          "pos": [
+            862,
+            500,
+            1394,
+            500,
+            1394,
+            526,
+            862,
+            526
+          ],
+          "score": 0.9819999933242798,
+          "text": "D.self-handicapping behavior is a difficult and complex process to understandX",
+          "type": "line"
+        },
+        {
+          "angle": 0,
+          "id": 69,
+          "origin_position": [
+            685,
+            927,
+            687,
+            1001,
+            665,
+            1002,
+            663,
+            927
+          ],
+          "pos": [
+            829,
+            544,
+            905,
+            544,
+            905,
+            566,
+            829,
+            566
+          ],
+          "score": 0.9959999918937683,
+          "text": "Section C",
+          "type": "line"
+        },
+        {
+          "origin_position": [
+            664,
+            928,
+            679,
+            1563,
+            657,
+            1564,
+            641,
+            929
+          ],
+          "pos": [
+            830,
+            565,
+            1489,
+            567,
+            1489,
+            590,
+            830,
+            589
+          ],
+          "score": 0.9779999852180481,
+          "text": "Directions:Read the following passage. Fill in each blank with a proper sentence given in the box.",
+          "type": "line",
+          "angle": 0,
+          "id": 70
+        },
+        {
+          "id": 71,
+          "origin_position": [
+            641,
+            929,
+            656,
+            1503,
+            635,
+            1503,
+            619,
+            929
+          ],
+          "pos": [
+            830,
+            589,
+            1424,
+            589,
+            1424,
+            611,
+            830,
+            611
+          ],
+          "score": 0.9850000143051147,
+          "text": "Each sentence can be used only once. Note that there are two more sentences than you need.",
+          "type": "line",
+          "angle": 0
+        },
+        {
+          "type": "line",
+          "angle": 0,
+          "id": 72,
+          "origin_position": [
+            625,
+            1238,
+            626,
+            1266,
+            608,
+            1266,
+            608,
+            1238
+          ],
+          "pos": [
+            1147,
+            613,
+            1176,
+            613,
+            1176,
+            631,
+            1147,
+            631
+          ],
+          "score": 0.9959999918937683,
+          "text": "(D)"
+        },
+        {
+          "pos": [
+            836,
+            632,
+            1484,
+            632,
+            1484,
+            656,
+            836,
+            656
+          ],
+          "score": 0.9829999804496765,
+          "text": "A.A study revealed a \"significant negative correlation between frequent A.I.tool usage and critical",
+          "type": "line",
+          "angle": 90,
+          "id": 73,
+          "origin_position": [
+            598,
+            936,
+            616,
+            1561,
+            592,
+            1562,
+            574,
+            936
+          ]
+        },
+        {
+          "id": 74,
+          "origin_position": [
+            575,
+            938,
+            579,
+            1064,
+            557,
+            1065,
+            554,
+            939
+          ],
+          "pos": [
+            838,
+            655,
+            967,
+            655,
+            967,
+            677,
+            838,
+            677
+          ],
+          "score": 0.9710000157356262,
+          "text": "thinking abilities.\"",
+          "type": "line",
+          "angle": 90
+        },
+        {
+          "pos": [
+            839,
+            675,
+            1308,
+            677,
+            1308,
+            701,
+            839,
+            699
+          ],
+          "score": 0.9829999804496765,
+          "text": "B.A reduced ability to use our brains also has worrying personal effects.",
+          "type": "line",
+          "angle": 90,
+          "id": 75,
+          "origin_position": [
+            556,
+            939,
+            567,
+            1395,
+            543,
+            1396,
+            532,
+            940
+          ]
+        },
+        {
+          "text": "CA",
+          "type": "line",
+          "angle": 90,
+          "id": 76,
+          "origin_position": [
+            533,
+            939,
+            534,
+            974,
+            511,
+            975,
+            510,
+            940
+          ],
+          "pos": [
+            838,
+            698,
+            874,
+            698,
+            874,
+            721,
+            838,
+            721
+          ],
+          "score": 0.9110000133514404,
+          "sub_type": "handwriting"
+        },
+        {
+          "id": 77,
+          "origin_position": [
+            533,
+            946,
+            546,
+            1384,
+            523,
+            1385,
+            510,
+            946
+          ],
+          "pos": [
+            845,
+            698,
+            1296,
+            698,
+            1296,
+            721,
+            845,
+            721
+          ],
+          "score": 0.9800000190734863,
+          "text": "Ss we weaken our brains,we also threaten to weaken our economy.",
+          "type": "line",
+          "angle": 90
+        },
+        {
+          "pos": [
+            838,
+            719,
+            1358,
+            722,
+            1358,
+            745,
+            838,
+            743
+          ],
+          "score": 0.9869999885559082,
+          "text": "D.The rise of social media platforms has led to a global decline in literacy rates.",
+          "type": "line",
+          "angle": 90,
+          "id": 78,
+          "origin_position": [
+            512,
+            940,
+            524,
+            1444,
+            502,
+            1445,
+            488,
+            940
+          ]
+        },
+        {
+          "score": 0.9929999709129333,
+          "text": "E.A meta-analysis released last fall showed that consuming short-form video content is associated",
+          "type": "line",
+          "angle": 90,
+          "id": 79,
+          "origin_position": [
+            490,
+            937,
+            506,
+            1568,
+            484,
+            1569,
+            466,
+            938
+          ],
+          "pos": [
+            835,
+            741,
+            1487,
+            744,
+            1487,
+            767,
+            835,
+            765
+          ]
+        },
+        {
+          "pos": [
+            839,
+            765,
+            1131,
+            765,
+            1131,
+            787,
+            839,
+            787
+          ],
+          "score": 0.9929999709129333,
+          "text": "with poorer cognition and reduced attention.",
+          "type": "line",
+          "angle": 90,
+          "id": 80,
+          "origin_position": [
+            466,
+            942,
+            475,
+            1227,
+            453,
+            1228,
+            444,
+            942
+          ]
+        },
+        {
+          "text": "F.A recent study in neuroscience suggests that human brains are naturally evolving to adapt to the",
+          "type": "line",
+          "angle": 90,
+          "id": 81,
+          "origin_position": [
+            444,
+            942,
+            464,
+            1569,
+            441,
+            1570,
+            421,
+            943
+          ],
+          "pos": [
+            839,
+            787,
+            1486,
+            787,
+            1486,
+            810,
+            839,
+            810
+          ],
+          "score": 0.9929999709129333
+        },
+        {
+          "angle": 90,
+          "id": 82,
+          "origin_position": [
+            423,
+            943,
+            426,
+            1048,
+            403,
+            1048,
+            400,
+            943
+          ],
+          "pos": [
+            839,
+            808,
+            946,
+            808,
+            946,
+            831,
+            839,
+            831
+          ],
+          "score": 0.984000027179718,
+          "text": "advance of A.I.",
+          "type": "line"
+        },
+        {
+          "score": 0.9900000095367432,
+          "text": "Research from Gloria Mark,a professor of informatics at the University of California,indicates",
+          "type": "line",
+          "angle": 0,
+          "id": 83,
+          "origin_position": [
+            365,
+            970,
+            386,
+            1579,
+            364,
+            1580,
+            343,
+            970
+          ],
+          "pos": [
+            865,
+            867,
+            1493,
+            867,
+            1493,
+            889,
+            865,
+            889
+          ]
+        },
+        {
+          "type": "line",
+          "angle": 0,
+          "id": 84,
+          "origin_position": [
+            341,
+            938,
+            364,
+            1580,
+            341,
+            1581,
+            318,
+            938
+          ],
+          "pos": [
+            832,
+            889,
+            1493,
+            889,
+            1493,
+            912,
+            832,
+            912
+          ],
+          "score": 0.984000027179718,
+          "text": "that our attention spans are about one-third as long as they were in 2004, with the biggest drops"
+        },
+        {
+          "text": "happening around 2012. Long-running surveys reveal that the percentage of 18-year-olds who report",
+          "type": "line",
+          "angle": 0,
+          "id": 85,
+          "origin_position": [
+            318,
+            938,
+            341,
+            1583,
+            318,
+            1584,
+            295,
+            939
+          ],
+          "pos": [
+            832,
+            912,
+            1495,
+            912,
+            1495,
+            935,
+            832,
+            935
+          ],
+          "score": 0.9819999933242798
+        },
+        {
+          "score": 0.9869999885559082,
+          "text": "difficulty thinking and concentrating has jumped markedly over the past decade.",
+          "type": "line",
+          "angle": 0,
+          "id": 86,
+          "origin_position": [
+            297,
+            939,
+            315,
+            1448,
+            292,
+            1449,
+            273,
+            939
+          ],
+          "pos": [
+            832,
+            933,
+            1354,
+            933,
+            1354,
+            957,
+            832,
+            957
+          ]
+        },
+        {
+          "pos": [
+            50,
+            1010,
+            337,
+            1010,
+            337,
+            1028,
+            50,
+            1028
+          ],
+          "score": 0.9990000128746033,
+          "text": "2025-2026学年度第二学期高一英语期中考试卷",
+          "type": "line",
+          "angle": 0,
+          "id": 87,
+          "origin_position": [
+            189,
+            148,
+            200,
+            443,
+            182,
+            443,
+            170,
+            148
+          ]
+        },
+        {
+          "pos": [
+            594,
+            1011,
+            687,
+            1011,
+            687,
+            1029,
+            594,
+            1029
+          ],
+          "score": 0.9700000286102295,
+          "text": "第9页 共12页",
+          "type": "line",
+          "angle": 0,
+          "id": 88,
+          "origin_position": [
+            209,
+            703,
+            213,
+            796,
+            194,
+            796,
+            191,
+            703
+          ]
+        },
+        {
+          "angle": 0,
+          "id": 89,
+          "origin_position": [
+            219,
+            941,
+            230,
+            1227,
+            208,
+            1228,
+            197,
+            942
+          ],
+          "pos": [
+            833,
+            1010,
+            1123,
+            1010,
+            1123,
+            1032,
+            833,
+            1032
+          ],
+          "score": 0.9990000128746033,
+          "text": "2025-2026学年度第二学期高一英语期中考试卷",
+          "type": "line"
+        },
+        {
+          "id": 90,
+          "origin_position": [
+            239,
+            1469,
+            242,
+            1567,
+            224,
+            1567,
+            221,
+            1470
+          ],
+          "pos": [
+            1373,
+            1011,
+            1474,
+            1011,
+            1474,
+            1029,
+            1373,
+            1029
+          ],
+          "score": 0.996999979019165,
+          "text": "第10页 共12页",
+          "type": "line",
+          "angle": 0
+        }
+      ],
+      "durations": 2018.8182373046875,
+      "height": 1540,
+      "width": 1088,
+      "image_id": ""
+    }
+  ]
+}
