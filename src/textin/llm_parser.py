@@ -10,6 +10,7 @@ Key advantage over regex:
 - Correctly maps cloze embedded numbers (73.A.humanity → Q73)
 - Uses outline_level for section boundaries
 - Does NOT hallucinate gap-filling questions
+- Pre-cleans OCR粘连 artifacts before LLM input
 
 Usage:
     from src.textin.llm_parser import parse_with_llm
@@ -20,7 +21,7 @@ import json
 import os
 import re
 import logging
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -32,11 +33,120 @@ LLM_MODEL = os.environ.get('MODEL_PARSER', 'deepseek-v4-pro')
 LLM_TIMEOUT = int(os.environ.get('LLM_PARSE_TIMEOUT', '90'))
 
 
+# ═══════════════════════════════════════════════════════════════════════
+# Layer 2: OCR文本预清洗 — 修复 TextIn 常见粘连问题
+# ═══════════════════════════════════════════════════════════════════════
+
+def _clean_ocr_text(text: str) -> str:
+    """Pre-clean TextIn OCR粘连 artifacts before sending to LLM.
+
+    TextIn OCR has three known quality issues that cause LLM mis-parsing:
+    1. Option letter glued to next question number: "A43.The company" → option A + Q43
+    2. Content glued to next question number mid-sentence: "...translateI 46 .A"
+    3. Duplicated option letters: "CC.burn" → "C. burn"
+
+    We fix the most common, unambiguous patterns here. Remaining edge cases
+    are handled by the LLM prompt's 【OCR粘连处理】 rules.
+    """
+    if not text:
+        return text
+
+    # ---- Pattern 1: Option letter (A-D) glued to next question number ----
+    # "A43.The insurance" → "A\n43. The insurance"
+    # "D41.The ancient skill" → "D\n41. The ancient skill"
+    # Guard: number is 2-3 digits followed by period, followed by uppercase
+    text = re.sub(
+        r'\b([A-D])(\d{2,3}\.)(\s*[A-Z])',
+        r'\1\n\2\3',
+        text
+    )
+
+    # ---- Pattern 2: Content+question number粘连 mid-sentence ----
+    # "...translateI 46 .A Japanese" → "...translate I\n46. A Japanese"
+    # "true in otherI61 .Nobel" → "true in other I\n61. Nobel"
+    # Pattern: lowercase + uppercase + whitespace + 2-3 digit num + . + space + uppercase
+    text = re.sub(
+        r'([a-z])([A-Z])\s+(\d{2,3})\s*\.\s*([A-Z])',
+        r'\1 \2\n\3. \4',
+        text
+    )
+
+    # ---- Pattern 3: Word glued to question number (no following period) ----
+    # "...a preciseK47" → "...a precise K\n47."
+    # "English's lack of a preciseK47" → the next item starts with 47
+    text = re.sub(
+        r'([a-z])([A-Z])(\d{2,3})\b(?!\.)',
+        r'\1 \2\n\3.',
+        text
+    )
+
+    # ---- Pattern 4: Duplicated option letters (OCR artifact) ----
+    # "CC.burn the midnight oil" → "C. burn the midnight oil"
+    # "B,C.What farming techniques" → "C. What farming techniques"
+    text = re.sub(
+        r'\b([A-D]),?\1\.\s*',
+        r'\1. ',
+        text
+    )
+
+    # ---- Pattern 5: Garbage prefix before clean question number ----
+    # "AC.WwSSdo13. 3.Why does" → "3. Why does"
+    # "CD75.A.extensive" → "75. A. extensive"
+    # Only when the garbage is 2+ uppercase letters followed by junk
+    text = re.sub(
+        r'\b[A-Z]{2,}\.\w*\d*\.?\s*(\d{1,3}\.\s*)',
+        r'\1',
+        text
+    )
+
+    return text
+
+
+def _split_glued_items(text: str) -> List[str]:
+    """Split a single TextIn item that contains multiple questions glued together.
+
+    When OCR merges adjacent lines (e.g., "C.burn the midnight oil 45.When Sarah saw..."),
+    this extracts the two logical pieces so the LLM sees them as separate items.
+
+    Returns list of text segments. If no split needed, returns [text].
+    """
+    parts = [text]
+
+    # Detect "content ending + number. + new content" within a single item
+    # This catches the most common case: option text + next question number + question text
+    # Pattern: lowercase/non-digit + whitespace + 2-3 digit number + period + space + capital
+    new_parts = []
+    for part in parts:
+        split_points = []
+        for m in re.finditer(r'([a-z])\s+(\d{2,3}\.\s*[A-Z])', part):
+            split_points.append(m.start(2))
+
+        if split_points:
+            prev = 0
+            for sp in split_points:
+                if sp > prev:
+                    new_parts.append(part[prev:sp].strip())
+                prev = sp
+            if prev < len(part):
+                new_parts.append(part[prev:].strip())
+        else:
+            new_parts.append(part)
+
+    return [p for p in new_parts if p]
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Text formatting & prompt building
+# ═══════════════════════════════════════════════════════════════════════
+
 def _format_items(items: List[Dict]) -> str:
     """Format TextIn detail items into indexed text for LLM input.
 
     Each item gets an [idx=N] marker so the LLM can reference which items
     belong to each question. We can then recover real positions from TextIn data.
+
+    OCR pre-cleaning is applied to each item's text before formatting.
+    Heavily glued items are split into sub-items with -a/-b suffixes.
     """
     lines = []
     for idx, item in enumerate(items):
@@ -48,7 +158,7 @@ def _format_items(items: List[Dict]) -> str:
             continue
 
         ol = item.get('outline_level', -1)
-        text = item.get('text', '').strip()
+        text = (item.get('text', '') or '').strip()
 
         # Handle tables — extract cell text row by row
         if item_type == 'table':
@@ -74,6 +184,17 @@ def _format_items(items: List[Dict]) -> str:
 
         # Skip empty paragraphs
         if not text:
+            continue
+
+        # ---- Layer 2: OCR pre-cleaning ----
+        text = _clean_ocr_text(text)
+
+        # ---- Split heavily glued items ----
+        sub_texts = _split_glued_items(text)
+        if len(sub_texts) > 1:
+            for si, sub in enumerate(sub_texts):
+                sub_idx = f'{idx}{chr(97+si)}'  # idx=298a, 298b, ...
+                lines.append(f'[idx={sub_idx}] {sub}')
             continue
 
         # Build annotation prefix
@@ -105,6 +226,15 @@ def _build_prompt(formatted_text: str, image_size: Dict) -> str:
 【标题识别 — 必须跳过！】
 ⚠️ 文字中以 # / ## / ### 开头的是 Section 标题（如 "# Listening Comprehension"、"## Grammar and Vocabulary"、"### Section B"），这是试卷的大题分区标记，不是题目！即使标题行包含数字编号（如 "Section 3"），也必须跳过，不计入题号列表。
 
+【OCR粘连处理 — 必须拆分！】
+TextIn OCR 经常把相邻的选项和题号粘连在一起。遇到以下模式时必须拆分对待：
+
+模式1 — 选项字母+题号粘连: "A43.The company..." → A是上一题的选项A，43.是新题号。拆分为两题。
+模式2 — 选项内容+下一题号在同一行: "CC.burn the midnight oil 45.When Sarah..." → "burn the midnight oil"是上一题选项C，45.是新题号。拆开！
+  规则：当一行中出现"字母.文字...数字."的模式时，字母部分归上一题选项，数字是新题号。
+模式3 — 题号嵌在句子中间: "...translateI 46 .A Japanese..." → 句子在46前结束，46是题号。
+模式4 — [idx=N] 有字母后缀(如 298a, 298b): 表示该item已被预拆分为多个部分，每个都可能是独立题目。
+
 【提取规则】
 1. 题号: 试卷上印刷的数字编号。题号可能出现在段落中间，不是每道题都独立成行。例如阅读理解 passage 后面紧跟 "46. What is the main idea..."，46 就是题目。提取时必须扫描全文每一个带数字编号的行，不要漏掉段落中嵌入的题号！
 2. 🚫 铁律：题号必须与试卷上印刷的数字完全一致。绝不允许"补号"或"重新编号"。如果某题试卷上印的是52，就输出52，不能因为前面漏了一题而输出51。
@@ -123,8 +253,9 @@ def _build_prompt(formatted_text: str, image_size: Dict) -> str:
 
 【自检规则 — 输出前必须执行】
 ✅ 检查1: 逐行扫描输出结果，确认没有任何 # / ## / ### 标题行被当成题目。
-✅ 检查2: 每个 Section 内题号是否连续？如果发现 45→47 缺了46，说明有遗漏，必须回到 [idx] 列表中 45 和 47 之间的所有行重新查找。
+✅ 检查2: 每个 Section 内题号是否连续？如果发现 45→47 缺了46，说明有遗漏，必须回到 [idx] 列表中 45 和 47 之间的所有行重新查找，特别注意粘连行。
 ✅ 检查3: 每道题的 questionNumber 是否与试卷上印刷的数字完全一致？如有"补号"或偏移，立即修正。
+✅ 检查4: 是否有选项字母+题号粘连的行被整行当成了一道题？若有，拆分。
 
 【输出格式】
 {{"questions":[
@@ -213,15 +344,10 @@ def _parse_llm_response(content: str) -> Optional[Dict]:
                 continue
 
     # Try recovering truncated JSON (close unclosed brackets/strings)
-    # Remove trailing incomplete content
     fixed = content.rstrip()
-    # If ends mid-string-value, close the string
-    if fixed.rfind('\"') < fixed.rfind(':') or fixed.endswith('\"'):
-        pass  # string might be complete
-    fixed = re.sub(r':\s*"[^"]*$', ': ""', fixed)  # close broken string values
-    fixed = re.sub(r':\s*[\[{][^}\]]*$', ': null', fixed)  # close broken arrays/objects
-    fixed = re.sub(r',\s*$', '', fixed)  # remove trailing comma
-    # Close unclosed structures
+    fixed = re.sub(r':\s*"[^"]*$', ': ""', fixed)
+    fixed = re.sub(r':\s*[\[{][^}\]]*$', ': null', fixed)
+    fixed = re.sub(r',\s*$', '', fixed)
     open_braces = fixed.count('{') - fixed.count('}')
     open_brackets = fixed.count('[') - fixed.count(']')
     fixed += '}' * max(0, open_braces) + ']' * max(0, open_brackets)
@@ -249,6 +375,44 @@ def _parse_llm_response(content: str) -> Optional[Dict]:
     return None
 
 
+# ═══════════════════════════════════════════════════════════════════════
+# Layer 3: 后处理校验 — Section内题号连续性检测
+# ═══════════════════════════════════════════════════════════════════════
+
+def _check_section_continuity(questions: List[Dict]) -> None:
+    """Check question number continuity within each Section.
+
+    Logs WARN if gaps are found, which may indicate:
+    - OCR粘连导致 LLM 漏题
+    - 标题误判为题目导致编号偏移
+    """
+    if len(questions) < 2:
+        return
+
+    # Group by section (use pageIndex as proxy if section field is empty)
+    sections = {}
+    for q in questions:
+        sec_key = q.get('section', '') or f"P{q.get('pageIndex', '?')}"
+        if sec_key not in sections:
+            sections[sec_key] = []
+        sections[sec_key].append(q['questionNumber'])
+
+    for sec_key, nums in sections.items():
+        nums = sorted(set(nums))
+        if len(nums) < 2:
+            continue
+        gaps = []
+        for i in range(1, len(nums)):
+            if nums[i] - nums[i-1] > 1:
+                missing = list(range(nums[i-1] + 1, nums[i]))
+                gaps.append(f"{nums[i-1]}→{nums[i]} (缺: {missing})")
+        if gaps:
+            logger.warning(
+                f"Section [{sec_key}] 题号断档: {'; '.join(gaps)} "
+                f"— 可能是OCR粘连导致漏题或标题误判"
+            )
+
+
 def _llm_result_to_gaozhong(llm_result: Dict, image_size: Dict,
                             detail_items: List[Dict] = None,
                             all_page_items: List[List[Dict]] = None) -> Dict:
@@ -256,6 +420,8 @@ def _llm_result_to_gaozhong(llm_result: Dict, image_size: Dict,
 
     Uses itemIndices + pageIndex from LLM output to compute real bbox
     from TextIn position data. Falls back to all-zero bbox if no indices.
+
+    Includes section-level continuity check (Layer 3).
     """
     questions = llm_result.get('questions', [])
     gaozhong_questions = []
@@ -270,10 +436,19 @@ def _llm_result_to_gaozhong(llm_result: Dict, image_size: Dict,
             options = {chr(65+i): v for i, v in enumerate(options)}
 
         # Compute real bbox from item indices
-        item_indices = q.get('itemIndices', [])
+        # Handle sub-indices like "298a" → extract base index 298
+        item_indices_raw = q.get('itemIndices', [])
+        item_indices = []
+        for idx in item_indices_raw:
+            if isinstance(idx, str):
+                m = re.match(r'(\d+)', idx)
+                if m:
+                    item_indices.append(int(m.group(1)))
+            elif isinstance(idx, (int, float)):
+                item_indices.append(int(idx))
+
         page_idx = q.get('pageIndex', 0) - 1  # 1-based → 0-based
 
-        # Select correct detail items for this question's page
         if all_page_items and 0 <= page_idx < len(all_page_items):
             page_items = all_page_items[page_idx]
         elif detail_items:
@@ -294,6 +469,9 @@ def _llm_result_to_gaozhong(llm_result: Dict, image_size: Dict,
             'passageRef': q.get('passageRef'),
             'passageText': q.get('passageText', '') or '',
         })
+
+    # ---- Layer 3: Section continuity check ----
+    _check_section_continuity(gaozhong_questions)
 
     # Sort by question number
     gaozhong_questions.sort(key=lambda q: q['questionNumber'])
@@ -330,9 +508,9 @@ def parse_with_llm(detail_items: List[Dict],
 
     logger.info(f"LLM parser: {len(detail_items)} detail items, subject={subject}")
 
-    # Format items as structured text
+    # Format items as structured text (with OCR pre-cleaning)
     formatted = _format_items(detail_items)
-    logger.info(f"LLM parser: formatted {len(formatted)} chars")
+    logger.info(f"LLM parser: formatted {len(formatted)} chars ({formatted.count(chr(10))+1} lines)")
 
     # Build and send prompt
     prompt = _build_prompt(formatted, image_size or {})
@@ -341,7 +519,7 @@ def parse_with_llm(detail_items: List[Dict],
     if not llm_result:
         return None
 
-    # Convert to gaozhong format with real bbox from TextIn positions
+    # Convert to gaozhong format
     result = _llm_result_to_gaozhong(llm_result, image_size or {}, detail_items)
     logger.info(f"LLM parser: extracted {result['raw_count']} questions")
 
@@ -376,7 +554,7 @@ def parse_all_pages_llm(all_detail_items: List[List[Dict]],
         all_formatted.append(f"══════ 第 {pi+1} 页 ══════\n{page_text}")
 
     full_text = '\n\n'.join(all_formatted)
-    logger.info(f"LLM all-pages: formatted {len(full_text)} chars")
+    logger.info(f"LLM all-pages: formatted {len(full_text)} chars ({full_text.count(chr(10))+1} lines)")
 
     # Build prompt for full exam
     prompt = f"""你是上海高中英语教研专家。下面是 TextIn OCR 从一套完整英语试卷识别出的所有文字,按页组织。
@@ -387,6 +565,15 @@ def parse_all_pages_llm(all_detail_items: List[List[Dict]],
 
 【标题识别 — 必须跳过！】
 ⚠️ 文字中以 # / ## / ### 开头的是 Section 标题（如 "# Listening Comprehension"、"## Grammar and Vocabulary"、"### Section B"），这是试卷的大题分区标记，不是题目！即使标题行包含数字编号（如 "Section 3"），也必须跳过，不计入题号列表。
+
+【OCR粘连处理 — 必须拆分！】
+TextIn OCR 经常把相邻的选项和题号粘连在一起。遇到以下模式时必须拆分对待：
+
+模式1 — 选项字母+题号粘连: "A43.The company..." → A是上一题的选项A，43.是新题号。拆分为两题。
+模式2 — 选项内容+下一题号在同一行: "CC.burn the midnight oil 45.When Sarah..." → "burn the midnight oil"是上一题选项C，45.是新题号。拆开！
+  规则：当一行中出现"字母.文字...数字."的模式时，字母部分归上一题选项，数字是新题号。
+模式3 — 题号嵌在句子中间: "...translateI 46 .A Japanese..." → 句子在46前结束，46是题号。
+模式4 — [idx=N] 有字母后缀(如 298a, 298b): 表示该item已被预拆分为多个部分，每个都可能是独立题目。
 
 【提取规则】
 1. 题号: 试卷上印刷的数字编号。题号可能出现在段落中间，不是每道题都独立成行。例如阅读理解 passage 后面紧跟 "46. What is the main idea..."，46 就是题目。提取时必须扫描全文每一个带数字编号的行，不要漏掉段落中嵌入的题号！
@@ -405,8 +592,9 @@ def parse_all_pages_llm(all_detail_items: List[List[Dict]],
 
 【自检规则 — 输出前必须执行】
 ✅ 检查1: 逐行扫描输出结果，确认没有任何 # / ## / ### 标题行被当成题目。
-✅ 检查2: 每个 Section 内题号是否连续？如果发现 45→47 缺了46，说明有遗漏，必须回到 [idx] 列表中 45 和 47 之间的所有行重新查找。
+✅ 检查2: 每个 Section 内题号是否连续？如果发现 45→47 缺了46，说明有遗漏，必须回到 [idx] 列表中 45 和 47 之间的所有行重新查找，特别注意粘连行。
 ✅ 检查3: 每道题的 questionNumber 是否与试卷上印刷的数字完全一致？如有"补号"或偏移，立即修正。
+✅ 检查4: 是否有选项字母+题号粘连的行被整行当成了一道题？若有，拆分。
 
 【输出格式】
 {{"questions":[
@@ -457,7 +645,6 @@ def parse_with_llm_fallback(detail_items: List[Dict],
     Returns:
         Dict with gaozhong-compatible format
     """
-    # Try LLM parser first
     if DEEPSEEK_API_KEY:
         key_preview = DEEPSEEK_API_KEY[:8] + '...' if len(DEEPSEEK_API_KEY) > 8 else '(empty)'
         print(f"TextIn Parser: trying LLM parser (model={LLM_MODEL}, key={key_preview})", flush=True)
