@@ -53,10 +53,11 @@ def _clean_ocr_text(text: str) -> str:
 
     # ---- Pattern 1: Option letter (A-D) glued to next question number ----
     # "A43.The insurance" → "A\n43. The insurance"
-    # "D41.The ancient skill" → "D\n41. The ancient skill"
-    # Guard: number is 2-3 digits followed by period, followed by uppercase
+    # "A1.What does the phrase" → "A\n1. What does the phrase"
+    # "D2.Which of the following" → "D\n2. Which of the following"
+    # Guard: number 1-3 digits + period + uppercase letter (new sentence)
     text = re.sub(
-        r'\b([A-D])(\d{2,3}\.)(\s*[A-Z])',
+        r'\b([A-D])(\d{1,3}\.)(\s*[A-Z])',
         r'\1\n\2\3',
         text
     )
@@ -64,40 +65,56 @@ def _clean_ocr_text(text: str) -> str:
     # ---- Pattern 2: Content+question number粘连 mid-sentence ----
     # "...translateI 46 .A Japanese" → "...translate I\n46. A Japanese"
     # "true in otherI61 .Nobel" → "true in other I\n61. Nobel"
-    # Pattern: lowercase + uppercase + whitespace + 2-3 digit num + . + space + uppercase
+    # "market 64 .This" → "market\n64. This"
+    # Pattern: lowercase + optional uppercase + whitespace + 2-3 digit num + . + space + uppercase
     text = re.sub(
-        r'([a-z])([A-Z])\s+(\d{2,3})\s*\.\s*([A-Z])',
-        r'\1 \2\n\3. \4',
+        r'([a-z])([A-Z])?\s+(\d{2,3})\s*\.\s*([A-Z])',
+        r'\1\2\n\3. \4',
         text
     )
 
     # ---- Pattern 3: Word glued to question number (no following period) ----
     # "...a preciseK47" → "...a precise K\n47."
-    # "English's lack of a preciseK47" → the next item starts with 47
     text = re.sub(
         r'([a-z])([A-Z])(\d{2,3})\b(?!\.)',
         r'\1 \2\n\3.',
         text
     )
 
-    # ---- Pattern 4: Duplicated option letters (OCR artifact) ----
-    # "CC.burn the midnight oil" → "C. burn the midnight oil"
-    # "B,C.What farming techniques" → "C. What farming techniques"
+    # ---- Pattern 4: Merged/duplicated option letters ----
+    # "CC.burn" → "C. burn"  (duplicated same letter)
+    # "B,C.What" → "B. C. What"  (two different option letters merged with comma)
     text = re.sub(
         r'\b([A-D]),?\1\.\s*',
         r'\1. ',
         text
     )
+    text = re.sub(
+        r'\b([A-D]),([A-D])\.\s*',
+        r'\1. \2. ',
+        text
+    )
 
-    # ---- Pattern 5: Garbage prefix before clean question number ----
+    # ---- Pattern 5: Option letters (2 caps) + question number without dot ----
+    # "CD75.A.extensive" → "C D\n75. A. extensive"
+    # C and D are options of previous question, 75 is new question
+    text = re.sub(
+        r'\b([A-D])([A-D])(\d{1,3}\.)(\s*[A-Z])',
+        r'\1 \2\n\3\4',
+        text
+    )
+
+    # ---- Pattern 6: Garbage prefix before clean question number ----
     # "AC.WwSSdo13. 3.Why does" → "3. Why does"
-    # "CD75.A.extensive" → "75. A. extensive"
-    # Only when the garbage is 2+ uppercase letters followed by junk
     text = re.sub(
         r'\b[A-Z]{2,}\.\w*\d*\.?\s*(\d{1,3}\.\s*)',
         r'\1',
         text
     )
+
+    # ---- Cleanup: fix double periods from Pattern 2 splits ----
+    # "46. .Nobel" → "46. Nobel"
+    text = re.sub(r'(\d{1,3}\.)\s*\.(\s*[A-Z])', r'\1\2', text)
 
     return text
 
@@ -216,56 +233,87 @@ def _format_items(items: List[Dict]) -> str:
 
 def _build_prompt(formatted_text: str, image_size: Dict) -> str:
     """Build the LLM prompt for question extraction."""
-    return f"""你是上海高中英语教研专家。下面是 TextIn OCR 从一张试卷页面识别出的文字。
+    return f"""你是上海高中英语教研专家。TextIn OCR 识别了一张英语试卷页面。请逐题提取所有题目,输出 JSON。
 
-请逐题提取所有题目，输出 JSON。
-
-【识别文字 — 按版面从上到下】
+【识别文字 — 按版面从上到下,每行以 [idx=N] 标记】
 {formatted_text}
 
-【标题识别 — 必须跳过！】
-⚠️ 文字中以 # / ## / ### 开头的是 Section 标题（如 "# Listening Comprehension"、"## Grammar and Vocabulary"、"### Section B"），这是试卷的大题分区标记，不是题目！即使标题行包含数字编号（如 "Section 3"），也必须跳过，不计入题号列表。
+══════════════════════════════════════
+第一部分: 必须跳过的内容
+══════════════════════════════════════
 
-【OCR粘连处理 — 必须拆分！】
-TextIn OCR 经常把相邻的选项和题号粘连在一起。遇到以下模式时必须拆分对待：
+❌ 标题跳过: # / ## / ### 开头的是 Section 标题,不是题目。
+   例: "# Listening Comprehension"、"## Grammar"、"### Section B" → 全部跳过
+❌ 说明文字跳过: "Directions:...", "Questions 11 through 13 are based on..." → 不是题目
+❌ 页眉页脚跳过: 学校名称、考试名称、页码 → 不是题目
 
-模式1 — 选项字母+题号粘连: "A43.The company..." → A是上一题的选项A，43.是新题号。拆分为两题。
-模式2 — 选项内容+下一题号在同一行: "CC.burn the midnight oil 45.When Sarah..." → "burn the midnight oil"是上一题选项C，45.是新题号。拆开！
-  规则：当一行中出现"字母.文字...数字."的模式时，字母部分归上一题选项，数字是新题号。
-模式3 — 题号嵌在句子中间: "...translateI 46 .A Japanese..." → 句子在46前结束，46是题号。
-模式4 — [idx=N] 有字母后缀(如 298a, 298b): 表示该item已被预拆分为多个部分，每个都可能是独立题目。
+══════════════════════════════════════
+第二部分: OCR粘连拆分规则
+══════════════════════════════════════
 
-【提取规则】
-1. 题号: 试卷上印刷的数字编号。题号可能出现在段落中间，不是每道题都独立成行。例如阅读理解 passage 后面紧跟 "46. What is the main idea..."，46 就是题目。提取时必须扫描全文每一个带数字编号的行，不要漏掉段落中嵌入的题号！
-2. 🚫 铁律：题号必须与试卷上印刷的数字完全一致。绝不允许"补号"或"重新编号"。如果某题试卷上印的是52，就输出52，不能因为前面漏了一题而输出51。
-3. 听力题(Section A Short Conversations): 连续4个A/B/C/D选项 = 1道听力题。questionText填"(听力题)"
-4. 完形填空: 题号可能嵌入选项行如"73.A.humanity"→题号=73
-5. 语法填空: 正文中含 ___(题号) 标记或 "1.A.xxx B.xxx" 格式
-6. 阅读理解: passageText 提取文章全文, passageRef 指向文章编号
-7. 翻译题(translation): "21．中文句子（提示词）", 全角句号, 含中文+英文提示词, options={{}}
-8. 选句填空(sentence_gap): 短文4空, 表格6句(A-F)选4填入
-9. 语法填空(grammar_fill): 短文含 ___() 无选项, 填单词正确形式
-10. 写作(writing): 英文提示+要求, 无选项, 通常最后一页
-11. 题型: listening/grammar/vocabulary/cloze/reading/sentence_gap/translation/grammar_fill/writing
-12. ⚠️ 不同Section可有相同题号! 如Listening Q1≠Grammar Q1≠Cloze Q1, 全部保留不合并
-13. bbox: 设为 {{"x":0,"y":0,"w":0,"h":0}}
-14. 只输出题目JSON, 不要"```json", 不要解释
+TextIn OCR 常把相邻内容粘在一起。必须识别并拆分:
 
-【自检规则 — 输出前必须执行】
-✅ 检查1: 逐行扫描输出结果，确认没有任何 # / ## / ### 标题行被当成题目。
-✅ 检查2: 每个 Section 内题号是否连续？如果发现 45→47 缺了46，说明有遗漏，必须回到 [idx] 列表中 45 和 47 之间的所有行重新查找，特别注意粘连行。
-✅ 检查3: 每道题的 questionNumber 是否与试卷上印刷的数字完全一致？如有"补号"或偏移，立即修正。
-✅ 检查4: 是否有选项字母+题号粘连的行被整行当成了一道题？若有，拆分。
+🔧 规则1: [选项字母]+[题号] 粘连
+   输入: "A43.The company..." → A是上题选项，43是新题号
+   输入: "D2.Which of..." → D是上题选项，2是新题号
 
-【输出格式】
-{{"questions":[
-  {{"questionNumber":1,"pageIndex":1,"questionType":"listening","questionText":"(听力题)","options":{{"A":"...","B":"...","C":"...","D":"..."}},"itemIndices":[5,6,7,8],"passageText":"","passageRef":null}},
-  {{"questionNumber":21,"pageIndex":1,"questionType":"grammar","questionText":"题干文本","options":{{"A":"...","B":"...","C":"...","D":"..."}},"itemIndices":[105,106,107,108,109],"passageText":"","passageRef":null}}
-]}}
+🔧 规则2: [选项内容]+[下一题号] 同行
+   输入: "CC.burn the midnight oil 45.When Sarah..."
+   → "burn the midnight oil"归上题选项，45.是新题号
 
-⚠️ pageIndex 和 itemIndices 是关键字段！
+🔧 规则3: 题号嵌在句子中间
+   输入: "...translateI 46 .A Japanese..." → 句在46前结束，46是题号
+
+🔧 规则4: [idx=N] 带字母后缀(如 94a, 94b)
+   → 该item已被预拆分为多部分，分别处理
+
+══════════════════════════════════════
+第三部分: 题目提取规则
+══════════════════════════════════════
+
+📌 题号规则:
+- 题号 = 试卷上印刷的数字编号。扫描全文每个带数字编号的行
+- 🚫 铁律: 题号必须与试卷印刷数字完全一致,禁止补号/重编号
+  试卷印52就输出52, 不能因漏题输出51
+- OCR常见误读: S0→80, 1→I, O→0, 5→S, 8→B
+  如 "S0.A.neck and neck" → 题号=80,选项A
+
+📌 题型规则:
+- listening: 连续4个A/B/C/D选项=1道听力题, questionText="(听力题)"
+- grammar/vocabulary: 4个选项(A-D), 题干+选项分离在不同行
+- cloze: 题号嵌入如"73.A.humanity"→题号=73
+- reading: 阅读理解, 需提取 passageText 全文
+- sentence_gap: 短文4空,表格6句(A-F)选4填入
+- translation: "21．中文句子(提示词)", 全角句号, options={{}}
+- grammar_fill: 短文含___()无选项, 填单词正确形式
+- writing: 英文提示+要求, 无选项
+
+📌 歧义处理:
+- 不同Section可有相同题号(如Listening Q1≠Grammar Q1), 全部保留
+- section 字段填入所属Section名(从最近的#/##/###标题提取)
+- 如无明确Section名, 用题目序号范围推断(1-10→Listening, 21-40→Grammar等)
+
+📌 输出约束:
+- 只输出JSON, 不要```json```, 不要解释
+- bbox设为{{"x":0,"y":0,"w":0,"h":0}}
+- itemIndices包含该题的所有[idx=N]编号(含字母后缀如94a,94b)
 - pageIndex: 题目所在页码(1-6)
-- itemIndices: 该题覆盖的所有 [idx=N] 编号（同一页内的编号）"""
+
+══════════════════════════════════════
+第四部分: 自检(输出前执行)
+══════════════════════════════════════
+☑ 是否有#/##/###标题被误判为题目? → 删除
+☑ 每个Section内题号连续吗? 45→47缺46? → 回查45和47之间的行
+☑ 题号与试卷印刷数字完全一致吗? 有补号/偏移吗? → 修正
+☑ 有粘连行被当成一整道题吗? (如"A43..."整行当Q43) → 拆分
+
+══════════════════════════════════════
+输出格式
+══════════════════════════════════════
+{{"questions":[
+  {{"questionNumber":1,"pageIndex":1,"section":"Listening","questionType":"listening","questionText":"(听力题)","options":{{"A":"...","B":"...","C":"...","D":"..."}},"itemIndices":[5,6,7,8],"passageText":"","passageRef":null}},
+  {{"questionNumber":43,"pageIndex":4,"section":"Grammar","questionType":"grammar","questionText":"The insurance company ___ the risk...","options":{{"A":"...","B":"...","C":"...","D":"..."}},"itemIndices":[88,89,90,91,92],"passageText":"","passageRef":null}}
+]}}"""
 
 
 def _compute_bbox(item_indices: List[int], detail_items: List[Dict]) -> Dict:
@@ -557,48 +605,84 @@ def parse_all_pages_llm(all_detail_items: List[List[Dict]],
     logger.info(f"LLM all-pages: formatted {len(full_text)} chars ({full_text.count(chr(10))+1} lines)")
 
     # Build prompt for full exam
-    prompt = f"""你是上海高中英语教研专家。下面是 TextIn OCR 从一套完整英语试卷识别出的所有文字,按页组织。
-
-请逐题提取这套试卷的全部题目,输出 JSON。注意题号是试卷原始编号,跨页连续。
+    prompt = f"""你是上海高中英语教研专家。TextIn OCR 识别了一套完整英语试卷,按页组织。请逐题提取全部题目,输出 JSON。题号是试卷原始编号,跨页连续。
 
 {full_text}
 
-【标题识别 — 必须跳过！】
-⚠️ 文字中以 # / ## / ### 开头的是 Section 标题（如 "# Listening Comprehension"、"## Grammar and Vocabulary"、"### Section B"），这是试卷的大题分区标记，不是题目！即使标题行包含数字编号（如 "Section 3"），也必须跳过，不计入题号列表。
+══════════════════════════════════════
+第一部分: 必须跳过的内容
+══════════════════════════════════════
 
-【OCR粘连处理 — 必须拆分！】
-TextIn OCR 经常把相邻的选项和题号粘连在一起。遇到以下模式时必须拆分对待：
+❌ 标题跳过: # / ## / ### 开头的是 Section 标题,不是题目。
+   例: "# Listening Comprehension"、"## Grammar"、"### Section B" → 跳过
+❌ 说明跳过: "Directions:...", "Questions N through M are based on..." → 跳过
+❌ 页眉页脚跳过: 学校名、考试名、页码 → 跳过
 
-模式1 — 选项字母+题号粘连: "A43.The company..." → A是上一题的选项A，43.是新题号。拆分为两题。
-模式2 — 选项内容+下一题号在同一行: "CC.burn the midnight oil 45.When Sarah..." → "burn the midnight oil"是上一题选项C，45.是新题号。拆开！
-  规则：当一行中出现"字母.文字...数字."的模式时，字母部分归上一题选项，数字是新题号。
-模式3 — 题号嵌在句子中间: "...translateI 46 .A Japanese..." → 句子在46前结束，46是题号。
-模式4 — [idx=N] 有字母后缀(如 298a, 298b): 表示该item已被预拆分为多个部分，每个都可能是独立题目。
+══════════════════════════════════════
+第二部分: OCR粘连拆分规则
+══════════════════════════════════════
 
-【提取规则】
-1. 题号: 试卷上印刷的数字编号。题号可能出现在段落中间，不是每道题都独立成行。例如阅读理解 passage 后面紧跟 "46. What is the main idea..."，46 就是题目。提取时必须扫描全文每一个带数字编号的行，不要漏掉段落中嵌入的题号！
-2. 🚫 铁律：题号必须与试卷上印刷的数字完全一致。绝不允许"补号"或"重新编号"。如果某题试卷上印的是52，就输出52，不能因为前面漏了一题而输出51。
-3. 听力题(Section A): 连续4个A/B/C/D选项 = 1道听力题。questionText填"(听力题)", type=listening
-4. 完形填空: 题号嵌入选项行如"73.A.humanity"→题号=73
-5. 语法/选词填空: 正文中含 ___(题号) 或 "F52" "54E" 等嵌入格式,从词框表格中匹配选项
-6. 阅读理解: passageText 提取文章全文
-7. 翻译题(translation): "21．中文（提示词）" 全角句号, 含中文+英文提示词, options={{}}
-8. 选句填空(sentence_gap): 短文4空, 表格6句(A-F)选4填入
-9. 语法填空(grammar_fill): 短文含 ___() 无选项, 填单词正确形式
-10. 写作(writing): 英文提示+要求, 无选项, 通常最后一页
-11. 题型: listening/grammar/vocabulary/cloze/reading/sentence_gap/translation/grammar_fill/writing
-12. ⚠️ 不同Section可有相同题号! 如Listening Q1≠Grammar Q1≠Cloze Q1, 全部保留不合并
-13. 只输出JSON, 不要```json```, 不要解释
+TextIn OCR 常把相邻内容粘在一起。必须识别并拆分:
 
-【自检规则 — 输出前必须执行】
-✅ 检查1: 逐行扫描输出结果，确认没有任何 # / ## / ### 标题行被当成题目。
-✅ 检查2: 每个 Section 内题号是否连续？如果发现 45→47 缺了46，说明有遗漏，必须回到 [idx] 列表中 45 和 47 之间的所有行重新查找，特别注意粘连行。
-✅ 检查3: 每道题的 questionNumber 是否与试卷上印刷的数字完全一致？如有"补号"或偏移，立即修正。
-✅ 检查4: 是否有选项字母+题号粘连的行被整行当成了一道题？若有，拆分。
+🔧 规则1: [选项字母]+[题号]粘连
+   输入: "A43.The company..." → A是上题选项，43是新题号
+   输入: "D2.Which of..." → D是上题选项，2是新题号
 
-【输出格式】
+🔧 规则2: [选项内容]+[下一题号]同行
+   输入: "CC.burn the midnight oil 45.When Sarah..."
+   → "burn the midnight oil"归上题选项，45.是新题号
+
+🔧 规则3: 题号嵌在句子中间
+   输入: "...translateI 46 .A Japanese..." → 句在46前结束，46是题号
+
+🔧 规则4: [idx=N]带字母后缀(如94a,94b) → 已被预拆分,分别处理
+
+══════════════════════════════════════
+第三部分: 题目提取规则
+══════════════════════════════════════
+
+📌 题号规则:
+- 题号=试卷印刷数字编号,跨页连续。扫描全文每个带数字编号的行
+- 🚫 铁律: 题号必须与试卷印刷数字完全一致,禁止补号/重编号
+  试卷印52就输出52,不能因漏题输出51
+- OCR常见误读纠正: S0→80, 1→I, O→0, 5→S, 8→B
+  如 "S0.A.neck and neck" → 题号=80,选项A
+- 不同页上同编号但不同Section的题全保留(如P1-Listening Q1≠P3-Grammar Q1)
+
+📌 题型规则:
+- listening: 连续4个A/B/C/D选项=1道听力题,questionText="(听力题)"
+- grammar/vocabulary: 4个选项(A-D), 题干+选项可能分离在不同行
+- cloze: 题号嵌入如"73.A.humanity"→题号=73
+- reading: 阅读理解,提取passageText全文
+- sentence_gap: 短文4空,表格6句(A-F)选4填入
+- translation: "21．中文(提示词)",全角句号,options={{}}
+- grammar_fill: 短文含___()无选项,填单词正确形式
+- writing: 英文提示+要求,无选项
+
+📌 歧义处理:
+- section字段: 填入所属Section名(从最近的#/##/###标题提取)
+- 如无标题,由题号范围推断(1-10→Listening, 11-20→Listening B, 21-40→Grammar, 41-70→Cloze/Vocab, 71+→Reading)
+- itemIndices: 含该题的所有[idx=N]编号(含字母后缀如94a,94b)
+- pageIndex: 题目所在页码(1起)
+
+📌 输出约束:
+- 只输出JSON,不要```json```,不要解释
+- bbox设为{{"x":0,"y":0,"w":0,"h":0}}
+
+══════════════════════════════════════
+第四部分: 自检(输出前执行)
+══════════════════════════════════════
+☑ 是否有#/##/###标题被误判为题目? → 删除
+☑ 每个Section内题号连续吗? 45→47缺46? → 回查45和47之间的行
+☑ 题号与试卷印刷数字完全一致吗? 有补号/偏移吗? → 修正
+☑ 有粘连行被当成一整道题吗? (如"A43..."整行当Q43) → 拆分
+
+══════════════════════════════════════
+输出格式
+══════════════════════════════════════
 {{"questions":[
-  {{"questionNumber":1,"questionType":"listening","questionText":"(听力题)","options":{{"A":"...","B":"...","C":"...","D":"..."}},"passageText":"","passageRef":null,"bbox":{{"x":0,"y":0,"w":0,"h":0}}}}
+  {{"questionNumber":1,"pageIndex":1,"section":"Listening","questionType":"listening","questionText":"(听力题)","options":{{"A":"...","B":"...","C":"...","D":"..."}},"itemIndices":[5,6,7,8],"passageText":"","passageRef":null,"bbox":{{"x":0,"y":0,"w":0,"h":0}}}},
+  {{"questionNumber":43,"pageIndex":4,"section":"Grammar","questionType":"grammar","questionText":"The insurance company ___ the risk...","options":{{"A":"...","B":"...","C":"...","D":"..."}},"itemIndices":[88,89,90,91,92],"passageText":"","passageRef":null,"bbox":{{"x":0,"y":0,"w":0,"h":0}}}}
 ]}}"""
 
     # Call LLM with large limits for full exam
