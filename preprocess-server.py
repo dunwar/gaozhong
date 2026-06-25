@@ -756,7 +756,7 @@ def textin_ocr_merged():
     """
     try:
         from src.textin.client import TextInClient
-        from src.textin.llm_parser import parse_all_pages_llm
+        from src.textin.llm_parser import parse_by_sections, parse_all_pages_llm
         import cv2, tempfile
 
         app_id, secret = _get_textin_credentials()
@@ -813,11 +813,15 @@ def textin_ocr_merged():
         total_items = sum(len(d) for d in all_detail_items)
         print(f"TextIn OCR-merged: {len(all_detail_items)} pages, {total_items} total items, starting LLM...", flush=True)
 
-        # Phase 2: LLM merged parsing
-        result = parse_all_pages_llm(all_detail_items, subject=subject)
+        # Phase 2: LLM section-based parsing (★ v2.0)
+        # Tries section-aware parsing first, falls back to full-paper, then regex
+        result = parse_by_sections(all_detail_items, subject=subject)
+        if not result:
+            print("TextIn OCR-merged: section-based LLM failed, trying full-paper fallback...", flush=True)
+            result = parse_all_pages_llm(all_detail_items, subject=subject)
 
         if not result:
-            # Fallback: per-page regex parsing
+            # Last resort: per-page regex parsing
             print("TextIn OCR-merged: LLM failed, falling back to per-page regex", flush=True)
             from src.textin.parser import parse_xparse_result
             all_questions = []

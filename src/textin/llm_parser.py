@@ -11,10 +11,18 @@ Key advantage over regex:
 - Uses outline_level for section boundaries
 - Does NOT hallucinate gap-filling questions
 - Pre-cleans OCR粘连 artifacts before LLM input
+- ★ Section-aware processing: splits exam by Section to avoid LLM尾部退化
+
+Architecture (v2.0):
+  Layer 0: Section detection — group items by #/## boundaries
+  Layer 1: OCR pre-cleaning — 6 regex patterns + _split_glued_items()
+  Layer 2: Per-section LLM prompt — focused, 10-30 questions each
+  Layer 3: Post-processing — continuity check + merge
+  Fallback: Full-paper processing if section-based fails
 
 Usage:
-    from src.textin.llm_parser import parse_with_llm
-    result = parse_with_llm(detail_items, image_size={'width':1280,'height':1700})
+    from src.textin.llm_parser import parse_with_llm, parse_by_sections
+    result = parse_by_sections(all_page_items)  # recommended for full exams
 """
 
 import json
@@ -22,6 +30,7 @@ import os
 import re
 import logging
 from typing import List, Dict, Optional, Tuple
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 logger = logging.getLogger(__name__)
 
@@ -31,113 +40,169 @@ DEEPSEEK_API_URL = os.environ.get('DEEPSEEK_API_URL',
     'https://api.deepseek.com/v1/chat/completions')
 LLM_MODEL = os.environ.get('MODEL_PARSER', 'deepseek-v4-pro')
 LLM_TIMEOUT = int(os.environ.get('LLM_PARSE_TIMEOUT', '90'))
+SECTION_CONCURRENCY = int(os.environ.get('SECTION_CONCURRENCY', '4'))
 
 
 # ═══════════════════════════════════════════════════════════════════════
-# Layer 2: OCR文本预清洗 — 修复 TextIn 常见粘连问题
+# Layer 0: Section-aware splitting
+# ═══════════════════════════════════════════════════════════════════════
+
+def _extract_section_name(text: str) -> str:
+    """Extract a human-readable section name from a header line."""
+    # Remove #/##/### prefixes and [idx=N] markers
+    cleaned = re.sub(r'^\[idx=\d+\]\s*#+\s*', '', text).strip()
+    # Clean up common OCR artifacts in headers
+    cleaned = re.sub(r'\*+', '', cleaned).strip()
+    # Truncate to reasonable length
+    if len(cleaned) > 80:
+        cleaned = cleaned[:80]
+    return cleaned
+
+
+def _is_major_section_name(name: str) -> bool:
+    """Check if a section name indicates a major exam section (deserves its own LLM call).
+
+    Must be a meaningful content area, not just a bare 'Section A' label.
+    """
+    # Bare section labels are too generic — skip them
+    bare_labels = {'section a', 'section b', 'section c', 'section d',
+                   'part i', 'part ii', 'part iii', 'part iv'}
+    name_lower = name.lower().strip()
+    if name_lower in bare_labels:
+        return False
+
+    major_keywords = [
+        'listening', 'grammar', 'vocabulary', 'cloze', 'reading',
+        'translation', 'writing', 'comprehension',
+    ]
+    return any(kw in name_lower for kw in major_keywords)
+
+
+def _detect_sections(all_page_items: List[List[Dict]]) -> List[Dict]:
+    """Split all pages' items into logical sections based on outline_level.
+
+    Section boundaries: # (ol=0) always splits. ## (ol=1) splits only
+    if the name suggests a major section change.
+
+    Post-processing: merge tiny sections (< MIN_ITEMS items) into neighbors.
+
+    Returns sections with:
+    - name: Human-readable section name
+    - page_items: List of (page_index, item_dict) tuples
+    - start_page: First page this section appears on
+    """
+    MIN_ITEMS = 8  # sections smaller than this get merged
+
+    raw_sections = []
+    current_section = {'name': 'Preamble', 'page_items': [], 'start_page': 0}
+
+    for pi, items in enumerate(all_page_items):
+        for item in items:
+            ol = item.get('outline_level', -1)
+            text = item.get('text', '').strip()
+            content_type = item.get('content', 0)
+
+            if content_type == 1:
+                continue
+
+            # Section boundary detection
+            is_boundary = False
+            if ol == 0:
+                # # (ol=0) = always a major boundary
+                is_boundary = True
+            elif ol >= 1:
+                # ## (ol=1) or ### (ol>=2) = boundary if it's a named major section
+                section_name = _extract_section_name(text)
+                if section_name and _is_major_section_name(section_name):
+                    is_boundary = True
+                # Skip "Directions:..." and "Questions N through M" — they're instructions
+                if text.lower().startswith('direction') or 'questions' in text.lower():
+                    is_boundary = False
+
+            if is_boundary:
+                section_name = _extract_section_name(text)
+                if section_name:
+                    if current_section['page_items']:
+                        raw_sections.append(current_section)
+                    current_section = {
+                        'name': section_name,
+                        'page_items': [],
+                        'start_page': pi
+                    }
+                    continue
+
+            current_section['page_items'].append((pi, item))
+
+    if current_section['page_items']:
+        raw_sections.append(current_section)
+
+    # Merge tiny sections: forward-merge into next section if too small
+    merged = []
+    i = 0
+    while i < len(raw_sections):
+        s = raw_sections[i]
+        # If this section is tiny and there's a next section, merge forward
+        if len(s['page_items']) < MIN_ITEMS and i + 1 < len(raw_sections):
+            next_s = raw_sections[i + 1]
+            # Prepend our items to next section, keep next section's name/start_page
+            next_s['page_items'] = s['page_items'] + next_s['page_items']
+            next_s['start_page'] = min(s['start_page'], next_s['start_page'])
+            # Use the more descriptive name
+            if len(s['name']) > len(next_s['name']) and _is_major_section_name(s['name']):
+                next_s['name'] = s['name']
+            i += 1
+            continue
+        merged.append(s)
+        i += 1
+
+    # Filter out sections still too small after merge
+    merged = [s for s in merged if len(s['page_items']) >= 2]
+
+    return merged
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Layer 1: OCR text pre-cleaning
 # ═══════════════════════════════════════════════════════════════════════
 
 def _clean_ocr_text(text: str) -> str:
-    """Pre-clean TextIn OCR粘连 artifacts before sending to LLM.
-
-    TextIn OCR has three known quality issues that cause LLM mis-parsing:
-    1. Option letter glued to next question number: "A43.The company" → option A + Q43
-    2. Content glued to next question number mid-sentence: "...translateI 46 .A"
-    3. Duplicated option letters: "CC.burn" → "C. burn"
-
-    We fix the most common, unambiguous patterns here. Remaining edge cases
-    are handled by the LLM prompt's 【OCR粘连处理】 rules.
-    """
+    """Pre-clean TextIn OCR粘连 artifacts before sending to LLM."""
     if not text:
         return text
 
-    # ---- Pattern 1: Option letter (A-D) glued to next question number ----
-    # "A43.The insurance" → "A\n43. The insurance"
-    # "A1.What does the phrase" → "A\n1. What does the phrase"
-    # "D2.Which of the following" → "D\n2. Which of the following"
-    # Guard: number 1-3 digits + period + uppercase letter (new sentence)
-    text = re.sub(
-        r'\b([A-D])(\d{1,3}\.)(\s*[A-Z])',
-        r'\1\n\2\3',
-        text
-    )
+    # Pattern 1: Option letter (A-D) glued to next question number
+    text = re.sub(r'\b([A-D])(\d{1,3}\.)(\s*[A-Z])', r'\1\n\2\3', text)
 
-    # ---- Pattern 2: Content+question number粘连 mid-sentence ----
-    # "...translateI 46 .A Japanese" → "...translate I\n46. A Japanese"
-    # "true in otherI61 .Nobel" → "true in other I\n61. Nobel"
-    # "market 64 .This" → "market\n64. This"
-    # Pattern: lowercase + optional uppercase + whitespace + 2-3 digit num + . + space + uppercase
-    text = re.sub(
-        r'([a-z])([A-Z])?\s+(\d{2,3})\s*\.\s*([A-Z])',
-        r'\1\2\n\3. \4',
-        text
-    )
+    # Pattern 2: Content+question number粘连 mid-sentence
+    text = re.sub(r'([a-z])([A-Z])?\s+(\d{2,3})\s*\.\s*([A-Z])', r'\1\2\n\3. \4', text)
 
-    # ---- Pattern 3: Word glued to question number (no following period) ----
-    # "...a preciseK47" → "...a precise K\n47."
-    text = re.sub(
-        r'([a-z])([A-Z])(\d{2,3})\b(?!\.)',
-        r'\1 \2\n\3.',
-        text
-    )
+    # Pattern 3: Word glued to question number (no following period)
+    text = re.sub(r'([a-z])([A-Z])(\d{2,3})\b(?!\.)', r'\1 \2\n\3.', text)
 
-    # ---- Pattern 4: Merged/duplicated option letters ----
-    # "CC.burn" → "C. burn"  (duplicated same letter)
-    # "B,C.What" → "B. C. What"  (two different option letters merged with comma)
-    text = re.sub(
-        r'\b([A-D]),?\1\.\s*',
-        r'\1. ',
-        text
-    )
-    text = re.sub(
-        r'\b([A-D]),([A-D])\.\s*',
-        r'\1. \2. ',
-        text
-    )
+    # Pattern 4: Merged/duplicated option letters
+    text = re.sub(r'\b([A-D]),?\1\.\s*', r'\1. ', text)
+    text = re.sub(r'\b([A-D]),([A-D])\.\s*', r'\1. \2. ', text)
 
-    # ---- Pattern 5: Option letters (2 caps) + question number without dot ----
-    # "CD75.A.extensive" → "C D\n75. A. extensive"
-    # C and D are options of previous question, 75 is new question
-    text = re.sub(
-        r'\b([A-D])([A-D])(\d{1,3}\.)(\s*[A-Z])',
-        r'\1 \2\n\3\4',
-        text
-    )
+    # Pattern 5: Option letters (2 caps) + question number without dot
+    text = re.sub(r'\b([A-D])([A-D])(\d{1,3}\.)(\s*[A-Z])', r'\1 \2\n\3\4', text)
 
-    # ---- Pattern 6: Garbage prefix before clean question number ----
-    # "AC.WwSSdo13. 3.Why does" → "3. Why does"
-    text = re.sub(
-        r'\b[A-Z]{2,}\.\w*\d*\.?\s*(\d{1,3}\.\s*)',
-        r'\1',
-        text
-    )
+    # Pattern 6: Garbage prefix before clean question number
+    text = re.sub(r'\b[A-Z]{2,}\.\w*\d*\.?\s*(\d{1,3}\.\s*)', r'\1', text)
 
-    # ---- Cleanup: fix double periods from Pattern 2 splits ----
-    # "46. .Nobel" → "46. Nobel"
+    # Cleanup: fix double periods
     text = re.sub(r'(\d{1,3}\.)\s*\.(\s*[A-Z])', r'\1\2', text)
 
     return text
 
 
 def _split_glued_items(text: str) -> List[str]:
-    """Split a single TextIn item that contains multiple questions glued together.
-
-    When OCR merges adjacent lines (e.g., "C.burn the midnight oil 45.When Sarah saw..."),
-    this extracts the two logical pieces so the LLM sees them as separate items.
-
-    Returns list of text segments. If no split needed, returns [text].
-    """
+    """Split a single TextIn item that contains multiple questions glued together."""
     parts = [text]
-
-    # Detect "content ending + number. + new content" within a single item
-    # This catches the most common case: option text + next question number + question text
-    # Pattern: lowercase/non-digit + whitespace + 2-3 digit number + period + space + capital
     new_parts = []
     for part in parts:
         split_points = []
         for m in re.finditer(r'([a-z])\s+(\d{2,3}\.\s*[A-Z])', part):
             split_points.append(m.start(2))
-
         if split_points:
             prev = 0
             for sp in split_points:
@@ -148,40 +213,38 @@ def _split_glued_items(text: str) -> List[str]:
                 new_parts.append(part[prev:].strip())
         else:
             new_parts.append(part)
-
     return [p for p in new_parts if p]
 
 
 # ═══════════════════════════════════════════════════════════════════════
-# Text formatting & prompt building
+# Item formatting
 # ═══════════════════════════════════════════════════════════════════════
 
-def _format_items(items: List[Dict]) -> str:
-    """Format TextIn detail items into indexed text for LLM input.
+def _format_section_items(page_items: List[Tuple[int, Dict]]) -> str:
+    """Format items for a single section, with local [idx=N] numbering.
 
-    Each item gets an [idx=N] marker so the LLM can reference which items
-    belong to each question. We can then recover real positions from TextIn data.
+    Args:
+        page_items: List of (page_index, item_dict) tuples
 
-    OCR pre-cleaning is applied to each item's text before formatting.
-    Heavily glued items are split into sub-items with -a/-b suffixes.
+    Returns:
+        Formatted text with [idx=N] markers, section headers preserved
     """
     lines = []
-    for idx, item in enumerate(items):
+    for local_idx, (pi, item) in enumerate(page_items):
         item_type = item.get('type', 'paragraph')
         content_type = item.get('content', 0)
 
-        # Skip headers, footers, sidebars
         if content_type == 1:
             continue
 
         ol = item.get('outline_level', -1)
         text = (item.get('text', '') or '').strip()
 
-        # Handle tables — extract cell text row by row
+        # Handle tables
         if item_type == 'table':
             cells = item.get('cells', [])
             if cells:
-                table_lines = [f'[idx={idx}] [表格开始]']
+                table_lines = [f'[idx={local_idx}] [表格开始]']
                 rows = {}
                 for cell in cells:
                     r = cell.get('row', 0)
@@ -189,35 +252,31 @@ def _format_items(items: List[Dict]) -> str:
                         rows[r] = []
                     rows[r].append(cell.get('text', '').strip())
                 for r in sorted(rows.keys()):
-                    table_lines.append(f'[idx={idx}] | ' + ' | '.join(rows[r]))
-                table_lines.append(f'[idx={idx}] [表格结束]')
+                    table_lines.append(f'[idx={local_idx}] | ' + ' | '.join(rows[r]))
+                table_lines.append(f'[idx={local_idx}] [表格结束]')
                 lines.append('\n'.join(table_lines))
             continue
 
         # Handle images
         if item_type == 'image':
-            lines.append(f'[idx={idx}] [图片]')
+            lines.append(f'[idx={local_idx}] [图片]')
             continue
 
-        # Skip empty paragraphs
         if not text:
             continue
 
-        # ---- Layer 2: OCR pre-cleaning ----
+        # OCR pre-cleaning
         text = _clean_ocr_text(text)
 
-        # ---- Split heavily glued items ----
+        # Split heavily glued items
         sub_texts = _split_glued_items(text)
         if len(sub_texts) > 1:
             for si, sub in enumerate(sub_texts):
-                sub_idx = f'{idx}{chr(97+si)}'  # idx=298a, 298b, ...
+                sub_idx = f'{local_idx}{chr(97+si)}'
                 lines.append(f'[idx={sub_idx}] {sub}')
             continue
 
-        # Build annotation prefix
-        # # = outline_level 0 (top-level Section)
-        # ## = outline_level 1 (sub-section)
-        # ### = outline_level 2+ (sub-sub-section)
+        # Preserve outline_level markers for section context
         prefix = ''
         if ol == 0:
             prefix = '# '
@@ -226,95 +285,173 @@ def _format_items(items: List[Dict]) -> str:
         elif ol >= 2:
             prefix = '### '
 
-        lines.append(f'[idx={idx}] {prefix}{text}')
+        lines.append(f'[idx={local_idx}] {prefix}{text}')
 
     return '\n'.join(lines)
 
 
-def _build_prompt(formatted_text: str, image_size: Dict) -> str:
-    """Build the LLM prompt for question extraction."""
-    return f"""你是上海高中英语教研专家。TextIn OCR 识别了一张英语试卷页面。请逐题提取所有题目,输出 JSON。
+def _format_items(items: List[Dict]) -> str:
+    """Format TextIn detail items (single page, legacy API)."""
+    page_items = [(0, item) for item in items]
+    return _format_section_items(page_items)
 
-【识别文字 — 按版面从上到下,每行以 [idx=N] 标记】
-{formatted_text}
 
-══════════════════════════════════════
-第一部分: 必须跳过的内容
-══════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════════════
+# Prompt builders
+# ═══════════════════════════════════════════════════════════════════════
 
-❌ 标题跳过: # / ## / ### 开头的是 Section 标题,不是题目。
-   例: "# Listening Comprehension"、"## Grammar"、"### Section B" → 全部跳过
-❌ 说明文字跳过: "Directions:...", "Questions 11 through 13 are based on..." → 不是题目
-❌ 页眉页脚跳过: 学校名称、考试名称、页码 → 不是题目
-
-══════════════════════════════════════
-第二部分: OCR粘连拆分规则
+SECTION_PROMPT_RULES = """══════════════════════════════════════
+提取规则
 ══════════════════════════════════════
 
-TextIn OCR 常把相邻内容粘在一起。必须识别并拆分:
+❌ 跳过: #/##/### 开头的标题、"Directions:..."说明、页眉页脚
 
-🔧 规则1: [选项字母]+[题号] 粘连
-   输入: "A43.The company..." → A是上题选项，43是新题号
-   输入: "D2.Which of..." → D是上题选项，2是新题号
+🔧 OCR粘连拆分:
+  规则1: "A43.The..." → A是上题选项，43是新题号
+  规则2: "CC.burn... 45.When..." → burn归上题选项，45是新题号
+  规则3: "...translateI 46 .A..." → 句在46前结束，46是题号
+  规则4: [idx=N]带字母后缀(94a,94b) → 已被预拆分，分别处理
 
-🔧 规则2: [选项内容]+[下一题号] 同行
-   输入: "CC.burn the midnight oil 45.When Sarah..."
-   → "burn the midnight oil"归上题选项，45.是新题号
+📌 核心规则:
+  - 题号=试卷印刷数字，🚫禁止补号/重编号
+  - OCR误读纠正: S0→80, 1→I, O→0, 5→S, 8→B
+  - 题型: listening/grammar/vocabulary/cloze/reading/sentence_gap/translation/grammar_fill/writing
+  - 听力: 连续4个A/B/C/D选项=1道题，questionText="(听力题)"
+  - 完形: "73.A.humanity"→题号=73
 
-🔧 规则3: 题号嵌在句子中间
-   输入: "...translateI 46 .A Japanese..." → 句在46前结束，46是题号
+📌 输出: 只输出JSON，不要```json```，不要解释
+📌 bbox: 全部设为{"x":0,"y":0,"w":0,"h":0}
 
-🔧 规则4: [idx=N] 带字母后缀(如 94a, 94b)
-   → 该item已被预拆分为多部分，分别处理
+☑ 自检: 题号连续? 有粘连行误判? 标题被当题目?"""
 
-══════════════════════════════════════
-第三部分: 题目提取规则
-══════════════════════════════════════
 
-📌 题号规则:
-- 题号 = 试卷上印刷的数字编号。扫描全文每个带数字编号的行
-- 🚫 铁律: 题号必须与试卷印刷数字完全一致,禁止补号/重编号
-  试卷印52就输出52, 不能因漏题输出51
-- OCR常见误读: S0→80, 1→I, O→0, 5→S, 8→B
-  如 "S0.A.neck and neck" → 题号=80,选项A
+def _build_section_prompt(section: Dict, page_offset: int = 1) -> str:
+    """Build a focused prompt for a single section.
 
-📌 题型规则:
-- listening: 连续4个A/B/C/D选项=1道听力题, questionText="(听力题)"
-- grammar/vocabulary: 4个选项(A-D), 题干+选项分离在不同行
-- cloze: 题号嵌入如"73.A.humanity"→题号=73
-- reading: 阅读理解, 需提取 passageText 全文
-- sentence_gap: 短文4空,表格6句(A-F)选4填入
-- translation: "21．中文句子(提示词)", 全角句号, options={{}}
-- grammar_fill: 短文含___()无选项, 填单词正确形式
-- writing: 英文提示+要求, 无选项
+    The prompt is much shorter than full-paper because:
+    - Only 10-30 questions per section → <3K JSON output → no尾部退化
+    - Section context is explicit → LLM knows what type of questions to expect
+    """
+    formatted = _format_section_items(section['page_items'])
+    section_name = section['name']
+    start_page = section['start_page'] + page_offset
 
-📌 歧义处理:
-- 不同Section可有相同题号(如Listening Q1≠Grammar Q1), 全部保留
-- section 字段填入所属Section名(从最近的#/##/###标题提取)
-- 如无明确Section名, 用题目序号范围推断(1-10→Listening, 21-40→Grammar等)
+    return f"""你是上海高中英语教研专家。下面是试卷中"{section_name}"部分的OCR识别文字。
 
-📌 输出约束:
-- 只输出JSON, 不要```json```, 不要解释
-- bbox设为{{"x":0,"y":0,"w":0,"h":0}}
-- itemIndices包含该题的所有[idx=N]编号(含字母后缀如94a,94b)
-- pageIndex: 题目所在页码(1-6)
+请提取这部分的所有题目,输出JSON。题号使用试卷原始编号。
 
-══════════════════════════════════════
-第四部分: 自检(输出前执行)
-══════════════════════════════════════
-☑ 是否有#/##/###标题被误判为题目? → 删除
-☑ 每个Section内题号连续吗? 45→47缺46? → 回查45和47之间的行
-☑ 题号与试卷印刷数字完全一致吗? 有补号/偏移吗? → 修正
-☑ 有粘连行被当成一整道题吗? (如"A43..."整行当Q43) → 拆分
+【Section: {section_name} | 起始页: {start_page}】
 
-══════════════════════════════════════
-输出格式
-══════════════════════════════════════
-{{"questions":[
-  {{"questionNumber":1,"pageIndex":1,"section":"Listening","questionType":"listening","questionText":"(听力题)","options":{{"A":"...","B":"...","C":"...","D":"..."}},"itemIndices":[5,6,7,8],"passageText":"","passageRef":null}},
-  {{"questionNumber":43,"pageIndex":4,"section":"Grammar","questionType":"grammar","questionText":"The insurance company ___ the risk...","options":{{"A":"...","B":"...","C":"...","D":"..."}},"itemIndices":[88,89,90,91,92],"passageText":"","passageRef":null}}
+{formatted}
+
+{SECTION_PROMPT_RULES}
+
+【输出格式】
+{{"section":"{section_name}","questions":[
+  {{"questionNumber":1,"pageIndex":{start_page},"questionType":"listening","questionText":"(听力题)","options":{{"A":"...","B":"...","C":"...","D":"..."}},"itemIndices":[5,6,7,8],"passageText":"","passageRef":null}}
 ]}}"""
 
+
+def _build_prompt(formatted_text: str, image_size: Dict) -> str:
+    """Build LLM prompt for single-page extraction (legacy)."""
+    return f"""你是上海高中英语教研专家。下面是试卷一个页面的OCR识别文字。请提取所有题目,输出JSON。
+
+{formatted}
+
+{SECTION_PROMPT_RULES}
+
+【输出格式】
+{{"questions":[
+  {{"questionNumber":1,"pageIndex":1,"section":"Section","questionType":"listening","questionText":"(听力题)","options":{{"A":"...","B":"...","C":"...","D":"..."}},"itemIndices":[5,6,7,8],"passageText":"","passageRef":null}}
+]}}"""
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# LLM calling
+# ═══════════════════════════════════════════════════════════════════════
+
+def _call_llm(prompt: str, max_tokens: int = 32768) -> Optional[Dict]:
+    """Call DeepSeek LLM API."""
+    import urllib.request
+    import urllib.error
+
+    if not DEEPSEEK_API_KEY:
+        logger.warning("DEEPSEEK_API_KEY not set, LLM parser unavailable")
+        return None
+
+    body = json.dumps({
+        'model': LLM_MODEL,
+        'messages': [{'role': 'user', 'content': prompt}],
+        'temperature': 0.05,
+        'max_tokens': max_tokens,
+    }).encode('utf-8')
+
+    req = urllib.request.Request(DEEPSEEK_API_URL, data=body, headers={
+        'Content-Type': 'application/json',
+        'Authorization': f'Bearer {DEEPSEEK_API_KEY}',
+    })
+
+    try:
+        with urllib.request.urlopen(req, timeout=LLM_TIMEOUT) as resp:
+            data = json.loads(resp.read().decode('utf-8'))
+            content = data['choices'][0]['message']['content']
+            return _parse_llm_response(content)
+    except urllib.error.URLError as e:
+        logger.error(f"LLM API error: {e}")
+        return None
+    except Exception as e:
+        logger.error(f"LLM parse error: {e}")
+        return None
+
+
+def _parse_llm_response(content: str) -> Optional[Dict]:
+    """Parse LLM JSON response, handling truncation and formatting issues."""
+    try:
+        return json.loads(content)
+    except json.JSONDecodeError:
+        pass
+
+    for pattern in [r'```json\s*([\s\S]*?)```', r'```\s*([\s\S]*?)```', r'\{[\s\S]*"questions"[\s\S]*\}']:
+        m = re.search(pattern, content)
+        if m:
+            try:
+                return json.loads(m.group(1) if m.lastindex else m.group(0))
+            except json.JSONDecodeError:
+                continue
+
+    fixed = content.rstrip()
+    fixed = re.sub(r':\s*"[^"]*$', ': ""', fixed)
+    fixed = re.sub(r':\s*[\[{][^}\]]*$', ': null', fixed)
+    fixed = re.sub(r',\s*$', '', fixed)
+    open_braces = fixed.count('{') - fixed.count('}')
+    open_brackets = fixed.count('[') - fixed.count(']')
+    fixed += '}' * max(0, open_braces) + ']' * max(0, open_brackets)
+    try:
+        result = json.loads(fixed)
+        logger.warning(f"Recovered truncated JSON")
+        return result
+    except json.JSONDecodeError:
+        pass
+
+    q_objs = re.findall(r'\{\s*"questionNumber"[^}]*\}', content)
+    if q_objs:
+        questions = []
+        for q_str in q_objs:
+            try:
+                questions.append(json.loads(q_str))
+            except json.JSONDecodeError:
+                continue
+        if questions:
+            logger.warning(f"Extracted {len(questions)} questions from truncated JSON")
+            return {'questions': questions}
+
+    logger.error(f"Could not parse LLM response: {content[:300]}")
+    return None
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Post-processing
+# ═══════════════════════════════════════════════════════════════════════
 
 def _compute_bbox(item_indices: List[int], detail_items: List[Dict]) -> Dict:
     """Compute the bounding box from a set of TextIn detail item indices."""
@@ -340,104 +477,11 @@ def _compute_bbox(item_indices: List[int], detail_items: List[Dict]) -> Dict:
     }
 
 
-def _call_llm(prompt: str) -> Optional[Dict]:
-    """Call DeepSeek LLM API to parse questions."""
-    import urllib.request
-    import urllib.error
-
-    if not DEEPSEEK_API_KEY:
-        logger.warning("DEEPSEEK_API_KEY not set, LLM parser unavailable")
-        return None
-
-    body = json.dumps({
-        'model': LLM_MODEL,
-        'messages': [{'role': 'user', 'content': prompt}],
-        'temperature': 0.05,
-        'max_tokens': 32768,
-    }).encode('utf-8')
-
-    req = urllib.request.Request(DEEPSEEK_API_URL, data=body, headers={
-        'Content-Type': 'application/json',
-        'Authorization': f'Bearer {DEEPSEEK_API_KEY}',
-    })
-
-    try:
-        with urllib.request.urlopen(req, timeout=LLM_TIMEOUT) as resp:
-            data = json.loads(resp.read().decode('utf-8'))
-            content = data['choices'][0]['message']['content']
-            return _parse_llm_response(content)
-    except urllib.error.URLError as e:
-        logger.error(f"LLM API error: {e}")
-        return None
-    except Exception as e:
-        logger.error(f"LLM parse error: {e}")
-        return None
-
-
-def _parse_llm_response(content: str) -> Optional[Dict]:
-    """Parse LLM JSON response, handling truncation and formatting issues."""
-    # Try direct JSON parse
-    try:
-        return json.loads(content)
-    except json.JSONDecodeError:
-        pass
-
-    # Try extracting JSON from code blocks
-    for pattern in [r'```json\s*([\s\S]*?)```', r'```\s*([\s\S]*?)```', r'\{[\s\S]*"questions"[\s\S]*\}']:
-        m = re.search(pattern, content)
-        if m:
-            try:
-                return json.loads(m.group(1) if m.lastindex else m.group(0))
-            except json.JSONDecodeError:
-                continue
-
-    # Try recovering truncated JSON (close unclosed brackets/strings)
-    fixed = content.rstrip()
-    fixed = re.sub(r':\s*"[^"]*$', ': ""', fixed)
-    fixed = re.sub(r':\s*[\[{][^}\]]*$', ': null', fixed)
-    fixed = re.sub(r',\s*$', '', fixed)
-    open_braces = fixed.count('{') - fixed.count('}')
-    open_brackets = fixed.count('[') - fixed.count(']')
-    fixed += '}' * max(0, open_braces) + ']' * max(0, open_brackets)
-    try:
-        result = json.loads(fixed)
-        logger.warning(f"Recovered truncated JSON")
-        return result
-    except json.JSONDecodeError:
-        pass
-
-    # Last resort: try to extract individual question objects
-    q_objs = re.findall(r'\{\s*"questionNumber"[^}]*\}', content)
-    if q_objs:
-        questions = []
-        for q_str in q_objs:
-            try:
-                questions.append(json.loads(q_str))
-            except json.JSONDecodeError:
-                continue
-        if questions:
-            logger.warning(f"Extracted {len(questions)} questions from truncated JSON")
-            return {'questions': questions}
-
-    logger.error(f"Could not parse LLM response: {content[:300]}")
-    return None
-
-
-# ═══════════════════════════════════════════════════════════════════════
-# Layer 3: 后处理校验 — Section内题号连续性检测
-# ═══════════════════════════════════════════════════════════════════════
-
 def _check_section_continuity(questions: List[Dict]) -> None:
-    """Check question number continuity within each Section.
-
-    Logs WARN if gaps are found, which may indicate:
-    - OCR粘连导致 LLM 漏题
-    - 标题误判为题目导致编号偏移
-    """
+    """Check question number continuity within each Section."""
     if len(questions) < 2:
         return
 
-    # Group by section (use pageIndex as proxy if section field is empty)
     sections = {}
     for q in questions:
         sec_key = q.get('section', '') or f"P{q.get('pageIndex', '?')}"
@@ -461,16 +505,23 @@ def _check_section_continuity(questions: List[Dict]) -> None:
             )
 
 
+def _parse_section_indices(item_indices_raw: List) -> List[int]:
+    """Parse item indices from LLM output, handling string sub-indices like '94a'."""
+    result = []
+    for idx in item_indices_raw:
+        if isinstance(idx, str):
+            m = re.match(r'(\d+)', idx)
+            if m:
+                result.append(int(m.group(1)))
+        elif isinstance(idx, (int, float)):
+            result.append(int(idx))
+    return result
+
+
 def _llm_result_to_gaozhong(llm_result: Dict, image_size: Dict,
                             detail_items: List[Dict] = None,
                             all_page_items: List[List[Dict]] = None) -> Dict:
-    """Convert LLM parsed result to gaozhong-compatible format.
-
-    Uses itemIndices + pageIndex from LLM output to compute real bbox
-    from TextIn position data. Falls back to all-zero bbox if no indices.
-
-    Includes section-level continuity check (Layer 3).
-    """
+    """Convert LLM parsed result to gaozhong-compatible format."""
     questions = llm_result.get('questions', [])
     gaozhong_questions = []
 
@@ -483,19 +534,8 @@ def _llm_result_to_gaozhong(llm_result: Dict, image_size: Dict,
         if isinstance(options, list):
             options = {chr(65+i): v for i, v in enumerate(options)}
 
-        # Compute real bbox from item indices
-        # Handle sub-indices like "298a" → extract base index 298
-        item_indices_raw = q.get('itemIndices', [])
-        item_indices = []
-        for idx in item_indices_raw:
-            if isinstance(idx, str):
-                m = re.match(r'(\d+)', idx)
-                if m:
-                    item_indices.append(int(m.group(1)))
-            elif isinstance(idx, (int, float)):
-                item_indices.append(int(idx))
-
-        page_idx = q.get('pageIndex', 0) - 1  # 1-based → 0-based
+        item_indices = _parse_section_indices(q.get('itemIndices', []))
+        page_idx = q.get('pageIndex', 0) - 1
 
         if all_page_items and 0 <= page_idx < len(all_page_items):
             page_items = all_page_items[page_idx]
@@ -513,15 +553,12 @@ def _llm_result_to_gaozhong(llm_result: Dict, image_size: Dict,
             'options': options,
             'bbox': bbox,
             'pageIndex': page_idx + 1 if all_page_items else (q.get('pageIndex', 1)),
-            'section': q.get('section', ''),  # Section context for disambiguation
+            'section': q.get('section', ''),
             'passageRef': q.get('passageRef'),
             'passageText': q.get('passageText', '') or '',
         })
 
-    # ---- Layer 3: Section continuity check ----
     _check_section_continuity(gaozhong_questions)
-
-    # Sort by question number
     gaozhong_questions.sort(key=lambda q: q['questionNumber'])
 
     return {
@@ -533,159 +570,182 @@ def _llm_result_to_gaozhong(llm_result: Dict, image_size: Dict,
     }
 
 
-def parse_with_llm(detail_items: List[Dict],
-                   image_size: Optional[Dict] = None,
-                   subject: str = "英语") -> Optional[Dict]:
-    """
-    Parse TextIn detail items using LLM.
+# ═══════════════════════════════════════════════════════════════════════
+# Main entry points
+# ═══════════════════════════════════════════════════════════════════════
 
-    Args:
-        detail_items: TextIn result.detail array
-        image_size: Optional {width, height}
-        subject: Subject name (for prompt customization)
+def _process_one_section(section: Dict, all_page_items: List[List[Dict]],
+                         image_size: Dict) -> Optional[Dict]:
+    """Process a single section through LLM. Returns gaozhong-format result or None."""
+    section_name = section['name']
+    item_count = len(section['page_items'])
 
-    Returns:
-        Dict with gaozhong-compatible format, or None if LLM unavailable/failed
-    """
-    if not detail_items:
+    # Skip tiny sections (just a header with no real items)
+    if item_count < 2:
+        logger.info(f"Section [{section_name}]: too few items ({item_count}), skipping")
         return None
 
-    if not DEEPSEEK_API_KEY:
-        logger.info("DEEPSEEK_API_KEY not set, skipping LLM parser")
-        return None
+    logger.info(f"Section [{section_name}]: {item_count} items, page {section['start_page']+1}")
 
-    logger.info(f"LLM parser: {len(detail_items)} detail items, subject={subject}")
+    prompt = _build_section_prompt(section)
+    prompt_len = len(prompt)
 
-    # Format items as structured text (with OCR pre-cleaning)
-    formatted = _format_items(detail_items)
-    logger.info(f"LLM parser: formatted {len(formatted)} chars ({formatted.count(chr(10))+1} lines)")
-
-    # Build and send prompt
-    prompt = _build_prompt(formatted, image_size or {})
-    llm_result = _call_llm(prompt)
+    # Use smaller max_tokens per section (每section最多32题,每题~200 tokens)
+    llm_result = _call_llm(prompt, max_tokens=16384)
 
     if not llm_result:
+        logger.warning(f"Section [{section_name}]: LLM call failed")
         return None
 
-    # Convert to gaozhong format
-    result = _llm_result_to_gaozhong(llm_result, image_size or {}, detail_items)
-    logger.info(f"LLM parser: extracted {result['raw_count']} questions")
+    # Use the section's items as the reference for bbox computation
+    section_items_only = [item for _, item in section['page_items']]
+    result = _llm_result_to_gaozhong(llm_result, image_size,
+                                      detail_items=section_items_only)
 
+    # Inject the correct page offset for this section
+    section_page_offset = section['start_page']
+    for q in result['questions']:
+        # The LLM might output pageIndex relative to section start
+        # Adjust to absolute page index
+        llm_page = q.get('pageIndex', section_page_offset + 1)
+        if llm_page < section_page_offset + 1:
+            q['pageIndex'] = section_page_offset + 1
+
+    q_count = result['raw_count']
+    logger.info(f"Section [{section_name}]: extracted {q_count} questions")
     return result
 
 
-def parse_all_pages_llm(all_detail_items: List[List[Dict]],
-                        image_size: Optional[Dict] = None,
-                        subject: str = "英语") -> Optional[Dict]:
-    """
-    Parse ALL pages at once with a single LLM call.
-    Merges all pages' text → LLM sees the complete exam paper.
+def parse_by_sections(all_detail_items: List[List[Dict]],
+                      image_size: Optional[Dict] = None,
+                      subject: str = "英语") -> Optional[Dict]:
+    """★ Recommended for full exams: split by Section, process each independently.
 
-    Args:
-        all_detail_items: List of per-page detail item lists
-        image_size: Optional {width, height}
-        subject: Subject name
+    This solves two key problems with full-paper LLM processing:
+    1. 尾部退化: 120+ questions in one JSON → attention decay → copy-paste errors
+       → Per-section: 10-30 questions each → short JSON → no decay
+    2. OCR粘连累积: poor OCR in later sections bleeds into earlier ones
+       → Isolated per section → errors don't propagate
 
-    Returns:
-        Dict with gaozhong-compatible format, or None if LLM unavailable/failed
+    Sections are processed in parallel (up to SECTION_CONCURRENCY at a time).
+    Failed sections are retried once, then skipped (not blocking).
+
+    Returns gaozhong-compatible dict, or None if all sections fail.
     """
     if not DEEPSEEK_API_KEY:
         return None
 
     total_items = sum(len(items) for items in all_detail_items)
-    logger.info(f"LLM all-pages: {len(all_detail_items)} pages, {total_items} total items")
+    logger.info(f"Section-based parsing: {len(all_detail_items)} pages, {total_items} total items")
 
-    # Format each page with separator (per-page [idx=N] markers)
+    # Step 1: Detect sections
+    sections = _detect_sections(all_detail_items)
+    logger.info(f"Detected {len(sections)} sections: {[s['name'][:40] for s in sections]}")
+
+    if len(sections) <= 1:
+        # Only one section (or none) — fall back to full-paper processing
+        logger.info("Only 1 section detected, falling back to full-paper processing")
+        return parse_all_pages_llm(all_detail_items, image_size, subject)
+
+    # Step 2: Process sections in parallel
+    all_questions = []
+    img_size = image_size or {}
+    failed_sections = []
+
+    with ThreadPoolExecutor(max_workers=SECTION_CONCURRENCY) as executor:
+        futures = {
+            executor.submit(_process_one_section, section, all_detail_items, img_size): section
+            for section in sections
+        }
+
+        for future in as_completed(futures):
+            section = futures[future]
+            try:
+                result = future.result(timeout=LLM_TIMEOUT + 30)
+                if result and result.get('questions'):
+                    all_questions.extend(result['questions'])
+                    logger.info(f"  ✓ [{section['name'][:30]}] {result['raw_count']} questions")
+                else:
+                    failed_sections.append(section)
+                    logger.warning(f"  ✗ [{section['name'][:30]}] no questions extracted")
+            except Exception as e:
+                failed_sections.append(section)
+                logger.error(f"  ✗ [{section['name'][:30]}] exception: {e}")
+
+    # Step 3: Retry failed sections once
+    if failed_sections:
+        logger.info(f"Retrying {len(failed_sections)} failed sections...")
+        for section in failed_sections:
+            try:
+                result = _process_one_section(section, all_detail_items, img_size)
+                if result and result.get('questions'):
+                    all_questions.extend(result['questions'])
+                    logger.info(f"  ✓ retry [{section['name'][:30]}] {result['raw_count']} questions")
+                else:
+                    logger.warning(f"  ✗ retry [{section['name'][:30]}] still failed, skipping")
+            except Exception as e:
+                logger.error(f"  ✗ retry [{section['name'][:30]}] exception: {e}")
+
+    if not all_questions:
+        logger.error("All sections failed, falling back to full-paper processing")
+        return parse_all_pages_llm(all_detail_items, image_size, subject)
+
+    # Step 4: Merge and validate
+    all_questions.sort(key=lambda q: (q.get('pageIndex', 0), q['questionNumber']))
+    _check_section_continuity(all_questions)
+
+    # Deduplicate: same questionNumber + same section → keep first
+    seen = set()
+    deduped = []
+    for q in all_questions:
+        key = (q['questionNumber'], q.get('section', ''))
+        if key not in seen:
+            seen.add(key)
+            deduped.append(q)
+        else:
+            logger.warning(f"Duplicate Q{q['questionNumber']} in section [{q.get('section','')}], dropped")
+
+    logger.info(f"Section-based total: {len(deduped)} questions from {len(sections)} sections "
+                f"({len(failed_sections)} sections failed/skipped)")
+
+    return {
+        'questions': deduped,
+        'passages': [],
+        'engine': f'textin-section-llm-{LLM_MODEL}',
+        'image_size': img_size,
+        'raw_count': len(deduped),
+    }
+
+
+def parse_all_pages_llm(all_detail_items: List[List[Dict]],
+                        image_size: Optional[Dict] = None,
+                        subject: str = "英语") -> Optional[Dict]:
+    """Parse ALL pages at once (legacy full-paper approach, kept as fallback)."""
+    if not DEEPSEEK_API_KEY:
+        return None
+
+    total_items = sum(len(items) for items in all_detail_items)
+    logger.info(f"LLM all-pages (legacy): {len(all_detail_items)} pages, {total_items} total items")
+
     all_formatted = []
     for pi, items in enumerate(all_detail_items):
         page_text = _format_items(items)
         all_formatted.append(f"══════ 第 {pi+1} 页 ══════\n{page_text}")
 
     full_text = '\n\n'.join(all_formatted)
-    logger.info(f"LLM all-pages: formatted {len(full_text)} chars ({full_text.count(chr(10))+1} lines)")
+    logger.info(f"LLM all-pages: formatted {len(full_text)} chars")
 
-    # Build prompt for full exam
     prompt = f"""你是上海高中英语教研专家。TextIn OCR 识别了一套完整英语试卷,按页组织。请逐题提取全部题目,输出 JSON。题号是试卷原始编号,跨页连续。
 
 {full_text}
 
-══════════════════════════════════════
-第一部分: 必须跳过的内容
-══════════════════════════════════════
+{SECTION_PROMPT_RULES}
 
-❌ 标题跳过: # / ## / ### 开头的是 Section 标题,不是题目。
-   例: "# Listening Comprehension"、"## Grammar"、"### Section B" → 跳过
-❌ 说明跳过: "Directions:...", "Questions N through M are based on..." → 跳过
-❌ 页眉页脚跳过: 学校名、考试名、页码 → 跳过
-
-══════════════════════════════════════
-第二部分: OCR粘连拆分规则
-══════════════════════════════════════
-
-TextIn OCR 常把相邻内容粘在一起。必须识别并拆分:
-
-🔧 规则1: [选项字母]+[题号]粘连
-   输入: "A43.The company..." → A是上题选项，43是新题号
-   输入: "D2.Which of..." → D是上题选项，2是新题号
-
-🔧 规则2: [选项内容]+[下一题号]同行
-   输入: "CC.burn the midnight oil 45.When Sarah..."
-   → "burn the midnight oil"归上题选项，45.是新题号
-
-🔧 规则3: 题号嵌在句子中间
-   输入: "...translateI 46 .A Japanese..." → 句在46前结束，46是题号
-
-🔧 规则4: [idx=N]带字母后缀(如94a,94b) → 已被预拆分,分别处理
-
-══════════════════════════════════════
-第三部分: 题目提取规则
-══════════════════════════════════════
-
-📌 题号规则:
-- 题号=试卷印刷数字编号,跨页连续。扫描全文每个带数字编号的行
-- 🚫 铁律: 题号必须与试卷印刷数字完全一致,禁止补号/重编号
-  试卷印52就输出52,不能因漏题输出51
-- OCR常见误读纠正: S0→80, 1→I, O→0, 5→S, 8→B
-  如 "S0.A.neck and neck" → 题号=80,选项A
-- 不同页上同编号但不同Section的题全保留(如P1-Listening Q1≠P3-Grammar Q1)
-
-📌 题型规则:
-- listening: 连续4个A/B/C/D选项=1道听力题,questionText="(听力题)"
-- grammar/vocabulary: 4个选项(A-D), 题干+选项可能分离在不同行
-- cloze: 题号嵌入如"73.A.humanity"→题号=73
-- reading: 阅读理解,提取passageText全文
-- sentence_gap: 短文4空,表格6句(A-F)选4填入
-- translation: "21．中文(提示词)",全角句号,options={{}}
-- grammar_fill: 短文含___()无选项,填单词正确形式
-- writing: 英文提示+要求,无选项
-
-📌 歧义处理:
-- section字段: 填入所属Section名(从最近的#/##/###标题提取)
-- 如无标题,由题号范围推断(1-10→Listening, 11-20→Listening B, 21-40→Grammar, 41-70→Cloze/Vocab, 71+→Reading)
-- itemIndices: 含该题的所有[idx=N]编号(含字母后缀如94a,94b)
-- pageIndex: 题目所在页码(1起)
-
-📌 输出约束:
-- 只输出JSON,不要```json```,不要解释
-- bbox设为{{"x":0,"y":0,"w":0,"h":0}}
-
-══════════════════════════════════════
-第四部分: 自检(输出前执行)
-══════════════════════════════════════
-☑ 是否有#/##/###标题被误判为题目? → 删除
-☑ 每个Section内题号连续吗? 45→47缺46? → 回查45和47之间的行
-☑ 题号与试卷印刷数字完全一致吗? 有补号/偏移吗? → 修正
-☑ 有粘连行被当成一整道题吗? (如"A43..."整行当Q43) → 拆分
-
-══════════════════════════════════════
-输出格式
-══════════════════════════════════════
+【输出格式】
 {{"questions":[
-  {{"questionNumber":1,"pageIndex":1,"section":"Listening","questionType":"listening","questionText":"(听力题)","options":{{"A":"...","B":"...","C":"...","D":"..."}},"itemIndices":[5,6,7,8],"passageText":"","passageRef":null,"bbox":{{"x":0,"y":0,"w":0,"h":0}}}},
-  {{"questionNumber":43,"pageIndex":4,"section":"Grammar","questionType":"grammar","questionText":"The insurance company ___ the risk...","options":{{"A":"...","B":"...","C":"...","D":"..."}},"itemIndices":[88,89,90,91,92],"passageText":"","passageRef":null,"bbox":{{"x":0,"y":0,"w":0,"h":0}}}}
+  {{"questionNumber":1,"pageIndex":1,"section":"Listening","questionType":"listening","questionText":"(听力题)","options":{{"A":"...","B":"...","C":"...","D":"..."}},"itemIndices":[5,6,7,8],"passageText":"","passageRef":null,"bbox":{{"x":0,"y":0,"w":0,"h":0}}}}
 ]}}"""
 
-    # Call LLM with large limits for full exam
     import urllib.request
     import urllib.error
 
@@ -720,15 +780,33 @@ TextIn OCR 常把相邻内容粘在一起。必须识别并拆分:
     return result
 
 
+def parse_with_llm(detail_items: List[Dict],
+                   image_size: Optional[Dict] = None,
+                   subject: str = "英语") -> Optional[Dict]:
+    """Parse single page of TextIn detail items using LLM (legacy)."""
+    if not detail_items:
+        return None
+    if not DEEPSEEK_API_KEY:
+        logger.info("DEEPSEEK_API_KEY not set, skipping LLM parser")
+        return None
+
+    logger.info(f"LLM parser: {len(detail_items)} detail items, subject={subject}")
+    formatted = _format_items(detail_items)
+    prompt = _build_prompt(formatted, image_size or {})
+    llm_result = _call_llm(prompt)
+
+    if not llm_result:
+        return None
+
+    result = _llm_result_to_gaozhong(llm_result, image_size or {}, detail_items)
+    logger.info(f"LLM parser: extracted {result['raw_count']} questions")
+    return result
+
+
 def parse_with_llm_fallback(detail_items: List[Dict],
                             image_size: Optional[Dict] = None,
                             subject: str = "英语") -> Dict:
-    """
-    Try LLM parser first, fall back to regex parser if LLM fails.
-
-    Returns:
-        Dict with gaozhong-compatible format
-    """
+    """Try LLM parser first, fall back to regex parser if LLM fails."""
     if DEEPSEEK_API_KEY:
         key_preview = DEEPSEEK_API_KEY[:8] + '...' if len(DEEPSEEK_API_KEY) > 8 else '(empty)'
         print(f"TextIn Parser: trying LLM parser (model={LLM_MODEL}, key={key_preview})", flush=True)
@@ -740,7 +818,6 @@ def parse_with_llm_fallback(detail_items: List[Dict],
     else:
         print("TextIn Parser: DEEPSEEK_API_KEY not set, using regex parser", flush=True)
 
-    # Fall back to regex parser
     from src.textin.parser import parse_xparse_result
     result = parse_xparse_result(detail_items, image_size, subject)
     print(f"TextIn Parser: regex extracted {result.get('raw_count', len(result.get('questions',[])))} questions", flush=True)
