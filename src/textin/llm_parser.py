@@ -47,118 +47,183 @@ SECTION_CONCURRENCY = int(os.environ.get('SECTION_CONCURRENCY', '4'))
 # Layer 0: Section-aware splitting
 # ═══════════════════════════════════════════════════════════════════════
 
-def _extract_section_name(text: str) -> str:
-    """Extract a human-readable section name from a header line."""
-    # Remove #/##/### prefixes and [idx=N] markers
-    cleaned = re.sub(r'^\[idx=\d+\]\s*#+\s*', '', text).strip()
-    # Clean up common OCR artifacts in headers
-    cleaned = re.sub(r'\*+', '', cleaned).strip()
-    # Truncate to reasonable length
-    if len(cleaned) > 80:
-        cleaned = cleaned[:80]
-    return cleaned
+# ═══════════════════════════════════════════════════════════════════════
+# Section boundary detection — pure regex, no outline_level dependency
+# ═══════════════════════════════════════════════════════════════════════
+
+# English exam section header patterns (ordered by priority)
+_RE_ROMAN_SECTION = re.compile(
+    r'^[IVX]+\.\s*[A-Z][a-z]')  # I. Listening, II. Grammar, III. Reading
+_RE_PART_MARKER = re.compile(
+    r'^\*?Part\s+[IVX\d]')      # Part I, *Part II
+_RE_SECTION_LABEL = re.compile(
+    r'^Section\s+[A-D]\b')      # Section A, Section B
+_RE_DIRECTIONS = re.compile(
+    r'^(Directions?|Questions\s+\d+)')  # Directions:..., Questions 11 through...
+_RE_PASSAGE_LABEL = re.compile(
+    r'^\([A-F]\)$')             # (A), (B) — bare passage markers
+_RE_EXAM_TITLE = re.compile(
+    r'学期|期中|期末|考试|试卷|学年')  # Chinese exam title markers
 
 
-def _is_major_section_name(name: str) -> bool:
-    """Check if a section name indicates a major exam section (deserves its own LLM call).
+def _is_section_header(text: str) -> bool:
+    """Check if a text line is a section header (not regular content)."""
+    t = text.strip()
+    if not t or len(t) > 100:
+        return False
+    # Must match a known header pattern
+    return bool(_RE_ROMAN_SECTION.match(t) or
+                _RE_PART_MARKER.match(t) or
+                _RE_SECTION_LABEL.match(t))
 
-    Must be a meaningful content area, not just a bare 'Section A' label.
+
+def _is_major_boundary(text: str, prev_boundary_page: int, current_page: int) -> bool:
+    """Determine if a section header should trigger a Section split.
+
+    Rules:
+    1. Roman numeral (I./II./III.) → ALWAYS splits (strongest signal)
+    2. Part marker → ALWAYS splits
+    3. Section label (Section A/B/C) → splits only if on a different page
+       from the previous boundary (handles missing Roman numeral headers)
+    4. Directions / passage labels → NEVER split
     """
-    # Bare section labels are too generic — skip them
-    bare_labels = {'section a', 'section b', 'section c', 'section d',
-                   'part i', 'part ii', 'part iii', 'part iv'}
-    name_lower = name.lower().strip()
-    if name_lower in bare_labels:
+    t = text.strip()
+
+    # Directions and question group headers are never boundaries
+    if _RE_DIRECTIONS.match(t):
         return False
 
-    major_keywords = [
-        'listening', 'grammar', 'vocabulary', 'cloze', 'reading',
-        'translation', 'writing', 'comprehension',
-    ]
-    return any(kw in name_lower for kw in major_keywords)
+    # Bare passage labels like (A), (B) are never boundaries
+    if _RE_PASSAGE_LABEL.match(t) and len(t) < 10:
+        return False
+
+    # Exam title (contains Chinese) — not a question section
+    if _RE_EXAM_TITLE.search(t):
+        return False
+
+    # Roman numeral sections: I. II. III. IV. — always a major boundary
+    if _RE_ROMAN_SECTION.match(t):
+        return True
+
+    # Part markers: Part I, Part II — always a major boundary
+    if _RE_PART_MARKER.match(t):
+        return True
+
+    # Section labels: split only if on a different page (handles missing Roman numeral)
+    if _RE_SECTION_LABEL.match(t):
+        if current_page != prev_boundary_page:
+            return True
+
+    return False
 
 
 def _detect_sections(all_page_items: List[List[Dict]]) -> List[Dict]:
-    """Split all pages' items into logical sections based on outline_level.
+    """Split all pages' items into logical sections using pure regex.
 
-    Section boundaries: # (ol=0) always splits. ## (ol=1) splits only
-    if the name suggests a major section change.
+    NO dependency on TextIn outline_level — uses text pattern matching only.
+    This is more robust because outline_level is inconsistent across pages
+    (same 'Section B' can be ol=0, ol=1, or ol=2 depending on TextIn's layout analysis).
 
-    Post-processing: merge tiny sections (< MIN_ITEMS items) into neighbors.
+    Split strategy:
+    - I./II./III. Roman numeral → always new section
+    - Part I/II → always new section
+    - Section A/B/C on new page → new section (catches missed Roman numerals)
+    - Section A/B/C on same page → sub-section context, stays in current section
 
-    Returns sections with:
-    - name: Human-readable section name
-    - page_items: List of (page_index, item_dict) tuples
-    - start_page: First page this section appears on
+    Post-processing:
+    - Merge tiny sections (< MIN_ITEMS) forward into next section
+    - Split oversized sections (> MAX_ITEMS) at sub-section markers
     """
-    MIN_ITEMS = 8  # sections smaller than this get merged
+    MIN_ITEMS = 8   # merge sections smaller than this
+    MAX_ITEMS = 150 # split sections larger than this
 
     raw_sections = []
-    current_section = {'name': 'Preamble', 'page_items': [], 'start_page': 0}
+    current_section = {'name': '', 'page_items': [], 'start_page': 0}
+    last_boundary_page = -1
 
     for pi, items in enumerate(all_page_items):
         for item in items:
-            ol = item.get('outline_level', -1)
             text = item.get('text', '').strip()
             content_type = item.get('content', 0)
 
             if content_type == 1:
                 continue
 
-            # Section boundary detection
-            is_boundary = False
-            if ol == 0:
-                # # (ol=0) = always a major boundary
-                is_boundary = True
-            elif ol >= 1:
-                # ## (ol=1) or ### (ol>=2) = boundary if it's a named major section
-                section_name = _extract_section_name(text)
-                if section_name and _is_major_section_name(section_name):
-                    is_boundary = True
-                # Skip "Directions:..." and "Questions N through M" — they're instructions
-                if text.lower().startswith('direction') or 'questions' in text.lower():
-                    is_boundary = False
+            # Check if this item is a section boundary
+            if _is_section_header(text) and _is_major_boundary(text, last_boundary_page, pi):
+                if current_section['page_items']:
+                    raw_sections.append(current_section)
+                # Extract clean section name
+                name = text.strip().lstrip('*').strip()
+                if len(name) > 80:
+                    name = name[:80]
+                current_section = {
+                    'name': name,
+                    'page_items': [],
+                    'start_page': pi
+                }
+                last_boundary_page = pi
+                continue
 
-            if is_boundary:
-                section_name = _extract_section_name(text)
-                if section_name:
-                    if current_section['page_items']:
-                        raw_sections.append(current_section)
-                    current_section = {
-                        'name': section_name,
-                        'page_items': [],
-                        'start_page': pi
-                    }
-                    continue
-
+            # Regular item: add to current section
             current_section['page_items'].append((pi, item))
 
     if current_section['page_items']:
         raw_sections.append(current_section)
 
-    # Merge tiny sections: forward-merge into next section if too small
+    # ---- Post-processing ----
+
+    # 1. Merge tiny sections forward into next section
     merged = []
     i = 0
     while i < len(raw_sections):
         s = raw_sections[i]
-        # If this section is tiny and there's a next section, merge forward
         if len(s['page_items']) < MIN_ITEMS and i + 1 < len(raw_sections):
             next_s = raw_sections[i + 1]
-            # Prepend our items to next section, keep next section's name/start_page
             next_s['page_items'] = s['page_items'] + next_s['page_items']
             next_s['start_page'] = min(s['start_page'], next_s['start_page'])
-            # Use the more descriptive name
-            if len(s['name']) > len(next_s['name']) and _is_major_section_name(s['name']):
+            # Keep the more descriptive name
+            if len(s['name']) > len(next_s['name']):
                 next_s['name'] = s['name']
             i += 1
             continue
         merged.append(s)
         i += 1
 
-    # Filter out sections still too small after merge
+    # 2. Filter out sections that are still too small
     merged = [s for s in merged if len(s['page_items']) >= 2]
 
-    return merged
+    # 3. Split oversized sections at sub-section markers (Section A/B/C within same page group)
+    result = []
+    for s in merged:
+        if len(s['page_items']) <= MAX_ITEMS:
+            result.append(s)
+            continue
+
+        # Try to split at Section A/B/C markers
+        sub_sections = []
+        current_sub = {'name': s['name'], 'page_items': [], 'start_page': s['start_page']}
+        for pi, item in s['page_items']:
+            text = item.get('text', '').strip()
+            if _RE_SECTION_LABEL.match(text) and len(current_sub['page_items']) >= MIN_ITEMS:
+                sub_sections.append(current_sub)
+                current_sub = {
+                    'name': f"{s['name']} - {text.strip()}",
+                    'page_items': [],
+                    'start_page': pi
+                }
+                continue
+            current_sub['page_items'].append((pi, item))
+
+        if current_sub['page_items']:
+            sub_sections.append(current_sub)
+
+        if len(sub_sections) > 1:
+            result.extend(sub_sections)
+        else:
+            result.append(s)
+
+    return result
 
 
 # ═══════════════════════════════════════════════════════════════════════
