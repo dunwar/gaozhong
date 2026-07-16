@@ -652,147 +652,204 @@ def _llm_result_to_gaozhong(llm_result: Dict, image_size: Dict,
 # Main entry points
 # ═══════════════════════════════════════════════════════════════════════
 
-def _process_one_section(section: Dict, all_page_items: List[List[Dict]],
-                         image_size: Dict) -> Optional[Dict]:
-    """Process a single section through LLM. Returns gaozhong-format result or None."""
-    section_name = section['name']
-    item_count = len(section['page_items'])
+# ═══════════════════════════════════════════════════════════════════════
+# v2.5: Page-based batch processing (replaces section-based)
+# ═══════════════════════════════════════════════════════════════════════
 
-    # Skip tiny sections (just a header with no real items)
+BATCH_PAGES = int(os.environ.get('BATCH_PAGES', '3'))
+
+
+def _process_one_batch(batch_start_page: int,
+                       batch_page_items: List[List[Dict]],
+                       image_size: Dict) -> Optional[Dict]:
+    """Process a batch of consecutive pages through LLM."""
+    item_count = sum(len(items) for items in batch_page_items)
+
     if item_count < 2:
-        logger.info(f"Section [{section_name}]: too few items ({item_count}), skipping")
+        logger.info(f"Batch P{batch_start_page+1}: too few items ({item_count}), skipping")
         return None
 
-    logger.info(f"Section [{section_name}]: {item_count} items, page {section['start_page']+1}")
+    batch_end_page = batch_start_page + len(batch_page_items) - 1
+    logger.info(f"Batch P{batch_start_page+1}-P{batch_end_page+1}: "
+                f"{item_count} items, {len(batch_page_items)} pages")
 
-    prompt = _build_section_prompt(section)
-    prompt_len = len(prompt)
+    # Flatten batch items with global page indices
+    flat_items: List[Tuple[int, Dict]] = []
+    for pi_offset, items in enumerate(batch_page_items):
+        page_idx = batch_start_page + pi_offset
+        for item in items:
+            flat_items.append((page_idx, item))
 
-    # Use smaller max_tokens per section (每section最多32题,每题~200 tokens)
-    llm_result = _call_llm(prompt, max_tokens=16384)
+    formatted = _format_section_items(flat_items)
+    prompt = _build_batch_prompt(batch_start_page, batch_page_items, formatted)
+
+    max_tok = int(os.environ.get('LLM_PARSE_TOKENS_BATCH', '24576'))
+    llm_result = _call_llm(prompt, max_tokens=max_tok)
 
     if not llm_result:
-        logger.warning(f"Section [{section_name}]: LLM call failed")
+        logger.warning(f"Batch P{batch_start_page+1}: LLM call failed")
         return None
 
-    # Use the section's items as the reference for bbox computation
-    section_items_only = [item for _, item in section['page_items']]
+    # Use flat items as reference for bbox (indices in LLM output are local)
+    flat_items_only = [item for _, item in flat_items]
     result = _llm_result_to_gaozhong(llm_result, image_size,
-                                      detail_items=section_items_only)
+                                      detail_items=flat_items_only)
 
-    # Inject the correct page offset for this section
-    section_page_offset = section['start_page']
+    if not result or not result.get('questions'):
+        return None
+
+    # Fix pageIndex using actual item locations
     for q in result['questions']:
-        # The LLM might output pageIndex relative to section start
-        # Adjust to absolute page index
-        llm_page = q.get('pageIndex', section_page_offset + 1)
-        if llm_page < section_page_offset + 1:
-            q['pageIndex'] = section_page_offset + 1
+        item_indices = q.get('itemIndices', [])
+        if item_indices:
+            pages = set()
+            for idx in item_indices:
+                if 0 <= idx < len(flat_items):
+                    pi, _ = flat_items[idx]
+                    pages.add(pi + 1)
+            if pages:
+                q['pageIndex'] = min(pages)
 
-    q_count = result['raw_count']
-    logger.info(f"Section [{section_name}]: extracted {q_count} questions")
+        # Clamp: ensure pageIndex is within batch range
+        pi = q.get('pageIndex', batch_start_page + 1)
+        if pi < batch_start_page + 1 or pi > batch_end_page + 1:
+            q['pageIndex'] = batch_start_page + 1
+
+    logger.info(f"  ✓ Batch P{batch_start_page+1}-P{batch_end_page+1}: "
+                f"{len(result['questions'])} questions")
     return result
 
 
-def parse_by_sections(all_detail_items: List[List[Dict]],
-                      image_size: Optional[Dict] = None,
-                      subject: str = "英语") -> Optional[Dict]:
-    """★ Recommended for full exams: split by Section, process each independently.
+def _build_batch_prompt(batch_start_page: int,
+                        batch_page_items: List[List[Dict]],
+                        formatted: str) -> str:
+    """Build LLM prompt for a page-based batch."""
+    batch_end_page = batch_start_page + len(batch_page_items) - 1
+    npages = len(batch_page_items)
+    if npages == 1:
+        page_hint = f"第{batch_start_page+1}页"
+    else:
+        page_hint = f"第{batch_start_page+1}-{batch_end_page+1}页"
 
-    This solves two key problems with full-paper LLM processing:
-    1. 尾部退化: 120+ questions in one JSON → attention decay → copy-paste errors
-       → Per-section: 10-30 questions each → short JSON → no decay
-    2. OCR粘连累积: poor OCR in later sections bleeds into earlier ones
-       → Isolated per section → errors don't propagate
+    return f"""你是上海高中英语教研专家。下面是试卷{page_hint}的OCR识别文字。
 
-    Sections are processed in parallel (up to SECTION_CONCURRENCY at a time).
-    Failed sections are retried once, then skipped (not blocking).
+请提取这部分的所有题目,输出JSON。题号使用试卷原始编号。
+⚠️ ══════ 第 N 页 ══════ 分隔线表示跨页，题号应跨页连续，不要重新编号。
 
-    Returns gaozhong-compatible dict, or None if all sections fail.
+【页码: {page_hint}】
+
+{formatted}
+
+{SECTION_PROMPT_RULES}
+
+【输出格式】
+{{"questions":[
+  {{"questionNumber":1,"pageIndex":{batch_start_page+1},"section":"","questionType":"choice","questionText":"...","options":{{"A":"...","B":"...","C":"...","D":"..."}},"itemIndices":[5,6,7,8],"passageText":"","passageRef":null}}
+]}}"""
+
+
+def parse_by_batches(all_detail_items: List[List[Dict]],
+                     image_size: Optional[Dict] = None,
+                     subject: str = "英语") -> Optional[Dict]:
+    """★ Page-based batch parsing (v2.5, replaces section-based).
+
+    Splits all pages into fixed-size batches (BATCH_PAGES pages each),
+    processes each batch independently through LLM, then merges.
+
+    Advantages over section-based (v2.0):
+    1. No dependency on TextIn outline_level accuracy
+    2. Predictable batch sizes → consistent LLM performance
+    3. Simple page boundaries → no mis-detected sections
+    4. Fewer LLM calls: typically 2-3 batches vs 6-8 sections
     """
     if not DEEPSEEK_API_KEY:
         return None
 
     total_items = sum(len(items) for items in all_detail_items)
-    logger.info(f"Section-based parsing: {len(all_detail_items)} pages, {total_items} total items")
+    total_pages = len(all_detail_items)
+    logger.info(f"Batch-based: {total_pages} pages, {total_items} total items")
 
-    # Step 1: Detect sections
-    sections = _detect_sections(all_detail_items)
-    logger.info(f"Detected {len(sections)} sections: {[s['name'][:40] for s in sections]}")
+    # Split pages into batches
+    batches: List[Tuple[int, List[List[Dict]]]] = []
+    for start_page in range(0, total_pages, BATCH_PAGES):
+        batch_pages = all_detail_items[start_page:start_page + BATCH_PAGES]
+        batches.append((start_page, batch_pages))
 
-    if len(sections) <= 1:
-        # Only one section (or none) — fall back to full-paper processing
-        logger.info("Only 1 section detected, falling back to full-paper processing")
-        return parse_all_pages_llm(all_detail_items, image_size, subject)
+    logger.info(f"Split into {len(batches)} batches (≤{BATCH_PAGES} pages each)")
 
-    # Step 2: Process sections in parallel
-    all_questions = []
     img_size = image_size or {}
-    failed_sections = []
+    all_questions = []
+    failed = []
 
     with ThreadPoolExecutor(max_workers=SECTION_CONCURRENCY) as executor:
         futures = {
-            executor.submit(_process_one_section, section, all_detail_items, img_size): section
-            for section in sections
+            executor.submit(_process_one_batch, start, pages, img_size): (start, pages)
+            for start, pages in batches
         }
 
         for future in as_completed(futures):
-            section = futures[future]
+            start, pages = futures[future]
             try:
                 result = future.result(timeout=LLM_TIMEOUT + 30)
                 if result and result.get('questions'):
                     all_questions.extend(result['questions'])
-                    logger.info(f"  ✓ [{section['name'][:30]}] {result['raw_count']} questions")
                 else:
-                    failed_sections.append(section)
-                    logger.warning(f"  ✗ [{section['name'][:30]}] no questions extracted")
+                    failed.append((start, pages))
+                    batch_end = start + len(pages) - 1
+                    logger.warning(f"  ✗ Batch P{start+1}-P{batch_end+1}: no questions")
             except Exception as e:
-                failed_sections.append(section)
-                logger.error(f"  ✗ [{section['name'][:30]}] exception: {e}")
+                failed.append((start, pages))
+                logger.error(f"  ✗ Batch P{start+1}: exception: {e}")
 
-    # Step 3: Retry failed sections once
-    if failed_sections:
-        logger.info(f"Retrying {len(failed_sections)} failed sections...")
-        for section in failed_sections:
+    # Retry failed batches once
+    if failed:
+        logger.info(f"Retrying {len(failed)} failed batches...")
+        for start, pages in failed:
             try:
-                result = _process_one_section(section, all_detail_items, img_size)
+                result = _process_one_batch(start, pages, img_size)
                 if result and result.get('questions'):
                     all_questions.extend(result['questions'])
-                    logger.info(f"  ✓ retry [{section['name'][:30]}] {result['raw_count']} questions")
                 else:
-                    logger.warning(f"  ✗ retry [{section['name'][:30]}] still failed, skipping")
+                    logger.warning(f"  ✗ retry Batch P{start+1} still failed, skipping")
             except Exception as e:
-                logger.error(f"  ✗ retry [{section['name'][:30]}] exception: {e}")
+                logger.error(f"  ✗ retry Batch P{start+1}: exception: {e}")
 
     if not all_questions:
-        logger.error("All sections failed, falling back to full-paper processing")
+        logger.error("All batches failed, falling back to full-paper processing")
         return parse_all_pages_llm(all_detail_items, image_size, subject)
 
-    # Step 4: Merge and validate
+    # Merge: sort by pageIndex then questionNumber, deduplicate by qNumber
     all_questions.sort(key=lambda q: (q.get('pageIndex', 0), q['questionNumber']))
     _check_section_continuity(all_questions)
 
-    # Deduplicate: same questionNumber + same section → keep first
     seen = set()
     deduped = []
     for q in all_questions:
-        key = (q['questionNumber'], q.get('section', ''))
+        key = q['questionNumber']
         if key not in seen:
             seen.add(key)
             deduped.append(q)
         else:
-            logger.warning(f"Duplicate Q{q['questionNumber']} in section [{q.get('section','')}], dropped")
+            logger.warning(f"Duplicate Q{q['questionNumber']} dropped")
 
-    logger.info(f"Section-based total: {len(deduped)} questions from {len(sections)} sections "
-                f"({len(failed_sections)} sections failed/skipped)")
+    logger.info(f"Batch-based total: {len(deduped)} questions from {len(batches)} batches "
+                f"({len(failed)} batches failed/skipped)")
 
     return {
         'questions': deduped,
         'passages': [],
-        'engine': f'textin-section-llm-{LLM_MODEL}',
+        'engine': f'textin-batch-llm-{LLM_MODEL}',
         'image_size': img_size,
         'raw_count': len(deduped),
     }
+
+
+# Legacy alias: parse_by_sections delegates to batch-based processing
+def parse_by_sections(all_detail_items: List[List[Dict]],
+                      image_size: Optional[Dict] = None,
+                      subject: str = "英语") -> Optional[Dict]:
+    """Legacy entry point — delegates to page-based batch processing."""
+    return parse_by_batches(all_detail_items, image_size, subject)
 
 
 def parse_all_pages_llm(all_detail_items: List[List[Dict]],
