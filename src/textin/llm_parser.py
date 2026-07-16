@@ -134,7 +134,7 @@ def _detect_sections(all_page_items: List[List[Dict]]) -> List[Dict]:
     - Merge tiny sections (< MIN_ITEMS) forward into next section
     - Split oversized sections (> MAX_ITEMS) at sub-section markers
     """
-    MIN_ITEMS = 8   # merge sections smaller than this
+    MIN_ITEMS = 3   # merge sections smaller than this (v4.8: 8→3, 防止小section被吞并)
     MAX_ITEMS = 150 # split sections larger than this
 
     raw_sections = []
@@ -292,10 +292,19 @@ def _format_section_items(page_items: List[Tuple[int, Dict]]) -> str:
         page_items: List of (page_index, item_dict) tuples
 
     Returns:
-        Formatted text with [idx=N] markers, section headers preserved
+        Formatted text with [idx=N] markers, section headers preserved,
+        and explicit ═══ 第 N 页 ═══ page boundary markers.
     """
     lines = []
+    last_page = None
     for local_idx, (pi, item) in enumerate(page_items):
+        # v4.8: Insert page boundary marker when crossing pages
+        if last_page is not None and pi != last_page:
+            lines.append(f'')
+            lines.append(f'══════ 第 {pi+1} 页 ══════')
+            lines.append(f'')
+        last_page = pi
+
         item_type = item.get('type', 'paragraph')
         content_type = item.get('content', 0)
 
@@ -400,12 +409,16 @@ def _build_section_prompt(section: Dict, page_offset: int = 1) -> str:
     formatted = _format_section_items(section['page_items'])
     section_name = section['name']
     start_page = section['start_page'] + page_offset
+    # v4.8: compute end page for multi-page section awareness
+    end_page = max(pi for pi, _ in section['page_items']) + page_offset
+    page_hint = f"第{start_page}页" if start_page == end_page else f"第{start_page}-{end_page}页"
 
-    return f"""你是上海高中英语教研专家。下面是试卷中"{section_name}"部分的OCR识别文字。
+    return f"""你是上海高中英语教研专家。下面是试卷中"{section_name}"部分{page_hint}的OCR识别文字。
 
 请提取这部分的所有题目,输出JSON。题号使用试卷原始编号。
+⚠️ 如果出现了 ══════ 第 N 页 ══════ 分隔线，说明内容跨页，题号应跨页连续，不要重新编号。
 
-【Section: {section_name} | 起始页: {start_page}】
+【Section: {section_name} | 页码: {page_hint}】
 
 {formatted}
 
@@ -421,7 +434,7 @@ def _build_prompt(formatted_text: str, image_size: Dict) -> str:
     """Build LLM prompt for single-page extraction (legacy)."""
     return f"""你是上海高中英语教研专家。下面是试卷一个页面的OCR识别文字。请提取所有题目,输出JSON。
 
-{formatted}
+{formatted_text}
 
 {SECTION_PROMPT_RULES}
 
