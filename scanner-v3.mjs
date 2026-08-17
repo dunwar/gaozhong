@@ -41,6 +41,7 @@ import { join, dirname } from 'path';
 import { tmpdir } from 'os';
 import { fileURLToPath } from 'url';
 import http from 'http';
+import https from 'https';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -178,15 +179,17 @@ async function httpPostJson(hostname, port, path, body, timeout = 300_000) {
 /**
  * 调用智谱 VL 模型（图片+文字多模态）
  */
-async function zhipuVLRequest({ messages, model, max_tokens = 4096, temperature = 0.05 }) {
+async function zhipuVLRequest({ messages, model, max_tokens = 4096, temperature = 0.05, thinking = 'disabled' }) {
   const useModel = model || MODEL_ZHIPU_VL;
-  const body = JSON.stringify({ model: useModel, messages, max_tokens, temperature });
+  // thinking=disabled: 分类/OCR提取不需要推理链，直接出结果更快更省
+  const body = JSON.stringify({ model: useModel, messages, max_tokens, temperature, thinking: { type: thinking } });
   // Use standard (non-coding) endpoint for VL — coding endpoint wraps responses differently
   const vlBaseUrl = (ZHIPU_BASE_URL || '').replace('/api/coding/paas/v4', '/api/paas/v4');
   const url = new URL(vlBaseUrl + '/chat/completions');
 
   return new Promise((resolve, reject) => {
-    const req = http.request({
+    // 外部 API 是 https — 用 http 模块会收到 301 重定向页导致解析失败
+    const req = https.request({
       hostname: url.hostname,
       path: url.pathname,
       method: 'POST',
@@ -759,7 +762,7 @@ async function classifyRedMarksVL(redHighlightedPath, questions, apiKey) {
   return new Promise((resolve, reject) => {
     // Kimi 通道走阿里云 DashScope compatible-mode（KIMI_API_KEY 是 DashScope key，非 moonshot key）
     const url = new URL('https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions');
-    const req = http.request({
+    const req = https.request({
       hostname: url.hostname,
       path: url.pathname,
       method: 'POST',
@@ -890,11 +893,11 @@ function matchCentroidsToQuestions(questions, regions, pageStats, vlClassifiedMa
     if (vlClassifiedMarks && vlClassifiedMarks.length > 0) {
       // Look for VL-classified marks that match this question
       const qMarks = vlClassifiedMarks.filter(m => {
-        // Match by position description heuristics OR by centroid proximity
+        // 按 position 文本中出现的整数题号精确匹配
+        // （includes 子串匹配会让 Q1 偷走 "题号11旁边" 的标记）
         if (m.position) {
-          const pos = m.position.toLowerCase();
-          const qn = String(q.questionNumber);
-          if (pos.includes(qn) || pos.includes(`题号${qn}`) || pos.includes(`第${qn}题`)) {
+          const nums = m.position.match(/\d+/g);
+          if (nums && nums.some(n => parseInt(n, 10) === q.questionNumber)) {
             return true;
           }
         }
@@ -1312,8 +1315,8 @@ export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 
   for (let i = 0; i < pagePaths.length; i++) {
     if (textInResults[i]) {
       const detailCount = textInResults[i].result?.detailCount || 0;
-      if (detailCount > 0 && detailCount < VL_MIN_THRESHOLD) {
-        console.log(`[scanner] Page ${i+1}: TextIn low coverage (${detailCount} items < ${VL_MIN_THRESHOLD}), will VL fallback`);
+      if (detailCount > 0 && detailCount < VL_MIN_THRESHOLD && (textInResults[i].result?.questions || []).length === 0) {
+        console.log(`[scanner] Page ${i+1}: TextIn low coverage (${detailCount} items < ${VL_MIN_THRESHOLD}) and 0 questions, will VL fallback`);
         textInResults[i] = null; // Force VL fallback for this page
       }
     }
