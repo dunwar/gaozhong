@@ -103,6 +103,8 @@ class ConcurrencyGate {
 // ═══════════════════════════════════════
 
 function imgToBase64(filePath) {
+  // /preprocess 返回的 corrected/red_highlighted 已是 data URL，直接透传
+  if (typeof filePath === 'string' && filePath.startsWith('data:')) return filePath;
   const buf = readFileSync(filePath);
   return `data:image/${filePath.endsWith('.png') ? 'png' : 'jpeg'};base64,${buf.toString('base64')}`;
 }
@@ -755,7 +757,8 @@ async function classifyRedMarksVL(redHighlightedPath, questions, apiKey) {
   });
   
   return new Promise((resolve, reject) => {
-    const url = new URL('https://api.moonshot.cn/v1/chat/completions');
+    // Kimi 通道走阿里云 DashScope compatible-mode（KIMI_API_KEY 是 DashScope key，非 moonshot key）
+    const url = new URL('https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions');
     const req = http.request({
       hostname: url.hostname,
       path: url.pathname,
@@ -1254,16 +1257,29 @@ export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 
       console.log(`[scanner] TextIn merged: ${mergedResult.totalQuestions} questions total`);
 
       // Split merged result back to per-page for downstream processing
-      // Assign all questions to pageIndex 0 (will be redistributed by page assignment logic)
-      textInResults[0] = {
-        pageIndex: 0, result: mergedResult, engine: mergedResult.engine || 'textin-llm-merged',
-        attempts: 1, success: true
-      };
-      // Mark other pages as "covered" by the merged result
-      for (let i = 1; i < pagePaths.length; i++) {
+      // v4.8: redistribute questions to their own pages via question.pageIndex
+      // (llm_parser 已用 OCR item 实际位置修正 pageIndex，可信)
+      const byPage = {};
+      for (const q of (mergedResult.questions || [])) {
+        const pi = Math.min(Math.max((q.pageIndex || 1) - 1, 0), pagePaths.length - 1);
+        (byPage[pi] = byPage[pi] || []).push(q);
+      }
+      const hwByPage = {};
+      for (const hw of (mergedResult.handwrittenRegions || [])) {
+        const pi = Math.min(Math.max((hw.pageIndex || 1) - 1, 0), pagePaths.length - 1);
+        (hwByPage[pi] = hwByPage[pi] || []).push(hw);
+      }
+      for (let i = 0; i < pagePaths.length; i++) {
         textInResults[i] = {
-          pageIndex: i, result: { questions: [], imageSize: null },
-          engine: 'textin-merged-cover', attempts: 0, success: true
+          pageIndex: i,
+          result: {
+            questions: byPage[i] || [],
+            passages: mergedResult.passages || [],
+            handwrittenRegions: hwByPage[i] || [],
+            detailCount: mergedResult.detailCount || 0
+          },
+          engine: mergedResult.engine || 'textin-llm-merged',
+          attempts: 1, success: true
         };
       }
     } catch (err) {

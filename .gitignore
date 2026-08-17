@@ -27,3 +27,8 @@ dist-ssr
 api-server.pid
 data/
 __pycache__/
+
+# Eval artifacts — 大体积扫描原始输出（含base64图），只提交 ground truth 和 metrics
+eval/results/**/scan_output.json
+eval/results/*-scan.json
+preprocess-test.log

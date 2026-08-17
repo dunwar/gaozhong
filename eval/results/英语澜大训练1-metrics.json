@@ -1,0 +1,177 @@
+{
+  "paperId": "英语澜大训练1",
+  "subject": "英语",
+  "gtVerified": true,
+  "scannerVersion": "v4.7",
+  "questionDetection": {
+    "total": 29,
+    "detected": 29,
+    "missed": 0,
+    "hallucinated": 0,
+    "recall": 1,
+    "precision": 1,
+    "missedQuestions": [],
+    "hallucinatedQuestions": []
+  },
+  "errorDetection": {
+    "tp": 21,
+    "fp": 5,
+    "fn": 2,
+    "tn": 1,
+    "precision": 0.8076923076923077,
+    "recall": 0.9130434782608695,
+    "f1": 0.8571428571428572,
+    "fpDetails": [
+      6,
+      24,
+      26,
+      65,
+      66
+    ],
+    "fnDetails": [
+      12,
+      22
+    ]
+  },
+  "typeClassification": {
+    "match": 4,
+    "mismatch": 25,
+    "accuracy": 0.13793103448275862,
+    "mismatches": [
+      {
+        "qn": 1,
+        "gt": "reading",
+        "scan": "cloze"
+      },
+      {
+        "qn": 2,
+        "gt": "reading",
+        "scan": "cloze"
+      },
+      {
+        "qn": 3,
+        "gt": "reading",
+        "scan": "cloze"
+      },
+      {
+        "qn": 4,
+        "gt": "reading",
+        "scan": "cloze"
+      },
+      {
+        "qn": 5,
+        "gt": "reading",
+        "scan": "cloze"
+      },
+      {
+        "qn": 6,
+        "gt": "reading",
+        "scan": "cloze"
+      },
+      {
+        "qn": 7,
+        "gt": "reading",
+        "scan": "cloze"
+      },
+      {
+        "qn": 8,
+        "gt": "reading",
+        "scan": "cloze"
+      },
+      {
+        "qn": 9,
+        "gt": "reading",
+        "scan": "cloze"
+      },
+      {
+        "qn": 10,
+        "gt": "reading",
+        "scan": "cloze"
+      },
+      {
+        "qn": 11,
+        "gt": "reading",
+        "scan": "cloze"
+      },
+      {
+        "qn": 12,
+        "gt": "reading",
+        "scan": "cloze"
+      },
+      {
+        "qn": 13,
+        "gt": "reading",
+        "scan": "cloze"
+      },
+      {
+        "qn": 14,
+        "gt": "reading",
+        "scan": "cloze"
+      },
+      {
+        "qn": 15,
+        "gt": "reading",
+        "scan": "cloze"
+      },
+      {
+        "qn": 25,
+        "gt": "cloze",
+        "scan": "grammar_fill"
+      },
+      {
+        "qn": 26,
+        "gt": "cloze",
+        "scan": "grammar_fill"
+      },
+      {
+        "qn": 27,
+        "gt": "cloze",
+        "scan": "grammar_fill"
+      },
+      {
+        "qn": 28,
+        "gt": "cloze",
+        "scan": "grammar_fill"
+      },
+      {
+        "qn": 29,
+        "gt": "cloze",
+        "scan": "grammar_fill"
+      },
+      {
+        "qn": 30,
+        "gt": "cloze",
+        "scan": "grammar_fill"
+      },
+      {
+        "qn": 63,
+        "gt": "reading",
+        "scan": "choice"
+      },
+      {
+        "qn": 64,
+        "gt": "reading",
+        "scan": "choice"
+      },
+      {
+        "qn": 65,
+        "gt": "reading",
+        "scan": "choice"
+      },
+      {
+        "qn": 66,
+        "gt": "reading",
+        "scan": "choice"
+      }
+    ]
+  },
+  "pageAssignment": {
+    "match": 28,
+    "mismatch": 1,
+    "accuracy": 0.9655172413793104
+  },
+  "timing": {
+    "scanTime": "233.3",
+    "pages": 4
+  }
+}

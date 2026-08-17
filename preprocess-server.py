@@ -776,6 +776,7 @@ def textin_ocr_merged():
 
         client = TextInClient(app_id, secret, timeout=60)
         all_detail_items = []
+        merged_hw_regions = []  # v8.4: 手写区域（带 pageIndex，供 Phase 2 交叉验证）
         temp_files = []
 
         # Phase 1: TextIn OCR per page (parallelizable, sequential for now)
@@ -800,6 +801,24 @@ def textin_ocr_merged():
                         detail_items = parse_result.raw_json[key]
                         break
 
+            # 提取手写区域坐标（与 /textin/ocr 相同逻辑，附 pageIndex）
+            for item in detail_items:
+                tags = item.get('tags', [])
+                if 'handwritten' in tags:
+                    pos = item.get('position', [])
+                    if pos and len(pos) >= 8:
+                        xs = [pos[i] for i in range(0, len(pos), 2)]
+                        ys = [pos[i] for i in range(1, len(pos), 2)]
+                        merged_hw_regions.append({
+                            'text': item.get('text', '')[:50],
+                            'bbox': {
+                                'x': int(min(xs)), 'y': int(min(ys)),
+                                'w': int(max(xs) - min(xs)), 'h': int(max(ys) - min(ys))
+                            },
+                            'confidence': item.get('confidence', 0),
+                            'pageIndex': pi + 1
+                        })
+
             all_detail_items.append(detail_items)
             print(f"TextIn OCR-merged P{pi+1}: {len(detail_items)} detail items", flush=True)
 
@@ -811,7 +830,8 @@ def textin_ocr_merged():
             return jsonify({'status': 'error', 'error': '所有页面均无 detail items'}), 500
 
         total_items = sum(len(d) for d in all_detail_items)
-        print(f"TextIn OCR-merged: {len(all_detail_items)} pages, {total_items} total items, starting LLM...", flush=True)
+        print(f"TextIn OCR-merged: {len(all_detail_items)} pages, {total_items} total items, "
+              f"{len(merged_hw_regions)} handwritten regions, starting LLM...", flush=True)
 
         # Phase 2: LLM section-based parsing (★ v2.0)
         # Tries section-aware parsing first, falls back to full-paper, then regex
@@ -835,6 +855,9 @@ def textin_ocr_merged():
                 'image_size': {},
                 'raw_count': len(all_questions),
             }
+
+        result['handwritten_regions'] = merged_hw_regions
+        result['detail_count'] = total_items
 
         return jsonify({
             'status': 'ok',

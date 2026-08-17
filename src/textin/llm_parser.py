@@ -596,6 +596,126 @@ def _parse_section_indices(item_indices_raw: List) -> List[int]:
     return result
 
 
+def _norm_match_text(s: str) -> str:
+    """Normalize text for fuzzy matching (lowercase, alnum only)."""
+    return re.sub(r'[^a-z0-9]', '', (s or '').lower())
+
+
+def _recover_missing_bboxes(questions: List[Dict],
+                            flat_items: List[Tuple[int, Dict]]) -> int:
+    """Deterministically re-locate questions whose bbox is empty.
+
+    LLM 有时不回显 itemIndices（非确定性）→ bbox 全零 → 红笔质心无法匹配。
+    兜底：用题干/选项文本（本就来自 OCR）做归一化子串匹配，从命中的
+    OCR item 位置重建 bbox 和 pageIndex。
+    """
+    recovered = 0
+    # 预归一化所有 item 文本
+    norm_items = []
+    for pi, item in flat_items:
+        nt = _norm_match_text(item.get('text', ''))
+        if nt:
+            norm_items.append((pi, item, nt))
+
+    for q in questions:
+        bbox = q.get('bbox') or {}
+        if bbox.get('w') or bbox.get('h'):
+            continue  # 已有 bbox（LLM 回显了有效索引）
+
+        # 生成候选匹配键：题干（多个长度梯度）+ 首选项
+        keys: List[str] = []
+        qt = _norm_match_text(q.get('questionText', ''))
+        for klen in (24, 16):
+            if len(qt) >= klen:
+                keys.append(qt[:klen])
+        opts = q.get('options') or {}
+        first_opt = ''
+        if isinstance(opts, dict):
+            first_opt = _norm_match_text(str(opts.get('A') or ''))
+        if len(first_opt) >= 4:
+            keys.append(first_opt[:16])
+        if not keys:
+            continue
+
+        xs, ys, pages = [], [], set()
+        for key in keys:
+            for pi, item, nt in norm_items:
+                if key not in nt:
+                    continue
+                pos = item.get('position', [])
+                if not pos or len(pos) < 8:
+                    continue
+                xs.extend(pos[i] for i in range(0, len(pos), 2))
+                ys.extend(pos[i] for i in range(1, len(pos), 2))
+                pages.add(pi)
+            if xs:
+                break  # 梯度命中即止（优先最长键）
+
+        if xs and ys:
+            q['bbox'] = {
+                'x': int(min(xs)), 'y': int(min(ys)),
+                'w': int(max(xs) - min(xs)), 'h': int(max(ys) - min(ys)),
+            }
+            if pages:
+                q['pageIndex'] = min(pages) + 1
+            recovered += 1
+
+    if recovered:
+        logger.info(f"  ↩ bbox recovery: {recovered}/{len(questions)} questions "
+                    f"re-located by text match (LLM omitted itemIndices)")
+    return recovered
+
+
+def _split_shared_bboxes(questions: List[Dict]) -> int:
+    """多个题目共享同一 bbox 时按题号顺序垂直均分；并消除相邻题的包含关系。
+
+    文本匹配恢复的副作用：同一段落里的连续小题（完形/语法填空）会匹配到
+    同一组 OCR 行 → bbox 相同 → 贪心质心分配让第一题吸走全部红笔区域。
+    垂直均分 + 包含收缩让每题有自己的判定区域。
+    """
+    if not questions:
+        return 0
+    adjusted = 0
+
+    # 1) 完全相同的 bbox（同页）→ 垂直均分
+    from collections import defaultdict
+    groups = defaultdict(list)
+    for q in questions:
+        b = q.get('bbox') or {}
+        if b.get('w') and b.get('h'):
+            groups[(q.get('pageIndex', 1), b['x'], b['y'], b['w'], b['h'])].append(q)
+    for (_pi, x, y, w, h), qs in groups.items():
+        if len(qs) < 2:
+            continue
+        qs.sort(key=lambda q: q.get('questionNumber', 0))
+        slice_h = max(int(h / len(qs)), 8)
+        for i, q in enumerate(qs):
+            q['bbox'] = {'x': x, 'y': int(y + i * slice_h), 'w': w, 'h': slice_h}
+        adjusted += len(qs)
+
+    # 2) 前一题 bbox 包含后一题 → 前者底边收缩到后者顶边
+    page_qs = defaultdict(list)
+    for q in questions:
+        b = q.get('bbox') or {}
+        if b.get('w') and b.get('h'):
+            page_qs[q.get('pageIndex', 1)].append(q)
+    for _p, qs in page_qs.items():
+        qs.sort(key=lambda q: q['questionNumber'])
+        for i in range(len(qs) - 1):
+            a, b = qs[i].get('bbox'), qs[i + 1].get('bbox')
+            a_bottom = a['y'] + a['h']
+            if a['y'] <= b['y'] and a_bottom > b['y'] + b['h'] * 0.5:
+                # a 明显包含 b 的上半部 → 收缩 a
+                new_h = max(b['y'] - a['y'], 8)
+                if new_h < a['h']:
+                    a['h'] = new_h
+                    adjusted += 1
+
+    if adjusted:
+        logger.info(f"  ✂ bbox split: adjusted {adjusted} overlapping/shared question boxes")
+    return adjusted
+
+
 def _llm_result_to_gaozhong(llm_result: Dict, image_size: Dict,
                             detail_items: List[Dict] = None,
                             all_page_items: List[List[Dict]] = None) -> Dict:
@@ -697,6 +817,10 @@ def _process_one_batch(batch_start_page: int,
 
     if not result or not result.get('questions'):
         return None
+
+    # v2.6: LLM 未回显 itemIndices 时用文本匹配兜底重建 bbox
+    _recover_missing_bboxes(result['questions'], flat_items)
+    _split_shared_bboxes(result['questions'])
 
     # Fix pageIndex using actual item locations
     for q in result['questions']:
@@ -911,6 +1035,10 @@ def parse_all_pages_llm(all_detail_items: List[List[Dict]],
 
     result = _llm_result_to_gaozhong(llm_result, image_size or {},
                                       all_page_items=all_detail_items)
+    # v2.6: 兜底重建缺失 bbox
+    flat_all = [(pi, item) for pi, items in enumerate(all_detail_items) for item in items]
+    _recover_missing_bboxes(result['questions'], flat_all)
+    _split_shared_bboxes(result['questions'])
     logger.info(f"LLM all-pages: extracted {result['raw_count']} questions total")
     return result
 
