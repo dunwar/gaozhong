@@ -44,6 +44,45 @@ SECTION_CONCURRENCY = int(os.environ.get('SECTION_CONCURRENCY', '4'))
 
 
 # ═══════════════════════════════════════════════════════════════════════
+# v2.9: LLM 多通道自动降级
+#   主通道挂（欠费/限流耗尽/网络）→ 自动切备用通道，解析不再整盘降级 regex
+#   备用通道配置: LLM_FALLBACK_URL/KEY/MODEL 显式指定；
+#   未显式配置但存在 ZHIPU_API_KEY 且主通道非智谱 → 默认智谱文本 flash
+# ═══════════════════════════════════════════════════════════════════════
+def _build_llm_channels():
+    channels = []
+    if DEEPSEEK_API_KEY:
+        channels.append({
+            'name': 'primary',
+            'url': DEEPSEEK_API_URL,
+            'key': DEEPSEEK_API_KEY,
+            'model': LLM_MODEL,
+            'max_out': 32768,
+        })
+    fb_url = os.environ.get('LLM_FALLBACK_URL')
+    fb_key = os.environ.get('LLM_FALLBACK_KEY')
+    if not fb_url and not fb_key:
+        zhipu_key = os.environ.get('ZHIPU_API_KEY', '')
+        if zhipu_key and 'bigmodel' not in DEEPSEEK_API_URL:
+            fb_url = 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+            fb_key = zhipu_key
+    if fb_url and fb_key:
+        channels.append({
+            'name': 'fallback',
+            'url': fb_url,
+            'key': fb_key,
+            'model': os.environ.get('LLM_FALLBACK_MODEL', 'glm-4-flash-250414'),
+            'max_out': int(os.environ.get('LLM_FALLBACK_MAX_TOKENS', '16000')),
+        })
+    return channels
+
+
+_LLM_CHANNELS = _build_llm_channels()
+_LAST_LLM_CHANNEL = ''
+_LAST_LLM_MODEL = ''
+
+
+# ═══════════════════════════════════════════════════════════════════════
 # Layer 0: Section-aware splitting
 # ═══════════════════════════════════════════════════════════════════════
 
@@ -396,7 +435,14 @@ SECTION_PROMPT_RULES = """══════════════════
 📌 输出: 只输出JSON，不要```json```，不要解释
 📌 bbox: 全部设为{"x":0,"y":0,"w":0,"h":0}
 
-☑ 自检: 题号连续? 有粘连行误判? 标题被当题目?"""
+📖 文章提取（阅读理解/完形填空/语篇填空必读）:
+  - 共享文章的题组（一篇短文配多道题）: 把文章原文完整放入该组第一道题的 passageText
+  - passageText 逐字抄写全文，⚠️ 禁止省略、禁止"此处省略N字"、禁止只写开头
+  - 同组后续题 passageText 留空""，passageRef 填同一编号
+  - passageRef 编号: 第一篇文章的题组用0，第二篇用1，依次递增；无共享文章的题填 null
+  - 文章跨页时: 抄本批次（本页）可见的部分，与相邻批次会自动拼接
+
+☑ 自检: 题号连续? 有粘连行误判? 标题被当题目? 有文章的题组 passageText 抄全了吗?"""
 
 
 def _build_section_prompt(section: Dict, page_offset: int = 1) -> str:
@@ -448,38 +494,123 @@ def _build_prompt(formatted_text: str, image_size: Dict) -> str:
 # LLM calling
 # ═══════════════════════════════════════════════════════════════════════
 
-def _call_llm(prompt: str, max_tokens: int = 32768) -> Optional[Dict]:
-    """Call DeepSeek LLM API."""
+def _call_channel(ch: Dict, prompt: str, max_tokens: int) -> Optional[Dict]:
+    """单 LLM 通道调用。
+
+    - 429 限流退避 25s/50s（共3次尝试）
+    - 无代理 opener（Windows 系统代理对大 POST 假性 429/重置）
+    - 智谱端点自动关思考链（不关烧 TPM）
+    - 内容解析失败 → 同通道再给一次机会
+    - 通道级失败（欠费/鉴权/网络耗尽）→ 返回 None 交给上层换通道
+    """
     import urllib.request
     import urllib.error
+    import time as _time
 
-    if not DEEPSEEK_API_KEY:
-        logger.warning("DEEPSEEK_API_KEY not set, LLM parser unavailable")
+    _opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+
+    for content_round in range(2):
+        payload = {
+            'model': ch['model'],
+            'messages': [{'role': 'user', 'content': prompt}],
+            'temperature': 0.05,
+            'max_tokens': min(max_tokens, ch['max_out']),
+        }
+        if 'bigmodel' in ch['url']:
+            payload['thinking'] = {'type': 'disabled'}
+        body = json.dumps(payload).encode('utf-8')
+        req = urllib.request.Request(ch['url'], data=body, headers={
+            'Content-Type': 'application/json',
+            'Authorization': f"Bearer {ch['key']}",
+        })
+
+        for attempt in range(3):
+            try:
+                with _opener.open(req, timeout=LLM_TIMEOUT) as resp:
+                    data = json.loads(resp.read().decode('utf-8'))
+                    content = data['choices'][0]['message']['content']
+                    parsed = _parse_llm_response(content)
+                    if parsed is not None:
+                        return parsed
+                    logger.warning(f"channel '{ch['name']}': content unparseable "
+                                   f"(round {content_round + 1}/2)")
+                    break  # 出退避循环 → 下一 content_round
+            except urllib.error.HTTPError as e:
+                if e.code == 429 and attempt < 2:
+                    wait = 25 * (attempt + 1)
+                    logger.warning(f"channel '{ch['name']}' 429 rate-limited, "
+                                   f"backoff {wait}s (attempt {attempt + 1}/3)")
+                    _time.sleep(wait)
+                    continue
+                logger.error(f"channel '{ch['name']}' API error: {e}")
+                return None
+            except urllib.error.URLError as e:
+                logger.error(f"channel '{ch['name']}' network error: {e}")
+                return None
+            except Exception as e:
+                logger.error(f"channel '{ch['name']}' error: {e}")
+                return None
+    return None
+
+
+def _call_llm(prompt: str, max_tokens: int = 32768) -> Optional[Dict]:
+    """v2.9: 多通道自动降级 — 主通道耗尽自动切备用。"""
+    global _LAST_LLM_CHANNEL, _LAST_LLM_MODEL
+
+    if not _LLM_CHANNELS:
+        logger.warning("No LLM channel configured, parser unavailable")
         return None
 
-    body = json.dumps({
-        'model': LLM_MODEL,
-        'messages': [{'role': 'user', 'content': prompt}],
-        'temperature': 0.05,
-        'max_tokens': max_tokens,
-    }).encode('utf-8')
+    for ch in _LLM_CHANNELS:
+        parsed = _call_channel(ch, prompt, max_tokens)
+        if parsed is not None:
+            _LAST_LLM_CHANNEL = ch['name']
+            _LAST_LLM_MODEL = ch['model']
+            return parsed
+        logger.warning(f"LLM channel '{ch['name']}' exhausted, trying next...")
 
-    req = urllib.request.Request(DEEPSEEK_API_URL, data=body, headers={
-        'Content-Type': 'application/json',
-        'Authorization': f'Bearer {DEEPSEEK_API_KEY}',
-    })
+    _LAST_LLM_CHANNEL = ''
+    _LAST_LLM_MODEL = ''
+    return None
 
-    try:
-        with urllib.request.urlopen(req, timeout=LLM_TIMEOUT) as resp:
-            data = json.loads(resp.read().decode('utf-8'))
-            content = data['choices'][0]['message']['content']
-            return _parse_llm_response(content)
-    except urllib.error.URLError as e:
-        logger.error(f"LLM API error: {e}")
-        return None
-    except Exception as e:
-        logger.error(f"LLM parse error: {e}")
-        return None
+
+def _fix_inner_quotes(s: str) -> str:
+    """v2.8: 修复 JSON 字符串值内未转义的双引号。
+
+    LLM 会把 OCR 原文中的英文直引号原样抄进 JSON（如 called the "2'cADPR"...），
+    导致 json.loads 断裂。启发式：字符串内的 `"` 若后面（跳过空白）不是
+    结构字符 , : } ] 或结尾，判定为内引号 → 转义。
+    """
+    out = []
+    in_str = False
+    i = 0
+    n = len(s)
+    while i < n:
+        c = s[i]
+        if not in_str:
+            if c == '"':
+                in_str = True
+            out.append(c)
+        else:
+            if c == '\\':
+                out.append(c)
+                if i + 1 < n:
+                    out.append(s[i + 1])
+                i += 2
+                continue
+            if c == '"':
+                j = i + 1
+                while j < n and s[j] in ' \t\r\n':
+                    j += 1
+                if j >= n or s[j] in ',:}]':
+                    in_str = False
+                    out.append(c)
+                else:
+                    out.append('\\"')
+            else:
+                out.append(c)
+        i += 1
+    return ''.join(out)
 
 
 def _parse_llm_response(content: str) -> Optional[Dict]:
@@ -496,6 +627,18 @@ def _parse_llm_response(content: str) -> Optional[Dict]:
                 return json.loads(m.group(1) if m.lastindex else m.group(0))
             except json.JSONDecodeError:
                 continue
+
+    # v2.8 tier: 内引号修复（OCR 直引号被抄进字符串值的典型断裂）
+    for candidate in (content.strip(), re.search(r'\{[\s\S]*\}', content).group(0) if re.search(r'\{[\s\S]*\}', content) else ''):
+        if not candidate:
+            continue
+        try:
+            fixed = _fix_inner_quotes(candidate)
+            result = json.loads(fixed)
+            logger.warning("Recovered JSON with inner-quote fix")
+            return result
+        except json.JSONDecodeError:
+            continue
 
     fixed = content.rstrip()
     fixed = re.sub(r':\s*"[^"]*$', ': ""', fixed)
@@ -666,6 +809,69 @@ def _recover_missing_bboxes(questions: List[Dict],
     return recovered
 
 
+def _fix_outlier_question_numbers(questions: List[Dict]) -> List[Dict]:
+    """v2.9 ③: 题号离群校正 — 消灭幻觉题号（如 891）。
+
+    按阅读序（页 + bbox.y）取上下文，而非数值排序（幻觉题号 891 数值排会
+    落到序列末尾，丢失真实邻居 87/90 的信息）。
+
+    保守规则（宁可放过不可改错）:
+    1. 触发: qn > prev + 60   （合法跨档跳号如 30→63 差33、45→66 差21 不触发）
+    2. 候选A: qn 删掉任意一位数字的变体 ∩ (prev, next)，且不与现有题号冲突
+    3. 候选B: A为空 且 窗口缺口≤3 且恰好缺一个号 → 用缺失号填补（如 105 在 10/12 之间 → 11）
+    4. 唯一候选 → 改正；多候选 → 取离 prev+1 最近的并标 uncertain
+    5. 无候选 → 保留原值，标 _qnSuspect（复核层处理）
+    """
+    if not questions:
+        return []
+    corrections = []
+    existing = {q['questionNumber'] for q in questions}
+
+    def _order_key(q):
+        bb = q.get('bbox') or {}
+        return (q.get('pageIndex', 0) or 0, bb.get('y', 0) or 0,
+                bb.get('x', 0) or 0, q['questionNumber'])
+
+    order = sorted(questions, key=_order_key)
+    prev = None
+    for idx, q in enumerate(order):
+        qn = q['questionNumber']
+        if prev is not None and qn > prev + 60:
+            nxt = next((o['questionNumber'] for o in order[idx + 1:]), None)
+            hi = nxt if (nxt is not None and nxt > prev) else prev + 30
+            s = str(qn)
+            cands = set()
+            for i in range(len(s)):
+                v = s[:i] + s[i + 1:]
+                if v and not v.startswith('0'):
+                    cands.add(int(v))
+            cands = sorted(c for c in cands if prev < c < hi and c not in existing)
+            if not cands and hi <= prev + 4:
+                missing = [c for c in range(prev + 1, hi) if c not in existing]
+                if len(missing) == 1:
+                    cands = missing
+            if cands:
+                target = cands[0] if len(cands) == 1 else min(
+                    cands, key=lambda c: abs(c - (prev + 1)))
+                corrections.append({
+                    'from': qn, 'to': target,
+                    'page': q.get('pageIndex'),
+                    'uncertain': len(cands) > 1,
+                })
+                existing.discard(qn)
+                existing.add(target)
+                q['_qnOriginal'] = qn
+                q['_qnCorrected'] = True
+                q['questionNumber'] = target
+                logger.warning(f"Q号校正: {qn} → {target} (page {q.get('pageIndex')})")
+            else:
+                q['_qnSuspect'] = True
+                logger.warning(f"Q号离群且无候选: {qn} (page {q.get('pageIndex')})，已标记待复核")
+        prev = q['questionNumber']
+    questions.sort(key=lambda x: x['questionNumber'])
+    return corrections
+
+
 def _split_shared_bboxes(questions: List[Dict]) -> int:
     """多个题目共享同一 bbox 时按题号顺序垂直均分；并消除相邻题的包含关系。
 
@@ -724,8 +930,12 @@ def _llm_result_to_gaozhong(llm_result: Dict, image_size: Dict,
     gaozhong_questions = []
 
     for q in questions:
-        qn = q.get('questionNumber', 0)
-        if not qn or qn < 1:
+        # v2.8: 题号强转 int（部分模型输出 "25" 字符串，字符串参与 qn<1 比较会 TypeError）
+        try:
+            qn = int(str(q.get('questionNumber', 0)).strip())
+        except (TypeError, ValueError):
+            qn = 0
+        if qn < 1:
             continue
 
         options = q.get('options', {})
@@ -733,7 +943,10 @@ def _llm_result_to_gaozhong(llm_result: Dict, image_size: Dict,
             options = {chr(65+i): v for i, v in enumerate(options)}
 
         item_indices = _parse_section_indices(q.get('itemIndices', []))
-        page_idx = q.get('pageIndex', 0) - 1
+        try:
+            page_idx = int(str(q.get('pageIndex', 0)).strip()) - 1
+        except (TypeError, ValueError):
+            page_idx = 0
 
         if all_page_items and 0 <= page_idx < len(all_page_items):
             page_items = all_page_items[page_idx]
@@ -747,7 +960,7 @@ def _llm_result_to_gaozhong(llm_result: Dict, image_size: Dict,
         gaozhong_questions.append({
             'questionNumber': qn,
             'questionType': q.get('questionType', 'choice'),
-            'questionText': (q.get('questionText', '') or '')[:300],
+            'questionText': q.get('questionText', '') or '',  # 完整存储，截断在展示层
             'options': options,
             'bbox': bbox,
             'pageIndex': page_idx + 1 if all_page_items else (q.get('pageIndex', 1)),
@@ -925,7 +1138,8 @@ def parse_by_batches(all_detail_items: List[List[Dict]],
                 failed.append((start, pages))
                 logger.error(f"  ✗ Batch P{start+1}: exception: {e}")
 
-    # Retry failed batches once
+    # Retry failed batches once (v2.9: 剔除重试成功的批次，failed 只留真失败)
+    still_failed = []
     if failed:
         logger.info(f"Retrying {len(failed)} failed batches...")
         for start, pages in failed:
@@ -934,9 +1148,12 @@ def parse_by_batches(all_detail_items: List[List[Dict]],
                 if result and result.get('questions'):
                     all_questions.extend(result['questions'])
                 else:
+                    still_failed.append((start, pages))
                     logger.warning(f"  ✗ retry Batch P{start+1} still failed, skipping")
             except Exception as e:
+                still_failed.append((start, pages))
                 logger.error(f"  ✗ retry Batch P{start+1}: exception: {e}")
+    failed = still_failed
 
     if not all_questions:
         logger.error("All batches failed, falling back to full-paper processing")
@@ -956,15 +1173,44 @@ def parse_by_batches(all_detail_items: List[List[Dict]],
         else:
             logger.warning(f"Duplicate Q{q['questionNumber']} dropped")
 
+    # v2.9: 题号离群校正（幻觉题号如 891 → 89）
+    qn_corrections = _fix_outlier_question_numbers(deduped)
+
     logger.info(f"Batch-based total: {len(deduped)} questions from {len(batches)} batches "
                 f"({len(failed)} batches failed/skipped)")
 
+    # v2.7: 聚合阅读理解文章 — batch prompt 按题输出 passageText，此处汇总去重成 passages 数组
+    passages = []
+    seen_passages = set()
+    for q in deduped:
+        pt = (q.get('passageText') or '').strip()
+        if len(pt) > 50 and pt not in seen_passages:
+            seen_passages.add(pt)
+            passages.append({'text': pt})
+    if passages:
+        logger.info(f"Passage aggregation: {len(passages)} unique passages extracted")
+
+    # v2.9 ①: 页级解析状态 — 失败批次覆盖的页标 llm_failed（供 scanner 触发 VL 兜底）
+    page_status = ['ok'] * total_pages
+    for start, pages in failed:
+        for i in range(start, min(start + len(pages), total_pages)):
+            page_status[i] = 'llm_failed'
+    if any(s != 'ok' for s in page_status):
+        logger.warning(f"Page status: {page_status}")
+
+    # v2.9 ②: engine 暴露实际使用的通道（评测/日志可辨识降级）
+    engine = f'textin-batch-llm-{LLM_MODEL}'
+    if _LAST_LLM_CHANNEL == 'fallback':
+        engine += f'+fb:{_LAST_LLM_MODEL}'
+
     return {
         'questions': deduped,
-        'passages': [],
-        'engine': f'textin-batch-llm-{LLM_MODEL}',
+        'passages': passages,
+        'engine': engine,
         'image_size': img_size,
         'raw_count': len(deduped),
+        'page_status': page_status,
+        'qn_corrections': qn_corrections,
     }
 
 
@@ -980,7 +1226,7 @@ def parse_all_pages_llm(all_detail_items: List[List[Dict]],
                         image_size: Optional[Dict] = None,
                         subject: str = "英语") -> Optional[Dict]:
     """Parse ALL pages at once (legacy full-paper approach, kept as fallback)."""
-    if not DEEPSEEK_API_KEY:
+    if not _LLM_CHANNELS:
         return None
 
     total_items = sum(len(items) for items in all_detail_items)
@@ -1005,30 +1251,8 @@ def parse_all_pages_llm(all_detail_items: List[List[Dict]],
   {{"questionNumber":1,"pageIndex":1,"section":"Listening","questionType":"listening","questionText":"(听力题)","options":{{"A":"...","B":"...","C":"...","D":"..."}},"itemIndices":[5,6,7,8],"passageText":"","passageRef":null,"bbox":{{"x":0,"y":0,"w":0,"h":0}}}}
 ]}}"""
 
-    import urllib.request
-    import urllib.error
-
-    body = json.dumps({
-        'model': LLM_MODEL,
-        'messages': [{'role': 'user', 'content': prompt}],
-        'temperature': 0.05,
-        'max_tokens': 65536,
-    }).encode('utf-8')
-
-    req = urllib.request.Request(DEEPSEEK_API_URL, data=body, headers={
-        'Content-Type': 'application/json',
-        'Authorization': f'Bearer {DEEPSEEK_API_KEY}',
-    })
-
-    timeout = int(os.environ.get('LLM_PARSE_TIMEOUT_BIG', '480'))
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            data = json.loads(resp.read().decode('utf-8'))
-            content = data['choices'][0]['message']['content']
-            llm_result = _parse_llm_response(content)
-    except Exception as e:
-        logger.error(f"LLM all-pages error: {e}")
-        return None
+    # v2.9: 复用 _call_llm（多通道降级 + 429退避 + 无代理 + 思考链开关）
+    llm_result = _call_llm(prompt, max_tokens=65536)
 
     if not llm_result:
         return None
@@ -1039,6 +1263,10 @@ def parse_all_pages_llm(all_detail_items: List[List[Dict]],
     flat_all = [(pi, item) for pi, items in enumerate(all_detail_items) for item in items]
     _recover_missing_bboxes(result['questions'], flat_all)
     _split_shared_bboxes(result['questions'])
+    # v2.9: 题号校正 + 页状态（全卷一次解析成功 → 全部 ok）
+    qn_corrections = _fix_outlier_question_numbers(result['questions'])
+    result['page_status'] = ['ok'] * len(all_detail_items)
+    result['qn_corrections'] = qn_corrections
     logger.info(f"LLM all-pages: extracted {result['raw_count']} questions total")
     return result
 

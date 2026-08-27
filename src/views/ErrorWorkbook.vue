@@ -102,7 +102,7 @@
                 <div class="flex items-start gap-3">
                   <span class="text-xs font-bold text-gray-400 min-w-[40px] pt-1">Q{{ err.questionNumber ?? (err.topic?.match(/(\d+)/)?.[1] ?? '?') }}</span>
                   <div class="flex-1 min-w-0">
-                    <p class="text-sm text-gray-800">{{ err.questionText || err.topic || '' }}</p>
+                    <p class="text-sm text-gray-800 line-clamp-2">{{ err.questionText || err.topic || '' }}</p>
                     <div class="flex gap-2 mt-1 flex-wrap text-xs">
                       <span class="bg-red-100 text-red-700 px-1.5 rounded">{{ err.wrongAnswer || err.studentAnswer }} → {{ err.correctAnswer || err.correct_answer }}</span>
                       <span v-if="err.errorType || err.error_type" class="bg-gray-100 text-gray-600 px-1.5 rounded">{{ err.errorType || err.error_type }}</span>
@@ -144,7 +144,7 @@
                 <div class="flex items-start gap-3">
                   <span class="text-xs font-bold text-gray-400 min-w-[40px] pt-1">Q{{ err.questionNumber ?? (err.topic?.match(/(\d+)/)?.[1] ?? '?') }}</span>
                   <div class="flex-1 min-w-0">
-                    <p class="text-sm text-gray-800">{{ err.questionText || err.topic || '' }}</p>
+                    <p class="text-sm text-gray-800 line-clamp-2">{{ err.questionText || err.topic || '' }}</p>
                     <div class="flex gap-2 mt-1 flex-wrap text-xs">
                       <span class="bg-red-100 text-red-700 px-1.5 rounded">{{ err.wrongAnswer || err.studentAnswer }} → {{ err.correctAnswer || err.correct_answer }}</span>
                       <span v-if="err.errorType || err.error_type" class="bg-gray-100 text-gray-600 px-1.5 rounded">{{ err.errorType || err.error_type }}</span>
@@ -167,7 +167,7 @@
             <div class="flex items-start gap-3">
               <span class="text-xs font-bold text-gray-400 min-w-[40px] pt-1">Q{{ err.questionNumber ?? (err.topic?.match(/(\d+)/)?.[1] ?? '?') }}</span>
               <div class="flex-1 min-w-0">
-                <p class="text-sm text-gray-800">{{ err.questionText || err.topic || '题目内容' }}</p>
+                <p class="text-sm text-gray-800 line-clamp-2">{{ err.questionText || err.topic || '题目内容' }}</p>
                 <div class="flex gap-2 mt-1 flex-wrap text-xs">
                   <span class="bg-red-100 text-red-700 px-1.5 rounded">{{ err.studentAnswer || err.wrong_answer }} → {{ err.correctAnswer || err.correct_answer }}</span>
                   <span v-if="err.errorType || err.error_type" class="bg-gray-100 text-gray-600 px-1.5 rounded">{{ err.errorType || err.error_type }}</span>
@@ -212,8 +212,9 @@
             </div>
           </div>
         </div>
-        <div class="mt-4 pt-4 border-t">
-          <router-link :to="`/paper/${selectedError.sessionId || selectedError.session_id}/errors`" class="text-blue-600 hover:text-blue-700 text-sm font-medium">查看整卷错题 →</router-link>
+        <div class="mt-4 pt-4 border-t flex gap-4">
+          <router-link v-if="selectedError.id" :to="`/error/${selectedError.id}`" class="text-blue-600 hover:text-blue-700 text-sm font-medium">查看错题详情（原图/解析） →</router-link>
+          <router-link :to="`/paper/${selectedError.sessionId || selectedError.session_id}/errors`" class="text-gray-500 hover:text-blue-700 text-sm font-medium">整卷错题 →</router-link>
         </div>
       </div>
     </div>

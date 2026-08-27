@@ -184,6 +184,10 @@
       <div v-if="justSubmittedTask.status === 'queued' || justSubmittedTask.status === 'processing'" class="p-4 bg-blue-50 rounded-xl border border-blue-100">
         <p class="font-medium text-blue-800 text-sm mb-1">{{ justSubmittedTask.status === 'queued' ? '⏳ 已加入队列' : '🤖 AI 分析中…' }}</p>
         <p class="text-blue-600 text-xs">{{ justSubmittedTask.progress || '' }}</p>
+        <p v-if="justSubmittedTask.status === 'queued' && justSubmittedTask.queuePosition > 0" class="text-blue-500 text-xs mt-1">
+          第 {{ justSubmittedTask.queuePosition }} 位
+          <span v-if="justSubmittedTask.etaSeconds > 0">· 预计还需 {{ formatEta(justSubmittedTask.etaSeconds) }}</span>
+        </p>
       </div>
       <div v-if="justSubmittedTask.status === 'done'" class="p-4 bg-green-50 rounded-xl border border-green-100">
         <p class="font-medium text-green-800 text-sm mb-2">✅ 分析完成 — {{ justSubmittedTask.totalErrors }} 道疑似错题</p>
@@ -197,7 +201,12 @@
         </div>
       </div>
       <div v-if="justSubmittedTask.status === 'failed'" class="p-4 bg-red-50 rounded-xl border border-red-100">
-        <p class="text-red-700 text-sm">❌ 分析失败，请重试</p>
+        <p class="text-red-700 text-sm mb-1">❌ 分析失败{{ justSubmittedTask.error ? `：${justSubmittedTask.error}` : '' }}</p>
+        <button
+          @click="retryTask(justSubmittedTask.taskId)"
+          :disabled="justSubmittedTask.retrying"
+          class="mt-1 px-4 py-2 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600 disabled:opacity-50 transition-colors"
+        >{{ justSubmittedTask.retrying ? '重试中…' : '🔄 重试（不消耗上传额度）' }}</button>
       </div>
     </div>
 
@@ -405,12 +414,37 @@ async function pollSingleTask(taskId) {
       if (!justSubmittedTask.value || justSubmittedTask.value.taskId !== taskId) return
       justSubmittedTask.value.status = data.status
       if (data.progress?.message) justSubmittedTask.value.progress = data.progress.message
+      if (data.queuePosition) justSubmittedTask.value.queuePosition = data.queuePosition
+      if (data.etaSeconds) justSubmittedTask.value.etaSeconds = data.etaSeconds
       if (data.status === 'done') {
         justSubmittedTask.value.totalErrors = data.result?.totalErrors || 0
         return
       }
-      if (data.status === 'failed') return
+      if (data.status === 'failed') {
+        justSubmittedTask.value.error = data.error || ''
+        return
+      }
     } catch { break }
+  }
+}
+
+// P0-2: 失败重试 — 复用服务端已持久化的原图，不重复消耗上传额度
+async function retryTask(taskId) {
+  if (!justSubmittedTask.value || justSubmittedTask.value.retrying) return
+  justSubmittedTask.value.retrying = true
+  justSubmittedTask.value.error = ''
+  try {
+    const res = await authFetch(`/api/paper/${taskId}/retry`, { method: 'POST' })
+    const data = await res.json()
+    if (!data.success) throw new Error(data.error || '重试失败')
+    justSubmittedTask.value.status = 'queued'
+    justSubmittedTask.value.progress = '重试已加入队列…'
+    justSubmittedTask.value.queuePosition = data.queuePosition || 0
+    pollSingleTask(taskId)
+  } catch (e) {
+    justSubmittedTask.value.error = e.message
+  } finally {
+    justSubmittedTask.value.retrying = false
   }
 }
 </script>

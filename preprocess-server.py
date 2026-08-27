@@ -854,14 +854,149 @@ def textin_ocr_merged():
                 'engine': 'textin-regex-fallback',
                 'image_size': {},
                 'raw_count': len(all_questions),
+                'page_status': ['regex'] * len(all_detail_items),  # v2.9 ①: 全 regex 页
             }
 
         result['handwritten_regions'] = merged_hw_regions
         result['detail_count'] = total_items
+        # v2.9 ①: 页级状态与每页 item 数（llm_parser 已带 page_status，兜底补 ok）
+        result.setdefault('page_status', ['ok'] * len(all_detail_items))
+        result['page_item_counts'] = [len(d) for d in all_detail_items]
 
         return jsonify({
             'status': 'ok',
             'result': result
+        })
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'status': 'error', 'error': str(e)}), 500
+
+
+# ═══════════════════════════════════════════════════════════════════
+# v5.0 识别主力: TextIn v3 智能抽取 + 本地五层完善（exam_pipeline）
+# 离线验收: 高一下 94/95 (98.9%) / 澜大 29/29，零幻觉
+# ═══════════════════════════════════════════════════════════════════
+@app.route('/exam/extract', methods=['POST'])
+def exam_extract():
+    """整卷识别主力端点（替代 LLM 解析）。
+
+    输入: {"images": ["base64..."], "options": {"subject": "英语"}}
+    流程: 每页 v3 entity_extraction(dewarp) + xParse OCR(detail items, L2/L3用)
+          → run_refinement (L1题号修复/L2缺失恢复/L3学生答案/L4bbox/L5校验)
+    输出: 与 /textin/ocr-merged 同形状（questions/handwritten_regions/page_status...）
+    """
+    try:
+        from src.textin.client import TextInClient
+        from src.textin import exam_pipeline as ep
+        import base64 as _b64
+        import tempfile
+
+        app_id, secret = _get_textin_credentials()
+        if not app_id or not secret:
+            return jsonify({'status': 'error', 'error': 'TextIn 未配置'}), 503
+
+        data = request.get_json(force=True)
+        images_b64 = data.get('images') or []
+        if not isinstance(images_b64, list) or len(images_b64) == 0:
+            return jsonify({'status': 'error', 'error': '缺少images数组'}), 400
+
+        client = TextInClient(app_id, secret, timeout=180)
+        questions = []
+        ocr_items_by_page = {}
+        hw_regions = []
+        page_status = []
+        page_item_counts = []
+        temp_files = []
+
+        for pi, img_b64 in enumerate(images_b64):
+            raw = img_b64.split(',')[-1] if ',' in img_b64 else img_b64
+
+            # 1) xParse OCR（先做 — L2/L3 需要 detail items，v3 重试策略也用它做预期）
+            try:
+                with tempfile.NamedTemporaryFile(suffix='.jpg', delete=False) as tmp:
+                    tmp.write(_b64.b64decode(raw))
+                    temp_files.append(tmp.name)
+                parse_result = client.parse_document(tmp.name)
+                items = parse_result.raw_json.get('detail', []) if parse_result.success else []
+            except Exception as ocr_err:
+                print(f"Exam P{pi+1}: OCR error {ocr_err}", flush=True)
+                items = []
+            ocr_items_by_page[pi + 1] = items
+            page_item_counts.append(len(items))
+            # handwritten regions（与 ocr-merged 相同形状）
+            for it in items:
+                if 'handwritten' in (it.get('tags') or []):
+                    pos = it.get('position') or []
+                    if len(pos) >= 8:
+                        xs = [pos[k] for k in range(0, len(pos), 2)]
+                        ys = [pos[k] for k in range(1, len(pos), 2)]
+                        hw_regions.append({
+                            'text': (it.get('text') or '')[:50],
+                            'bbox': {'x': int(min(xs)), 'y': int(min(ys)),
+                                     'w': int(max(xs) - min(xs)), 'h': int(max(ys) - min(ys))},
+                            'pageIndex': pi + 1
+                        })
+
+            # 2) v3 智能抽取（dewarp=1）+ 页级重试（v3 有运行方差，题数远低于
+            #    OCR item 预期时重试一次取优 — 实验记录 P3 单轮 5题 vs 23题）
+            v3 = ep.call_v3_extract(raw, app_id, secret, timeout=180)
+            page_qs = ep.parse_v3_page(v3, pi + 1) if v3 else []
+            expect_min = max(4, len(items) // 8)
+            if 0 < len(page_qs) < expect_min:
+                print(f"Exam P{pi+1}: v3 低产出 {len(page_qs)} < 预期 {expect_min}，重试...", flush=True)
+                v3b = ep.call_v3_extract(raw, app_id, secret, timeout=180)
+                if v3b:
+                    page_qs2 = ep.parse_v3_page(v3b, pi + 1)
+                    if len(page_qs2) > len(page_qs):
+                        page_qs = page_qs2
+            if page_qs:
+                questions.extend(page_qs)
+                page_status.append('ok')
+                print(f"Exam P{pi+1}: v3 extract {len(page_qs)} questions", flush=True)
+            else:
+                page_status.append('v3_failed')
+                print(f"Exam P{pi+1}: v3 extract FAILED", flush=True)
+
+        for tf in temp_files:
+            Path(tf).unlink(missing_ok=True)
+
+        # 3) 五层完善
+        stats = ep.run_refinement(questions, ocr_items_by_page)
+        print(f"Exam refinement: qnFixes={stats['qnFixes']} recovered={stats['recovered']} "
+              f"answers={stats['answersAttached']} bboxes={stats['bboxesBuilt']}/{len(questions)}", flush=True)
+
+        # 4) 转输出形状（去内部字段）
+        out_qs = []
+        for q in questions:
+            out_qs.append({
+                'questionNumber': q['questionNumber'],
+                'questionType': q.get('questionType', 'choice'),
+                'questionText': q.get('questionText', ''),
+                'options': q.get('options', {}),
+                'passageText': q.get('passageText', ''),
+                'studentAnswer': q.get('studentAnswer', ''),
+                'bbox': q.get('bbox') or q.get('qnBbox') or {'x': 0, 'y': 0, 'w': 0, 'h': 0},
+                'pageIndex': q.get('pageIndex', 1),
+                'confidence': q.get('confidence', 'high'),
+                '_qnCorrected': bool(q.get('_qnCorrected')),
+                '_source': q.get('_source', 'textin-v3'),
+            })
+
+        return jsonify({
+            'status': 'ok',
+            'result': {
+                'questions': out_qs,
+                'passages': [],
+                'engine': 'textin-v3-exam+refine-v5',
+                'image_size': {},
+                'raw_count': len(out_qs),
+                'handwritten_regions': hw_regions,
+                'detail_count': sum(page_item_counts),
+                'page_status': page_status,
+                'page_item_counts': page_item_counts,
+                'qn_corrections': stats['qnFixes'],
+            }
         })
 
     except Exception as e:

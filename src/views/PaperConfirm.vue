@@ -9,6 +9,15 @@
       <router-link :to="`/review/${sessionId}`" class="text-sm text-gray-400 hover:text-gray-600">跳过确认 →</router-link>
     </div>
 
+    <!-- v5.0 ①: 低质页提示 — LLM失败/备用引擎识别的页，请用户重点复核 -->
+    <div v-if="lowQualityPages.length > 0" class="mb-6 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-start gap-3">
+      <span class="text-xl leading-none mt-0.5">⚠️</span>
+      <div class="text-sm text-amber-800">
+        <p class="font-medium mb-0.5">第 {{ lowQualityPages.join('、') }} 页识别质量较低（已用备用引擎识别）</p>
+        <p class="text-amber-700 text-xs">这些页的题目和判错可能不完整，建议结合<router-link :to="`/review/${sessionId}`" class="underline font-medium">原图复核</router-link>，漏掉的错题可在复核页手动添加。</p>
+      </div>
+    </div>
+
     <!-- Stats bar -->
     <div class="grid grid-cols-3 gap-3 mb-6">
       <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-3 text-center">
@@ -147,6 +156,7 @@ const addedQuestions = ref([])
 const loading = ref(true)
 const submitting = ref(false)
 const addQnum = ref('')
+const lowQualityPages = ref([])  // v5.0 ①: 低质页提示
 
 const wrongCount = computed(() => questions.value.filter(q => q.isError).length)
 const confirmedCount = computed(() => questions.value.filter(q => q.confirmed).length + addedQuestions.value.length)
@@ -162,6 +172,9 @@ onMounted(async () => {
         confirmed: false,
         removed: false
       }))
+    }
+    if (Array.isArray(data.lowQualityPages)) {
+      lowQualityPages.value = data.lowQualityPages
     }
   } catch (e) {
     console.error('Failed to load confirmation data:', e)

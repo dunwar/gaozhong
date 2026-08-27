@@ -55,6 +55,22 @@
           </div>
         </div>
 
+        <!-- 题目原图裁剪（bbox 定位，阶段1d） -->
+        <div v-if="cropImageUrl && !cropFailed" class="px-6 py-4 border-b border-gray-50 bg-gray-50/50">
+          <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">📸 题目原图</h3>
+          <div class="flex justify-center">
+            <img :src="cropImageUrl" @error="cropFailed = true" class="max-w-full max-h-96 rounded-lg border border-gray-200 shadow-sm" alt="题目原图" />
+          </div>
+        </div>
+
+        <!-- 阅读理解原文（阶段1a） -->
+        <div v-if="record.passageText" class="px-6 py-4 border-b border-gray-50">
+          <details>
+            <summary class="text-xs font-semibold text-gray-400 uppercase tracking-wide cursor-pointer select-none mb-3">📖 阅读原文（点击展开/收起）</summary>
+            <p class="text-gray-700 text-sm leading-relaxed whitespace-pre-wrap bg-gray-50 rounded-lg p-4 max-h-72 overflow-y-auto">{{ record.passageText }}</p>
+          </details>
+        </div>
+
         <!-- 区域截图 -->
         <div v-if="regionImageUrl" class="px-6 py-4 border-b border-gray-50 bg-gray-50/50">
           <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">📸 批改区域</h3>
@@ -151,6 +167,20 @@ const options = computed(() => {
 
 const regionImageUrl = computed(() => {
   return record.value?.notes?.startsWith('/api/') ? record.value.notes : null
+})
+
+// 阶段1d: 题目裁剪图 URL（pageIndex 优先取 aiRaw，兜底 paperIndex）
+const cropFailed = ref(false)
+const cropImageUrl = computed(() => {
+  const r = record.value
+  if (!r?.sessionId || !r.questionNumber) return null
+  let pageNum = r.paperIndex || 0
+  try {
+    const raw = r.aiRaw ? JSON.parse(r.aiRaw) : null
+    if (raw?.pageIndex) pageNum = raw.pageIndex
+  } catch {}
+  if (!pageNum) return null
+  return `/api/paper/${r.sessionId}/region/p${pageNum}_q${r.questionNumber}.jpg`
 })
 
 const knowledgeExpls = computed(() => {

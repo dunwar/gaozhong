@@ -1,0 +1,581 @@
+{
+ "_comment": "人工核验 ground truth — 来源: 错题/英语试卷高一下/题目及错题.txt（家长逐页核对, 2026-08-16）。第6页原文'88-81'为笔误，按 88-91 处理。听力题1-20是否全部为题未逐题核对，按txt口径无错题。",
+ "paperId": "英语试卷高一下",
+ "subject": "英语",
+ "pages": 6,
+ "verified": true,
+ "source": "E:\\zdh\\公众号运营\\公众号助手\\gaozhong\\错题\\英语试卷高一下\\题目及错题.txt (2026-08-16, 家长人工核对)",
+ "scanDate": "2026-08-25",
+ "questions": [
+  {
+   "questionNumber": 1,
+   "pageIndex": 1,
+   "questionType": "listening",
+   "isError": false
+  },
+  {
+   "questionNumber": 2,
+   "pageIndex": 1,
+   "questionType": "listening",
+   "isError": false
+  },
+  {
+   "questionNumber": 3,
+   "pageIndex": 1,
+   "questionType": "listening",
+   "isError": false
+  },
+  {
+   "questionNumber": 4,
+   "pageIndex": 1,
+   "questionType": "listening",
+   "isError": false
+  },
+  {
+   "questionNumber": 5,
+   "pageIndex": 1,
+   "questionType": "listening",
+   "isError": false
+  },
+  {
+   "questionNumber": 6,
+   "pageIndex": 1,
+   "questionType": "listening",
+   "isError": false
+  },
+  {
+   "questionNumber": 7,
+   "pageIndex": 1,
+   "questionType": "listening",
+   "isError": false
+  },
+  {
+   "questionNumber": 8,
+   "pageIndex": 1,
+   "questionType": "listening",
+   "isError": false
+  },
+  {
+   "questionNumber": 9,
+   "pageIndex": 1,
+   "questionType": "listening",
+   "isError": false
+  },
+  {
+   "questionNumber": 10,
+   "pageIndex": 1,
+   "questionType": "listening",
+   "isError": false
+  },
+  {
+   "questionNumber": 11,
+   "pageIndex": 1,
+   "questionType": "listening",
+   "isError": false
+  },
+  {
+   "questionNumber": 12,
+   "pageIndex": 1,
+   "questionType": "listening",
+   "isError": false
+  },
+  {
+   "questionNumber": 13,
+   "pageIndex": 1,
+   "questionType": "listening",
+   "isError": false
+  },
+  {
+   "questionNumber": 14,
+   "pageIndex": 1,
+   "questionType": "listening",
+   "isError": false
+  },
+  {
+   "questionNumber": 15,
+   "pageIndex": 1,
+   "questionType": "listening",
+   "isError": false
+  },
+  {
+   "questionNumber": 16,
+   "pageIndex": 1,
+   "questionType": "listening",
+   "isError": false
+  },
+  {
+   "questionNumber": 17,
+   "pageIndex": 1,
+   "questionType": "listening",
+   "isError": false
+  },
+  {
+   "questionNumber": 18,
+   "pageIndex": 1,
+   "questionType": "listening",
+   "isError": false
+  },
+  {
+   "questionNumber": 19,
+   "pageIndex": 1,
+   "questionType": "listening",
+   "isError": false
+  },
+  {
+   "questionNumber": 20,
+   "pageIndex": 1,
+   "questionType": "listening",
+   "isError": false
+  },
+  {
+   "questionNumber": 21,
+   "pageIndex": 1,
+   "questionType": "choice",
+   "isError": false
+  },
+  {
+   "questionNumber": 22,
+   "pageIndex": 2,
+   "questionType": "choice",
+   "isError": false
+  },
+  {
+   "questionNumber": 23,
+   "pageIndex": 2,
+   "questionType": "choice",
+   "isError": false
+  },
+  {
+   "questionNumber": 24,
+   "pageIndex": 2,
+   "questionType": "choice",
+   "isError": false
+  },
+  {
+   "questionNumber": 25,
+   "pageIndex": 2,
+   "questionType": "choice",
+   "isError": true
+  },
+  {
+   "questionNumber": 26,
+   "pageIndex": 2,
+   "questionType": "choice",
+   "isError": false
+  },
+  {
+   "questionNumber": 27,
+   "pageIndex": 2,
+   "questionType": "choice",
+   "isError": false
+  },
+  {
+   "questionNumber": 28,
+   "pageIndex": 2,
+   "questionType": "choice",
+   "isError": false
+  },
+  {
+   "questionNumber": 29,
+   "pageIndex": 2,
+   "questionType": "choice",
+   "isError": false
+  },
+  {
+   "questionNumber": 30,
+   "pageIndex": 2,
+   "questionType": "choice",
+   "isError": false
+  },
+  {
+   "questionNumber": 31,
+   "pageIndex": 2,
+   "questionType": "choice",
+   "isError": true
+  },
+  {
+   "questionNumber": 32,
+   "pageIndex": 2,
+   "questionType": "choice",
+   "isError": false
+  },
+  {
+   "questionNumber": 33,
+   "pageIndex": 2,
+   "questionType": "choice",
+   "isError": false
+  },
+  {
+   "questionNumber": 34,
+   "pageIndex": 2,
+   "questionType": "choice",
+   "isError": false
+  },
+  {
+   "questionNumber": 35,
+   "pageIndex": 2,
+   "questionType": "choice",
+   "isError": true
+  },
+  {
+   "questionNumber": 36,
+   "pageIndex": 2,
+   "questionType": "choice",
+   "isError": false
+  },
+  {
+   "questionNumber": 37,
+   "pageIndex": 2,
+   "questionType": "choice",
+   "isError": true
+  },
+  {
+   "questionNumber": 38,
+   "pageIndex": 2,
+   "questionType": "choice",
+   "isError": false
+  },
+  {
+   "questionNumber": 39,
+   "pageIndex": 2,
+   "questionType": "choice",
+   "isError": false
+  },
+  {
+   "questionNumber": 40,
+   "pageIndex": 2,
+   "questionType": "choice",
+   "isError": false
+  },
+  {
+   "questionNumber": 41,
+   "pageIndex": 2,
+   "questionType": "choice",
+   "isError": false
+  },
+  {
+   "questionNumber": 42,
+   "pageIndex": 2,
+   "questionType": "choice",
+   "isError": false
+  },
+  {
+   "questionNumber": 43,
+   "pageIndex": 3,
+   "questionType": "choice",
+   "isError": false
+  },
+  {
+   "questionNumber": 44,
+   "pageIndex": 3,
+   "questionType": "choice",
+   "isError": false
+  },
+  {
+   "questionNumber": 45,
+   "pageIndex": 3,
+   "questionType": "choice",
+   "isError": false
+  },
+  {
+   "questionNumber": 46,
+   "pageIndex": 3,
+   "questionType": "word_fill",
+   "isError": false
+  },
+  {
+   "questionNumber": 47,
+   "pageIndex": 3,
+   "questionType": "word_fill",
+   "isError": false
+  },
+  {
+   "questionNumber": 48,
+   "pageIndex": 3,
+   "questionType": "word_fill",
+   "isError": false
+  },
+  {
+   "questionNumber": 49,
+   "pageIndex": 3,
+   "questionType": "word_fill",
+   "isError": false
+  },
+  {
+   "questionNumber": 50,
+   "pageIndex": 3,
+   "questionType": "word_fill",
+   "isError": false
+  },
+  {
+   "questionNumber": 51,
+   "pageIndex": 3,
+   "questionType": "word_fill",
+   "isError": false
+  },
+  {
+   "questionNumber": 52,
+   "pageIndex": 3,
+   "questionType": "word_fill",
+   "isError": false
+  },
+  {
+   "questionNumber": 53,
+   "pageIndex": 3,
+   "questionType": "word_fill",
+   "isError": false
+  },
+  {
+   "questionNumber": 54,
+   "pageIndex": 3,
+   "questionType": "word_fill",
+   "isError": false
+  },
+  {
+   "questionNumber": 55,
+   "pageIndex": 3,
+   "questionType": "word_fill",
+   "isError": false
+  },
+  {
+   "questionNumber": 56,
+   "pageIndex": 3,
+   "questionType": "word_fill",
+   "isError": true
+  },
+  {
+   "questionNumber": 57,
+   "pageIndex": 3,
+   "questionType": "word_fill",
+   "isError": true
+  },
+  {
+   "questionNumber": 58,
+   "pageIndex": 3,
+   "questionType": "word_fill",
+   "isError": false
+  },
+  {
+   "questionNumber": 59,
+   "pageIndex": 3,
+   "questionType": "word_fill",
+   "isError": true
+  },
+  {
+   "questionNumber": 60,
+   "pageIndex": 3,
+   "questionType": "word_fill",
+   "isError": false
+  },
+  {
+   "questionNumber": 61,
+   "pageIndex": 3,
+   "questionType": "word_fill",
+   "isError": false
+  },
+  {
+   "questionNumber": 62,
+   "pageIndex": 3,
+   "questionType": "word_fill",
+   "isError": false
+  },
+  {
+   "questionNumber": 63,
+   "pageIndex": 3,
+   "questionType": "word_fill",
+   "isError": false
+  },
+  {
+   "questionNumber": 64,
+   "pageIndex": 3,
+   "questionType": "word_fill",
+   "isError": false
+  },
+  {
+   "questionNumber": 65,
+   "pageIndex": 3,
+   "questionType": "word_fill",
+   "isError": false
+  },
+  {
+   "questionNumber": 66,
+   "pageIndex": 4,
+   "questionType": "reading",
+   "isError": false
+  },
+  {
+   "questionNumber": 67,
+   "pageIndex": 4,
+   "questionType": "reading",
+   "isError": false
+  },
+  {
+   "questionNumber": 68,
+   "pageIndex": 4,
+   "questionType": "reading",
+   "isError": false
+  },
+  {
+   "questionNumber": 69,
+   "pageIndex": 4,
+   "questionType": "reading",
+   "isError": false
+  },
+  {
+   "questionNumber": 70,
+   "pageIndex": 4,
+   "questionType": "reading",
+   "isError": false
+  },
+  {
+   "questionNumber": 71,
+   "pageIndex": 4,
+   "questionType": "reading",
+   "isError": true
+  },
+  {
+   "questionNumber": 72,
+   "pageIndex": 4,
+   "questionType": "reading",
+   "isError": false
+  },
+  {
+   "questionNumber": 73,
+   "pageIndex": 4,
+   "questionType": "reading",
+   "isError": true
+  },
+  {
+   "questionNumber": 74,
+   "pageIndex": 4,
+   "questionType": "reading",
+   "isError": false
+  },
+  {
+   "questionNumber": 75,
+   "pageIndex": 4,
+   "questionType": "reading",
+   "isError": false
+  },
+  {
+   "questionNumber": 76,
+   "pageIndex": 4,
+   "questionType": "reading",
+   "isError": false
+  },
+  {
+   "questionNumber": 77,
+   "pageIndex": 4,
+   "questionType": "reading",
+   "isError": false
+  },
+  {
+   "questionNumber": 78,
+   "pageIndex": 4,
+   "questionType": "reading",
+   "isError": false
+  },
+  {
+   "questionNumber": 79,
+   "pageIndex": 4,
+   "questionType": "reading",
+   "isError": false
+  },
+  {
+   "questionNumber": 80,
+   "pageIndex": 4,
+   "questionType": "reading",
+   "isError": false
+  },
+  {
+   "questionNumber": 81,
+   "pageIndex": 5,
+   "questionType": "reading",
+   "isError": false
+  },
+  {
+   "questionNumber": 82,
+   "pageIndex": 5,
+   "questionType": "reading",
+   "isError": true
+  },
+  {
+   "questionNumber": 83,
+   "pageIndex": 5,
+   "questionType": "reading",
+   "isError": true
+  },
+  {
+   "questionNumber": 84,
+   "pageIndex": 5,
+   "questionType": "reading",
+   "isError": false
+  },
+  {
+   "questionNumber": 85,
+   "pageIndex": 5,
+   "questionType": "reading",
+   "isError": false
+  },
+  {
+   "questionNumber": 86,
+   "pageIndex": 5,
+   "questionType": "reading",
+   "isError": true
+  },
+  {
+   "questionNumber": 87,
+   "pageIndex": 5,
+   "questionType": "reading",
+   "isError": false
+  },
+  {
+   "questionNumber": 88,
+   "pageIndex": 6,
+   "questionType": "reading",
+   "isError": false
+  },
+  {
+   "questionNumber": 89,
+   "pageIndex": 6,
+   "questionType": "reading",
+   "isError": false
+  },
+  {
+   "questionNumber": 90,
+   "pageIndex": 6,
+   "questionType": "reading",
+   "isError": false
+  },
+  {
+   "questionNumber": 91,
+   "pageIndex": 6,
+   "questionType": "reading",
+   "isError": false
+  },
+  {
+   "questionNumber": 92,
+   "pageIndex": 6,
+   "questionType": "sentence_fill",
+   "isError": true
+  },
+  {
+   "questionNumber": 93,
+   "pageIndex": 6,
+   "questionType": "sentence_fill",
+   "isError": false
+  },
+  {
+   "questionNumber": 94,
+   "pageIndex": 6,
+   "questionType": "sentence_fill",
+   "isError": false
+  },
+  {
+   "questionNumber": 95,
+   "pageIndex": 6,
+   "questionType": "sentence_fill",
+   "isError": false
+  }
+ ]
+}

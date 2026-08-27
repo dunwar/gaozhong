@@ -78,8 +78,26 @@
 
           <!-- 题目 + 选项 -->
           <div v-if="err.questionText || err.answerOptions" class="px-6 py-4 border-b border-gray-50">
-            <h4 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">📋 题目</h4>
-            <p v-if="err.questionText" class="text-gray-800 leading-relaxed whitespace-pre-wrap mb-3">{{ err.questionText }}</p>
+            <div class="flex items-start gap-4">
+              <!-- 题目原图缩略（阶段1d） -->
+              <img
+                v-if="cropUrl(err) && !cropFailed[err.id]"
+                :src="cropUrl(err)"
+                @error="cropFailed[err.id] = true"
+                class="w-32 sm:w-44 shrink-0 rounded-lg border border-gray-200 object-contain bg-gray-50 cursor-zoom-in"
+                alt="题目原图"
+                @click="previewImage = cropUrl(err)"
+              />
+              <div class="min-w-0 flex-1">
+                <h4 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">📋 题目</h4>
+                <p v-if="err.questionText" class="text-gray-800 leading-relaxed whitespace-pre-wrap mb-3">{{ err.questionText }}</p>
+              </div>
+            </div>
+            <!-- 阅读原文（阶段1a） -->
+            <details v-if="err.passageText" class="mb-3">
+              <summary class="text-xs font-semibold text-gray-400 uppercase tracking-wide cursor-pointer select-none">📖 阅读原文（点击展开/收起）</summary>
+              <p class="text-gray-700 text-sm leading-relaxed whitespace-pre-wrap bg-gray-50 rounded-lg p-3 mt-2 max-h-60 overflow-y-auto">{{ err.passageText }}</p>
+            </details>
             <!-- 选项列表 -->
             <div v-if="parsedOptions(err).length > 0" class="space-y-1.5">
               <div v-for="(opt, oi) in parsedOptions(err)" :key="oi"
@@ -158,11 +176,16 @@
         </router-link>
       </div>
     </template>
+
+    <!-- 题目图全屏预览 -->
+    <div v-if="previewImage" class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 cursor-zoom-out" @click="previewImage = null">
+      <img :src="previewImage" class="max-w-full max-h-full rounded-lg shadow-2xl" alt="题目原图预览" />
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { authFetch } from '../utils/authStore.js'
 
@@ -170,6 +193,20 @@ const route = useRoute()
 const paper = ref(null)
 const errors = ref([])
 const loading = ref(true)
+
+// 阶段1d: 题目裁剪图
+const cropFailed = reactive({})
+const previewImage = ref(null)
+function cropUrl(err) {
+  if (!err?.sessionId || !err.questionNumber) return null
+  let pageNum = err.paperIndex || 0
+  try {
+    const raw = err.aiRaw ? JSON.parse(err.aiRaw) : null
+    if (raw?.pageIndex) pageNum = raw.pageIndex
+  } catch {}
+  if (!pageNum) return null
+  return `/api/paper/${err.sessionId}/region/p${pageNum}_q${err.questionNumber}.jpg`
+}
 
 const errorTypeStats = ref([])
 

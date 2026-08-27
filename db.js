@@ -175,9 +175,15 @@ export async function initDB() {
   // V4: 扫描数据持久化
   try { db.run(`ALTER TABLE paper_sessions ADD COLUMN scan_data TEXT DEFAULT '';`); } catch (_) {}
 
+  // V5 生产就绪: 低质页清单持久化（服务重启后确认页黄条不丢）
+  try { db.run(`ALTER TABLE paper_sessions ADD COLUMN low_quality_pages TEXT DEFAULT '';`); } catch (_) {}
+
   // V4: 错题复核 — error_problems 新增复核字段
   try { db.run(`ALTER TABLE error_problems ADD COLUMN review_status TEXT DEFAULT 'pending';`); } catch (_) {}
   try { db.run(`ALTER TABLE error_problems ADD COLUMN position_data TEXT DEFAULT '';`); } catch (_) {}
+
+  // V5: 错题内容完整性 — 阅读理解原文（阶段1a）
+  try { db.run(`ALTER TABLE error_problems ADD COLUMN passage_text TEXT DEFAULT '';`); } catch (_) {}
 
   // 错题复核记录表
   db.run(`
@@ -507,8 +513,9 @@ export function saveErrorProblem(record) {
       knowledge_explanation, grading_evidence,
       notes, source, ai_raw, status,
       session_id, paper_index, review_status,
+      passage_text,
       created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   stmt.run([
     record.id,
@@ -532,6 +539,7 @@ export function saveErrorProblem(record) {
     record.sessionId || null,
     record.paperIndex || 1,
     record.reviewStatus || 'pending',
+    record.passageText || '',
     record.createdAt || Date.now(),
     Date.now()
   ]);
@@ -687,7 +695,7 @@ export function createPaperSession({ id, userId, subject, title, imageCount = 1,
 
 export function updatePaperSession(id, fields) {
   if (!db) return null;
-  const fieldMap = { status: 'status', errorCount: 'error_count', aiRaw: 'ai_raw', imageCount: 'image_count', title: 'title', totalQuestions: 'total_questions', correctCount: 'correct_count', imagePaths: 'image_paths', subject: 'subject', scanData: 'scan_data' };
+  const fieldMap = { status: 'status', errorCount: 'error_count', aiRaw: 'ai_raw', imageCount: 'image_count', title: 'title', totalQuestions: 'total_questions', correctCount: 'correct_count', imagePaths: 'image_paths', subject: 'subject', scanData: 'scan_data', lowQualityPages: 'low_quality_pages' };
   const sets = [];
   const vals = [];
   for (const [k, v] of Object.entries(fields)) {
@@ -735,6 +743,8 @@ export function listPaperSessions(userId, { page = 1, limit = 20, subject = null
 }
 
 function deserializePaper(row) {
+  let lowQualityPages = [];
+  try { lowQualityPages = JSON.parse(row.low_quality_pages || '[]'); } catch (_) {}
   return {
     id: row.id, userId: row.user_id, subject: row.subject,
     title: row.title, imageCount: row.image_count, status: row.status,
@@ -742,8 +752,21 @@ function deserializePaper(row) {
     totalQuestions: row.total_questions || 0, correctCount: row.correct_count || 0,
     scanData: row.scan_data || '',
     imagePaths: row.image_paths || '',
+    lowQualityPages,
     createdAt: row.created_at, updatedAt: row.updated_at
   };
+}
+
+/** 今日已用试卷配额（P0-4 成本护栏） */
+export function countPaperSessionsToday(userId) {
+  if (!db) return 0;
+  const dayStart = new Date(); dayStart.setHours(0, 0, 0, 0);
+  const stmt = db.prepare('SELECT COUNT(*) as c FROM paper_sessions WHERE user_id = ? AND created_at >= ?');
+  stmt.bind([userId, dayStart.getTime()]);
+  stmt.step();
+  const c = stmt.getAsObject().c || 0;
+  stmt.free();
+  return c;
 }
 
 /** 启动时清理遗留的 pending/processing 任务（server 重启导致内存队列丢失） */
@@ -996,6 +1019,7 @@ function deserializeError(row) {
     status: row.status, sessionId: row.session_id, paperIndex: row.paper_index,
     reviewStatus: row.review_status || 'pending',
     positionData: row.position_data || '',
+    passageText: row.passage_text || '',
     createdAt: row.created_at, updatedAt: row.updated_at
   };
 }

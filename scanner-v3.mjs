@@ -35,8 +35,8 @@
  *   Fallback: Tencent Cloud OCR → text blocks + rule engine
  */
 
-import { readFileSync, writeFileSync, unlinkSync } from 'fs';
-import { execFile, spawn } from 'child_process';
+import { readFileSync, writeFileSync, unlinkSync, existsSync } from 'fs';
+import { execFile, spawn, execFileSync } from 'child_process';
 import { join, dirname } from 'path';
 import { tmpdir } from 'os';
 import { fileURLToPath } from 'url';
@@ -183,8 +183,14 @@ async function zhipuVLRequest({ messages, model, max_tokens = 4096, temperature 
   const useModel = model || MODEL_ZHIPU_VL;
   // thinking=disabled: 分类/OCR提取不需要推理链，直接出结果更快更省
   const body = JSON.stringify({ model: useModel, messages, max_tokens, temperature, thinking: { type: thinking } });
-  // Use standard (non-coding) endpoint for VL — coding endpoint wraps responses differently
-  const vlBaseUrl = (ZHIPU_BASE_URL || '').replace('/api/coding/paas/v4', '/api/paas/v4');
+  // v5.1: VL 端点可走编程套餐 coding 端点（ZHIPU_VL_CODING=1）——实测响应格式与标准端点
+  // 一致（choices[0].message.content），且编程套餐包含 glm-4.6v 标准版而标准端点无余额
+  let vlBaseUrl = ZHIPU_BASE_URL || '';
+  if (process.env.ZHIPU_VL_CODING === '1') {
+    vlBaseUrl = vlBaseUrl.replace('/api/paas/v4', '/api/coding/paas/v4');
+  } else {
+    vlBaseUrl = vlBaseUrl.replace('/api/coding/paas/v4', '/api/paas/v4');
+  }
   const url = new URL(vlBaseUrl + '/chat/completions');
 
   return new Promise((resolve, reject) => {
@@ -594,6 +600,39 @@ async function extractQuestionsTextIn(pagePath, options = {}) {
 }
 
 // v4.7: Merged TextIn OCR + LLM parse — all pages in one call
+// ═══════════════════════════════════════════════════════════════════
+// v5.0 识别主力: TextIn v3 智能抽取 + 五层本地完善（preprocess /exam/extract）
+// 离线验收: 高一下 94/95 (98.9%) / 澜大 29/29 / 零幻觉
+// ═══════════════════════════════════════════════════════════════════
+async function extractQuestionsExamAPI(pagePaths, options = {}) {
+  const u = new URL(PREPROCESS_URL);
+  const imagesB64 = pagePaths.map(p => imgToBase64(p));
+  const data = await httpPostJson(u.hostname, parseInt(u.port) || 5002, '/exam/extract', {
+    images: imagesB64,
+    options: { subject: options.subject || '自动' }
+  }, 900_000);  // 15min（v3 每页 ~20s + OCR + refine）
+  if (data.status !== 'ok') {
+    throw new Error(`Exam extract failed: ${data.error}`);
+  }
+  const result = data.result;
+  if (!result.questions || result.questions.length === 0) {
+    throw new Error('Exam extract returned 0 questions');
+  }
+  return {
+    status: 'ok',
+    totalQuestions: result.questions.length,
+    questions: result.questions,
+    passages: result.passages || [],
+    engine: result.engine || 'textin-v3-exam',
+    imageSize: result.image_size || null,
+    detailCount: result.detail_count || 0,
+    handwrittenRegions: result.handwritten_regions || [],
+    pageStatus: result.page_status || [],
+    pageItemCounts: result.page_item_counts || [],
+    qnCorrections: result.qn_corrections || []
+  };
+}
+
 async function extractQuestionsTextInMerged(pagePaths, options = {}) {
   const u = new URL(PREPROCESS_URL);
   const host = u.hostname;
@@ -625,7 +664,11 @@ async function extractQuestionsTextInMerged(pagePaths, options = {}) {
     engine: result.engine || 'textin-llm-merged',
     imageSize: result.image_size || null,
     detailCount: result.detail_count || 0,
-    handwrittenRegions: result.handwritten_regions || []
+    handwrittenRegions: result.handwritten_regions || [],
+    // v5.0 ①: 页级解析状态（llm_parser 透传），供 VL 兜底触发与用户提示
+    pageStatus: result.page_status || [],
+    pageItemCounts: result.page_item_counts || [],
+    qnCorrections: result.qn_corrections || []
   };
 }
 
@@ -723,27 +766,36 @@ async function classifyRedMarksVL(redHighlightedPath, questions, apiKey) {
     }));
   }
 
-  // 尝试智谱 VL（优先）
+  // 尝试智谱 VL（优先）— v4.9: 429 限流退避重试（30s/60s），限流通道不再直接降级
   if (USE_ZHIPU_VL) {
-    console.log('[scanner] Classifying red marks via Zhipu VL...');
-    try {
-      const result = await zhipuVLRequest({
-        messages: [
-          { role: 'system', content: '你精准识别红笔批改标记。只输出JSON。' },
-          { role: 'user', content: userContent }
-        ],
-        model: MODEL_ZHIPU_VL,
-        max_tokens: 4096,
-        temperature: 0.05
-      });
-      
-      const content = extractContent(result);
-      const classifiedMarks = parseClassifyResponse(content);
-      const errorMarks = classifiedMarks.filter(m => m.isError).length;
-      console.log(`[scanner] Zhipu VL classified ${classifiedMarks.length} marks: ${errorMarks} errors`);
-      return { classifiedMarks, errorQuestionNumbers: new Set() };
-    } catch (e) {
-      console.log(`[scanner] Zhipu VL failed (${e.message}), falling back to Kimi...`);
+    for (let attempt = 0; attempt < 3; attempt++) {
+      console.log(`[scanner] Classifying red marks via Zhipu VL${attempt > 0 ? ` (retry ${attempt})` : ''}...`);
+      try {
+        const result = await zhipuVLRequest({
+          messages: [
+            { role: 'system', content: '你精准识别红笔批改标记。只输出JSON。' },
+            { role: 'user', content: userContent }
+          ],
+          model: MODEL_ZHIPU_VL,
+          max_tokens: 4096,
+          temperature: 0.05
+        });
+
+        const content = extractContent(result);
+        const classifiedMarks = parseClassifyResponse(content);
+        const errorMarks = classifiedMarks.filter(m => m.isError).length;
+        console.log(`[scanner] Zhipu VL classified ${classifiedMarks.length} marks: ${errorMarks} errors`);
+        return { classifiedMarks, errorQuestionNumbers: new Set() };
+      } catch (e) {
+        if (e.message === 'ZhipuVLRateLimit' && attempt < 2) {
+          const wait = 30000 * (attempt + 1);
+          console.log(`[scanner] Classify rate-limited, waiting ${wait / 1000}s before retry ${attempt + 1}/2...`);
+          await new Promise(r => setTimeout(r, wait));
+          continue;
+        }
+        console.log(`[scanner] Zhipu VL failed (${e.message}), falling back to Kimi...`);
+        break;
+      }
     }
   }
 
@@ -846,7 +898,7 @@ function matchCentroidsToQuestions(questions, regions, pageStats, vlClassifiedMa
   
   for (const q of questions) {
     if (!q.bbox || q.bbox.w == null) {
-      results.push({ ...q, centroidCount: 0, redEnergy: 0, matchedRegions: [], isError: false, errorSource: null });
+      results.push({ ...q, centroidCount: 0, redEnergy: 0, matchedRegions: [], markTypes: [], redAnswer: '', isError: false, errorSource: null });
       continue;
     }
     
@@ -889,7 +941,8 @@ function matchCentroidsToQuestions(questions, regions, pageStats, vlClassifiedMa
     let isError = false;
     let errorSource = null;
     let markTypes = [];
-    
+    let redAnswer = '';
+
     if (vlClassifiedMarks && vlClassifiedMarks.length > 0) {
       // Look for VL-classified marks that match this question
       const qMarks = vlClassifiedMarks.filter(m => {
@@ -903,6 +956,10 @@ function matchCentroidsToQuestions(questions, regions, pageStats, vlClassifiedMa
         }
         return false;
       });
+
+      // v4.9: 红笔正确答案字母（type=correct_answer 的 content）
+      const redMark = qMarks.find(m => m.type === 'correct_answer' && m.content);
+      if (redMark) redAnswer = String(redMark.content).trim().toUpperCase();
       
       if (qMarks.length > 0) {
         markTypes = qMarks.map(m => m.type);
@@ -928,24 +985,66 @@ function matchCentroidsToQuestions(questions, regions, pageStats, vlClassifiedMa
       }
     }
     
+    // v4.9: 展开 ...q 保留全部原始字段（passageText/passageRef/section/_cropSrc 等，
+    // 此前显式字段清单会丢弃 passageText 导致阅读理解文章断流）
     results.push({
-      questionNumber: q.questionNumber,
-      questionType: q.questionType || 'choice',
-      questionText: q.questionText || '',
-      options: q.options || {},
-      bbox: q.bbox,
-      pageIndex: q.pageIndex,
+      ...q,
       hasRed: centroidCount > 0,
       centroidCount,
       redEnergy,
       isError,
       errorSource,
       markTypes,
+      redAnswer,
+      studentAnswer: q.studentAnswer || '',
+      correctAnswer: q.correctAnswer || redAnswer || '',
       matchedRegions: matched.map(r => ({ cx: r.centroid.x, cy: r.centroid.y, area: r.area }))
     });
   }
   
   return results;
+}
+
+// ═══════════════════════════════════════
+// v4.9: 裁剪图答案读取 — 补齐 studentAnswer/correctAnswer
+// （correctAnswer 的零成本来源是 vlMarks 红笔字母；studentAnswer 需读裁剪图）
+// ═══════════════════════════════════════
+async function readCropAnswers(cropPath) {
+  const imageB64 = imgToBase64(cropPath);
+  const prompt = `这是一道高中试卷题目的裁剪图，包含：
+- 印刷体题目和选项（黑字）
+- 老师的红笔批改：题号旁的红笔字母通常是老师标注的正确答案；✗/勾是判定标记
+- 学生的作答：蓝笔/黑笔/铅笔写的字母或单词，常见位置——选项旁圈选、题号旁、括号( )内、空格____上
+
+请分别读出：
+1. studentAnswer — 学生自己的作答（铅笔/蓝笔/黑笔笔迹）。⚠️ 红笔字母是老师的，不要当成学生答案；确实看不到学生笔迹就填 ""
+2. correctAnswer — 红笔标注的正确答案字母/内容（没有填 ""）
+
+只输出JSON：{"studentAnswer":"","correctAnswer":""}`;
+
+  const result = await zhipuVLRequest({
+    model: MODEL_ZHIPU_VL,
+    messages: [
+      { role: 'system', content: '只输出JSON，无其他文字。' },
+      { role: 'user', content: [
+        { type: 'text', text: prompt },
+        { type: 'image_url', image_url: { url: imageB64, detail: 'high' } }
+      ]}
+    ],
+    temperature: 0.1,
+    max_tokens: 200
+  });
+
+  const content = (result.choices?.[0]?.message?.content || '').trim()
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/\s*```$/g, '');
+  let parsed = {};
+  try { parsed = JSON.parse(content); }
+  catch { const m = content.match(/\{[\s\S]*\}/); if (m) { try { parsed = JSON.parse(m[0]); } catch {} } }
+  return {
+    studentAnswer: (parsed.studentAnswer || '').trim().toUpperCase().slice(0, 40),
+    correctAnswer: (parsed.correctAnswer || '').trim().toUpperCase().slice(0, 40)
+  };
 }
 
 // ═══════════════════════════════════════
@@ -1253,11 +1352,27 @@ export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 
 
   // --- Pass 1: TextIn OCR (per-page) + LLM merged parsing ---
   const textInResults = []; // textInResults[pageIndex] = result or null
+  let mergedPageStatus = []; // v5.0 ①: preprocess 透传的页级解析状态
   if (useTextIn) {
     try {
-      console.log(`[scanner] TextIn merged: OCR ${pagePaths.length} pages + LLM parsing...`);
-      const mergedResult = await extractQuestionsTextInMerged(pagePaths, { subject });
-      console.log(`[scanner] TextIn merged: ${mergedResult.totalQuestions} questions total`);
+      // v5.0: 识别主力 = exam extract（v3 智能抽取 + 五层完善）；EXAM_API=0 可关闭
+      let mergedResult = null;
+      if (process.env.EXAM_API !== '0') {
+        try {
+          console.log(`[scanner] Exam extract (v3 + refine): ${pagePaths.length} pages...`);
+          mergedResult = await extractQuestionsExamAPI(pagePaths, { subject });
+          console.log(`[scanner] Exam extract: ${mergedResult.totalQuestions} questions total`);
+        } catch (examErr) {
+          console.log(`[scanner] Exam extract failed (${examErr.message}), falling back to OCR+LLM merged...`);
+          mergedResult = null;
+        }
+      }
+      if (!mergedResult) {
+        console.log(`[scanner] TextIn merged: OCR ${pagePaths.length} pages + LLM parsing...`);
+        mergedResult = await extractQuestionsTextInMerged(pagePaths, { subject });
+        console.log(`[scanner] TextIn merged: ${mergedResult.totalQuestions} questions total`);
+      }
+      mergedPageStatus = mergedResult.pageStatus || [];
 
       // Split merged result back to per-page for downstream processing
       // v4.8: redistribute questions to their own pages via question.pageIndex
@@ -1265,6 +1380,8 @@ export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 
       const byPage = {};
       for (const q of (mergedResult.questions || [])) {
         const pi = Math.min(Math.max((q.pageIndex || 1) - 1, 0), pagePaths.length - 1);
+        // v4.9: 记录裁剪源（bbox 与 prepared 整页同坐标系）
+        q._cropSrc = pagePaths[pi];
         (byPage[pi] = byPage[pi] || []).push(q);
       }
       const hwByPage = {};
@@ -1293,6 +1410,7 @@ export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 
           try {
             const result = await extractQuestionsTextIn(imgPath, { subject });
             console.log(`[scanner] Page ${i+1}: TextIn ok — ${result.totalQuestions} questions`);
+            for (const q of (result.questions || [])) q._cropSrc = imgPath;  // v4.9: 裁剪源
             return { pageIndex: i, result, engine: 'textin', attempts: 1, success: true };
           } catch (err2) {
             console.log(`[scanner] Page ${i+1}: TextIn failed (${err2.message})`);
@@ -1308,16 +1426,23 @@ export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 
   }
 
   // --- Pass 2: VL fallback for pages with poor TextIn coverage ---
-  // Trigger VL only when TextIn detail_items < 30 (indicates OCR missed large areas)
-  // VL quality is mediocre but better than losing the entire page
+  // v5.0 ①: 三种触发 — (a)页级状态 llm_failed/regex 且 0 题（LLM 批次失败不再整页蒸发）
+  //                        (b)低 OCR 覆盖（原逻辑，detailCount < 30 且 0 题）
   const VL_MIN_THRESHOLD = 30;
   const vlJobs = [];
   for (let i = 0; i < pagePaths.length; i++) {
     if (textInResults[i]) {
-      const detailCount = textInResults[i].result?.detailCount || 0;
-      if (detailCount > 0 && detailCount < VL_MIN_THRESHOLD && (textInResults[i].result?.questions || []).length === 0) {
-        console.log(`[scanner] Page ${i+1}: TextIn low coverage (${detailCount} items < ${VL_MIN_THRESHOLD}) and 0 questions, will VL fallback`);
-        textInResults[i] = null; // Force VL fallback for this page
+      const qCount = (textInResults[i].result?.questions || []).length;
+      const pStatus = mergedPageStatus[i] || 'ok';
+      if (qCount === 0 && (pStatus === 'llm_failed' || pStatus === 'regex')) {
+        console.log(`[scanner] Page ${i+1}: pageStatus=${pStatus} 且 0 题 → VL 兜底`);
+        textInResults[i] = null;
+      } else {
+        const detailCount = textInResults[i].result?.detailCount || 0;
+        if (detailCount > 0 && detailCount < VL_MIN_THRESHOLD && qCount === 0) {
+          console.log(`[scanner] Page ${i+1}: TextIn low coverage (${detailCount} items < ${VL_MIN_THRESHOLD}) and 0 questions, will VL fallback`);
+          textInResults[i] = null; // Force VL fallback for this page
+        }
       }
     }
     if (textInResults[i]) continue;
@@ -1341,6 +1466,8 @@ export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 
         console.log(`[scanner] ${label}: VL fallback OCR...`);
         try {
           const result = await extractQuestionsVL(job.imgPath, apiKey, job.subPage, job.pageIndex, job.totalPages);
+          // v4.9: VL 路径 bbox 与输入图（半页/去红图）同坐标系，记录裁剪源
+          for (const q of (result.questions || [])) q._cropSrc = job.imgPath;
           return { ...job, result, engine: 'vl', attempts: 1, success: true };
         } catch (vlErr) {
           console.log(`[scanner] ${label}: VL failed (${vlErr.message}), skipped`);
@@ -1419,13 +1546,10 @@ export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 
     }
   }
   
-  // Clean up de-red and split temp files
-  for (const f of [...deRedTempFiles, ...splitTempFiles, ...prepareTempFiles]) {
-    try { unlinkSync(f); } catch (_) {}
-  }
-  
+  // v4.9: 临时图清理移至题目裁剪之后（半页/去红/prepare 临时图是裁剪源，此处先保留）
   // Phase 3: VL classify red marks + centroid matching per page
-  const VL_CLASSIFY_CONCURRENCY = 2; // Limit concurrent VL classify calls
+  // 并发可经环境变量调低（限流通道如 glm-4.6v-flash 设为 1）
+  const VL_CLASSIFY_CONCURRENCY = parseInt(process.env.VL_CLASSIFY_CONCURRENCY || '2');
   const classifyGate = new ConcurrencyGate(VL_CLASSIFY_CONCURRENCY);
   
   const pageResults = [];
@@ -1464,9 +1588,15 @@ export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 
       textinHW
     );
     
+    // v5.0 ①: 页级状态 — VL 引擎 = 兜底恢复；llm_failed/regex/failed = 低质
+    const pageStatus = ocr.engine === 'failed' ? 'failed'
+      : String(ocr.engine).includes('vl') ? 'vl_recovered'
+      : (mergedPageStatus[i] || 'ok');
+
     pageResults.push({
       pageIndex: i + 1,
       engine: ocr.engine,
+      pageStatus,
       totalQuestions: questions.length,
       totalErrors: questions.filter(q => q.isError).length,
       redSignal: pp.centroids.red_signal,
@@ -1480,6 +1610,14 @@ export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 
       redHighlightedImage: redHighlightedPath
     });
   }
+
+  // v5.0 ①: 低质页清单（状态非 ok），供 api-server 提示与前端黄条
+  const lowQualityPages = pageResults
+    .filter(p => p.pageStatus && p.pageStatus !== 'ok')
+    .map(p => p.pageIndex);
+  if (lowQualityPages.length > 0) {
+    console.log(`[scanner] Low-quality pages: P${lowQualityPages.join(', P')} — 已按状态标记`);
+  }
   
   // Post-OCR: cross-page passage merge
   const skipCount = pageResults.filter(p => p.engine === 'failed').length;
@@ -1487,6 +1625,82 @@ export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 
   mergeCrossPagePassages(pageResults);
   validateQuestionNumbers(pageResults);
   const qCountFinal = pageResults.reduce((s, p) => s + p.questions.length, 0);
+
+  // ═══ v4.9: 按题裁剪题目图（bbox 与 _cropSrc 同坐标系）═══
+  if (outputDir) {
+    let cropOk = 0, cropFail = 0;
+    for (const pr of pageResults) {
+      for (const q of pr.questions) {
+        const bb = q.bbox;
+        if (!bb || !(bb.w > 5) || !(bb.h > 5) || !q.questionNumber) continue;
+        const src = q._cropSrc || pagePaths[pr.pageIndex - 1];
+        if (!src || !existsSync(src)) continue;
+        const out = join(outputDir, `p${pr.pageIndex}_q${q.questionNumber}.jpg`);
+        // v4.9: 外扩 padding — 学生作答常写在 bbox 边缘（题号旁/括号内/空格上）
+        const padX = 15, padY = 10;
+        const cx = Math.max(0, Math.round(bb.x) - padX);
+        const cy = Math.max(0, Math.round(bb.y) - padY);
+        const cw = Math.round(bb.w) + padX * 2;
+        const ch = Math.round(bb.h) + padY * 2;
+        try {
+          execFileSync('convert', [
+            src,
+            '-crop', `${cw}x${ch}+${cx}+${cy}`,
+            '+repage', '-resize', '900x>', '-quality', '75',
+            out
+          ], { timeout: 8000 });
+          q._cropFile = out;
+          cropOk++;
+        } catch (_) {
+          // 兜底: 开发机无 ImageMagick 时用 python cv2 裁剪（生产 Docker 有 convert）
+          try {
+            execFileSync('python', [
+              join(__dirname, 'scripts', 'crop_image.py'),
+              src,
+              String(cx), String(cy), String(cw), String(ch),
+              out
+            ], { timeout: 8000 });
+            q._cropFile = out;
+            cropOk++;
+          } catch (_2) { cropFail++; }
+        }
+      }
+    }
+    console.log(`[scanner] Question crops: ${cropOk} ok, ${cropFail} failed`);
+  }
+
+  // ═══ v4.9: 错题答案读取 — 裁剪图 VL 读学生作答（correctAnswer 已有红笔字母兜底）═══
+  if (USE_ZHIPU_VL) {
+    const ansGate = new ConcurrencyGate(parseInt(process.env.ANSWER_READ_CONCURRENCY || '3'));
+    const targets = pageResults
+      .flatMap(p => p.questions)
+      .filter(q => q.isError && q._cropFile && !(q.studentAnswer && q.correctAnswer));
+    if (targets.length > 0) {
+      await Promise.all(targets.map(q => ansGate.run(async () => {
+        for (let attempt = 0; attempt < 2; attempt++) {
+          try {
+            const r = await readCropAnswers(q._cropFile);
+            if (r.studentAnswer) q.studentAnswer = r.studentAnswer;
+            if (r.correctAnswer) q.correctAnswer = r.correctAnswer;
+            return;
+          } catch (e) {
+            if (e.message === 'ZhipuVLRateLimit' && attempt === 0) {
+              await new Promise(r2 => setTimeout(r2, 20000));  // v4.9: 限流退避一次
+              continue;
+            }
+            return; // 单题失败不影响整体
+          }
+        }
+      })));
+      const filled = targets.filter(q => q.studentAnswer || q.correctAnswer).length;
+      console.log(`[scanner] Answer reading: ${filled}/${targets.length} errors enriched`);
+    }
+  }
+
+  // v4.9: 清理临时图（延后到此 — 裁剪已用完半页/去红/prepare 源图）
+  for (const f of [...deRedTempFiles, ...splitTempFiles, ...prepareTempFiles]) {
+    try { unlinkSync(f); } catch (_) {}
+  }
   
   const totalTime = ((Date.now() - totalStart) / 1000).toFixed(1);
   const allQuestions = pageResults.flatMap(p => p.questions);
@@ -1504,6 +1718,7 @@ export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 
     totalTime,
     skipCount,
     markingMethod,
+    lowQualityPages,
     questions: allQuestions,
     errors: allErrors,
     pageResults

@@ -55,7 +55,7 @@ process.on('SIGINT', () => {
 
 // Scanner v3.0
 const SCANNER_VERSION = 'v4.2';
-import { initDB, saveDB, saveRecord, getRecord, getHistory, getStats, createUser, getUserByEmail, getUserById, updateUser, changePassword, listUsers, saveErrorProblem, saveErrorKnowledgeTags, getErrorProblem, listErrorProblems, getErrorStats, getKnowledgeStats, getErrorsByKnowledgePoint, searchKnowledgePoints, createPaperSession, updatePaperSession, getPaperSession, listPaperSessions, listErrorsByPaper, listErrorsByTime, listErrorsBySubject, listErrorsForGuidance, saveReview, updateErrorReviewStatus, deleteErrorProblem, getSessionReviews, resetStalledPaperSessions } from './db.js';
+import { initDB, saveDB, saveRecord, getRecord, getHistory, getStats, createUser, getUserByEmail, getUserById, updateUser, changePassword, listUsers, saveErrorProblem, saveErrorKnowledgeTags, getErrorProblem, listErrorProblems, getErrorStats, getKnowledgeStats, getErrorsByKnowledgePoint, searchKnowledgePoints, createPaperSession, updatePaperSession, getPaperSession, listPaperSessions, listErrorsByPaper, listErrorsByTime, listErrorsBySubject, listErrorsForGuidance, saveReview, updateErrorReviewStatus, deleteErrorProblem, getSessionReviews, resetStalledPaperSessions, countPaperSessionsToday } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3001;
@@ -946,8 +946,8 @@ async function detectSubject(firstPageBase64, fallback) {
 async function analyzeSingleError(subject, errorInfo) {
   let prompt = `你是高中${subject}老师。学生这道题做错了，请分析。
 
-题目: ${errorInfo.questionText || '未知'}
-${errorInfo.options && Object.keys(errorInfo.options).length > 0 ? `选项: ${JSON.stringify(errorInfo.options)}` : ''}
+题目: ${(errorInfo.questionText || '未知').slice(0, 1500)}
+${errorInfo.passageText ? `文章(节选): ${errorInfo.passageText.slice(0, 2000)}\n` : ''}${errorInfo.options && Object.keys(errorInfo.options).length > 0 ? `选项: ${JSON.stringify(errorInfo.options)}` : ''}
 
 学生答案: ${errorInfo.studentAnswer || '未知'}
 正确答案: ${errorInfo.correctAnswer || '未知'}
@@ -1234,8 +1234,13 @@ async function executePaperTask(task) {
           questionType: q.questionType || '',
           questionText: q.questionText || '',
           options: q.options || {},
-          studentAnswer: '',
-          correctAnswer: '',
+          // v5 阶段1c: 透传 scanner 提取的答案（红笔字母+裁剪图VL读取），此前硬编码''丢弃
+          studentAnswer: q.studentAnswer || '',
+          correctAnswer: q.correctAnswer || '',
+          // v5 阶段1a/1d: passage 与 bbox（进 aiRaw，供前端拼裁剪图URL）
+          passageText: q.passageText || '',
+          bbox: q.bbox || null,
+          redAnswer: q.redAnswer || '',
           errorType: '未知',
           confidence: 'high',
           needsReview: false,
@@ -1301,6 +1306,7 @@ async function executePaperTask(task) {
         answerOptions: JSON.stringify(q.options || {}),
         wrongAnswer: q.studentAnswer || '',
         correctAnswer: q.correctAnswer || '',
+        passageText: q.passageText || '',
         errorType: '待分析',
         correctSolution: '',
         difficulty: 3,
@@ -1335,7 +1341,9 @@ async function executePaperTask(task) {
       status: 'awaiting_confirmation',
       errorCount: savedCount,
       totalQuestions: scanResult.totalQuestions,
-      scanData: JSON.stringify(allQuestionsFlat)
+      scanData: JSON.stringify(allQuestionsFlat),
+      // P0-3: 低质页持久化（服务重启后确认页黄条不丢）
+      lowQualityPages: JSON.stringify(scanResult.lowQualityPages || [])
     });
 
     paperTasks.get(id).status = 'done';
@@ -1345,16 +1353,21 @@ async function executePaperTask(task) {
       totalQuestions: scanResult.totalQuestions,
       pipeline: scanner.SCANNER_VERSION,
       stage: 'awaiting_confirmation',  // Phase 6 由用户确认后触发
-      scanTime: scanResult.totalTime
+      scanTime: scanResult.totalTime,
+      // v5.0 ①: 低质页清单（llm_failed/regex/vl_recovered），供确认页黄条提示
+      lowQualityPages: scanResult.lowQualityPages || []
     };
+    const lowQ = scanResult.lowQualityPages || [];
     paperTasks.get(id).progress = {
       stage: 'awaiting_confirmation',
       message: `扫描完成: ${scanResult.totalQuestions}题, ${savedCount}道疑似错题 - 请确认后分析`
+        + (lowQ.length > 0 ? `（第${lowQ.join('、')}页识别质量低，已用备用引擎，请重点复核）` : '')
     };
 
     log('info', 'v3.2 扫描完成 (等待确认)', {
       taskId: id, subject, errors: savedCount,
-      totalQuestions: scanResult.totalQuestions, scanTime: scanResult.totalTime
+      totalQuestions: scanResult.totalQuestions, scanTime: scanResult.totalTime,
+      lowQualityPages: lowQ
     });
 
   } catch (err) {
@@ -1403,6 +1416,9 @@ async function executeConfirmationAnalysis(sessionId, userId, confirmedQuestions
           options: target.answerOptions ? JSON.parse(target.answerOptions) : (q.options || {}),
           studentAnswer: target.wrongAnswer || q.studentAnswer || '',
           correctAnswer: target.correctAnswer || q.correctAnswer || '',
+          passageText: target.passageText || q.passageText || '',
+          pageIndex: target.paperIndex || q.pageIndex || 1,
+          bbox: q.bbox || null,
           errorType: target.errorType || '未知'
         };
 
@@ -1419,6 +1435,7 @@ async function executeConfirmationAnalysis(sessionId, userId, confirmedQuestions
           answerOptions: typeof target.answerOptions === 'string' ? target.answerOptions : JSON.stringify(target.answerOptions || questionInfo.options || {}),
           wrongAnswer: target.wrongAnswer || '',
           correctAnswer: target.correctAnswer || '',
+          passageText: target.passageText || q.passageText || '',
           errorType: analysis.errorType || questionInfo.errorType,
           correctSolution: (analysis.errorReason || '') + '\n' + (analysis.knowledgePoint || ''),
           difficulty: target.difficulty || 3,
@@ -1950,6 +1967,15 @@ app.post('/paper/analyze', authMiddleware, (req, res) => {
   if (!limits.allowed) return res.status(limits.status || 429).json({ error: limits.error, retryAfter: limits.retryAfter });
   if (paperQueue.pending >= MAX_QUEUE_DEPTH) return res.status(503).json({ error: '排队人数过多' });
 
+  // P0-4 成本护栏: 每用户每日试卷配额（TextIn 按页计费，Token 预算管不住）
+  const DAILY_PAPER_LIMIT = parseInt(process.env.DAILY_PAPER_LIMIT || '10');
+  if (req.user.email !== ADMIN_EMAIL) {
+    const usedToday = countPaperSessionsToday(req.user.id);
+    if (usedToday >= DAILY_PAPER_LIMIT) {
+      return res.status(429).json({ error: `今日上传额度已用完（${DAILY_PAPER_LIMIT} 卷/天）。可以复习错题本，明天再上传新试卷吧` });
+    }
+  }
+
   const { subject, images, title, markingMethod } = req.body;
   if (!subject) return res.status(400).json({ error: '请选择学科' });
   if (!images || !Array.isArray(images) || images.length === 0) return res.status(400).json({ error: '请上传至少一张试卷图片' });
@@ -1959,11 +1985,12 @@ app.post('/paper/analyze', authMiddleware, (req, res) => {
 
   const taskId = createTaskId();
   createPaperSession({ id: taskId, userId: req.user.id, subject, title: title || '', imageCount: images.length, status: 'pending' });
-  const task = { id: taskId, status: 'queued', input: { subject, images, userId: req.user.id, title, markingMethod: markingMethod || 'red_pen' }, result: null, error: null, progress: null, createdAt: Date.now(), updatedAt: Date.now() };
+  const task = { id: taskId, status: 'queued', input: { subject, images, userId: req.user.id, title, markingMethod: markingMethod || 'red_pen' }, result: null, error: null,
+    progress: { stage: 'queued', message: `排队中… 前面还有 ${paperQueue.pending} 个任务` }, createdAt: Date.now(), updatedAt: Date.now() };
   paperTasks.set(taskId, task);
   log('info', '整卷分析任务创建', { taskId, subject, imageCount: images.length, userId: req.user.id });
   paperQueue.enqueue(() => executePaperTask(task)).catch(err => { log('error', '整卷分析队列异常', { taskId, error: err.message }); });
-  res.status(202).json({ success: true, taskId, status: 'queued', queuePosition: errorQueue.pending + 1, imageCount: images.length });
+  res.status(202).json({ success: true, taskId, status: 'queued', queuePosition: paperQueue.pending + 1, imageCount: images.length });
 });
 
 app.get('/paper/task/:taskId', (req, res) => {
@@ -1991,6 +2018,40 @@ app.get('/paper/task/:taskId', (req, res) => {
     etaSeconds: Math.max(0, Math.round(etaSeconds)),
     queuePosition: task.status === 'queued' ? queueIndex + 1 : 0
   });
+});
+
+// P0-2 失败重试: 复用已持久化的原图重新入队（不新建 session、不重复计配额）
+app.post('/paper/:sessionId/retry', authMiddleware, (req, res) => {
+  const session = getPaperSession(req.params.sessionId);
+  if (!session) return res.status(404).json({ error: '试卷不存在' });
+  if (session.userId !== req.user.id) return res.status(403).json({ error: '无权访问' });
+  if (!['failed'].includes(session.status)) return res.status(400).json({ error: '只有失败的任务可以重试' });
+  if (paperQueue.pending >= MAX_QUEUE_DEPTH) return res.status(503).json({ error: '当前排队人数过多，请稍后再试' });
+
+  // 从磁盘读回原图
+  let imagePaths = [];
+  try { imagePaths = JSON.parse(session.imagePaths || '[]'); } catch (_) {}
+  const images = [];
+  for (const p of imagePaths) {
+    try {
+      const buf = fs.readFileSync(p);
+      const ext = p.endsWith('.png') ? 'png' : 'jpeg';
+      images.push(`data:image/${ext};base64,${buf.toString('base64')}`);
+    } catch (_) { /* 单页读失败跳过 */ }
+  }
+  if (images.length === 0) return res.status(400).json({ error: '原图已过期，请重新上传试卷' });
+
+  const taskId = session.id;
+  const task = { id: taskId, status: 'queued',
+    input: { subject: session.subject || '英语', images, userId: req.user.id, title: session.title, markingMethod: 'red_pen' },
+    result: null, error: null,
+    progress: { stage: 'queued', message: `重试排队中… 前面还有 ${paperQueue.pending} 个任务` },
+    createdAt: Date.now(), updatedAt: Date.now() };
+  paperTasks.set(taskId, task);
+  updatePaperSession(taskId, { status: 'pending' });
+  log('info', '整卷分析重试', { taskId, userId: req.user.id, pages: images.length });
+  paperQueue.enqueue(() => executePaperTask(task)).catch(err => { log('error', '重试队列异常', { taskId, error: err.message }); });
+  res.status(202).json({ success: true, taskId, status: 'queued', queuePosition: paperQueue.pending + 1 });
 });
 
 app.get('/paper/sessions', authMiddleware, (req, res) => {
@@ -2080,8 +2141,14 @@ app.get('/paper/:sessionId/annotated/:pageIndex', (req, res) => {
 // 区域裁剪图
 app.get('/paper/:sessionId/region/:filename', (req, res) => {
   const { sessionId, filename } = req.params;
-  const regionPath = path.join('/app/data/papers', sessionId, filename);
-  if (!fs.existsSync(regionPath)) return res.status(404).json({ error: '区域图不存在' });
+  // 安全加固：basename + 文件名白名单（题目裁剪图/缩略图等），阻断路径遍历
+  const safeSession = path.basename(sessionId || '');
+  const safeName = path.basename(filename || '');
+  if (!/^[\w-]+$/.test(safeSession) || !/^[A-Za-z0-9_-]+\.(jpe?g|png)$/i.test(safeName)) {
+    return res.status(404).json({ error: '区域图不存在' });
+  }
+  const regionPath = path.join('/app/data/papers', safeSession, safeName);
+  if (!fs.existsSync(regionPath) || !fs.statSync(regionPath).isFile()) return res.status(404).json({ error: '区域图不存在' });
   res.setHeader('Content-Type', 'image/jpeg');
   res.setHeader('Cache-Control', 'public, max-age=86400');
   fs.createReadStream(regionPath).pipe(res);
@@ -2107,7 +2174,10 @@ app.get('/paper/:sessionId/confirm', authMiddleware, (req, res) => {
   if (session.userId !== req.user.id) return res.status(403).json({ error: '无权访问' });
 
   const errors = listErrorProblems({ userId: req.user.id, sessionId: req.params.sessionId, limit: 200 });
-  res.json({ success: true, questions: errors });
+  // v5.0 ① + P0-3: 低质页提示（内存优先，重启后从 session 列回读）
+  const lowQualityPages = paperTasks.get(req.params.sessionId)?.result?.lowQualityPages
+    || session.lowQualityPages || [];
+  res.json({ success: true, questions: errors, lowQualityPages });
 });
 
 // POST: 提交确认结果
