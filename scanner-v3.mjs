@@ -888,6 +888,34 @@ function centroidInBbox(centroid, bbox, marginPct = 0.1) {
  *   - ✓, underline, circle, annotation are NOT errors
  * Falls back to centroid-count threshold if VL classification unavailable.
  */
+// ═══════════════════════════════════════════════════════════════════
+// v5.2 语义比对判错（路线图 2b）: 学生答案 vs 红笔正确字母
+//   两者都有时是最高优先级证据，直接覆盖几何/VL 判定:
+//   不相等 → 错题 | 相等 → 对题（推翻质心/VL 误判）
+//   证据不全（缺任一）→ 返回 null 交回几何/VL 兜底
+// ═══════════════════════════════════════════════════════════════════
+function semanticJudge(q) {
+  const sa = String(q.studentAnswer || '').trim().toUpperCase();
+  const ca = String(q.correctAnswer || q.redAnswer || '').trim().toUpperCase();
+  if (!sa || !ca) return null;
+  // 取首个选项字母（学生可能写 "B." / "b" / 多字母粘连）
+  const first = s => (s.match(/[A-Z]/) || [''])[0];
+  const a = first(sa), b = first(ca);
+  if (!a || !b || a < 'A' || a > 'F' || b < 'A' || b > 'F') return null;
+  return a !== b;
+}
+
+function applySemanticOverride(q) {
+  const semantic = semanticJudge(q);
+  if (semantic === null) return false;
+  if (semantic !== q.isError) {
+    q._semanticOverride = true;  // 语义推翻了几何/VL 判定（复核界面可标注）
+  }
+  q.isError = semantic;
+  q.errorSource = semantic ? 'semantic_mismatch' : 'semantic_match';
+  return true;
+}
+
 function matchCentroidsToQuestions(questions, regions, pageStats, vlClassifiedMarks = null, textinHWRegions = null) {
   const MIN_RED_ENERGY = Math.max(pageStats.median * 3, 100);
   const results = [];
@@ -984,7 +1012,23 @@ function matchCentroidsToQuestions(questions, regions, pageStats, vlClassifiedMa
         errorSource = isError ? 'red_centroids' : null;
       }
     }
-    
+
+    // v5.2 ①: 语义比对优先 — 学生答案与红笔字母都有时直接定对错
+    // （消灭"红笔在旁边但题没错"型 FP — 高一下过杀的根因之一）
+    const semantic = semanticJudge({ studentAnswer: q.studentAnswer, correctAnswer: redAnswer || q.correctAnswer });
+    if (semantic !== null) {
+      isError = semantic;
+      errorSource = semantic ? 'semantic_mismatch' : 'semantic_match';
+    }
+
+    // v5.2 ③: 听力保守规则 — 听力区红笔多为批改痕迹（划线/勾）而非答案键，
+    // 几何/质心证据不判错；仅语义比对或 VL 明确判错标记可以判
+    const qType = String(q.questionType || '').toLowerCase();
+    if (qType === 'listening' && errorSource && !errorSource.startsWith('semantic') && errorSource !== 'vl_classified') {
+      isError = false;
+      errorSource = 'listening_conservative';
+    }
+
     // v4.9: 展开 ...q 保留全部原始字段（passageText/passageRef/section/_cropSrc 等，
     // 此前显式字段清单会丢弃 passageText 导致阅读理解文章断流）
     results.push({
@@ -1669,12 +1713,13 @@ export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 
     console.log(`[scanner] Question crops: ${cropOk} ok, ${cropFail} failed`);
   }
 
-  // ═══ v4.9: 错题答案读取 — 裁剪图 VL 读学生作答（correctAnswer 已有红笔字母兜底）═══
+  // ═══ v5.2: 答案读取 — 扩展到所有有红笔字母或判错的题（语义比对证据最大化）═══
   if (USE_ZHIPU_VL) {
     const ansGate = new ConcurrencyGate(parseInt(process.env.ANSWER_READ_CONCURRENCY || '3'));
     const targets = pageResults
       .flatMap(p => p.questions)
-      .filter(q => q.isError && q._cropFile && !(q.studentAnswer && q.correctAnswer));
+      .filter(q => q._cropFile && !(q.studentAnswer && q.correctAnswer)
+        && (q.isError || q.redAnswer || q.correctAnswer));
     if (targets.length > 0) {
       await Promise.all(targets.map(q => ansGate.run(async () => {
         for (let attempt = 0; attempt < 2; attempt++) {
@@ -1694,6 +1739,24 @@ export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 
       })));
       const filled = targets.filter(q => q.studentAnswer || q.correctAnswer).length;
       console.log(`[scanner] Answer reading: ${filled}/${targets.length} errors enriched`);
+    }
+  }
+
+  // ═══ v5.2 ②: 二次语义判定 — 答案补全后对比对一次，并重建 errors 数组 ═══
+  {
+    let overridden = 0, judged = 0;
+    for (const pr of pageResults) {
+      for (const q of pr.questions) {
+        if (applySemanticOverride(q)) {
+          judged++;
+          if (q._semanticOverride) overridden++;
+        }
+      }
+      pr.errors = pr.questions.filter(q => q.isError);
+      pr.totalErrors = pr.errors.length;
+    }
+    if (judged > 0) {
+      console.log(`[scanner] Semantic judge: ${judged} 题有完整答案证据, 其中 ${overridden} 题判定被语义推翻`);
     }
   }
 
