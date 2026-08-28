@@ -1241,8 +1241,10 @@ async function executePaperTask(task) {
           passageText: q.passageText || '',
           bbox: q.bbox || null,
           redAnswer: q.redAnswer || '',
+          // 阶段A A1: 判定来源与置信度透传（确认页红绿灯分级依据）
+          errorSource: q.errorSource || '',
+          confidence: q.confidence || 'high',
           errorType: '未知',
-          confidence: 'high',
           needsReview: false,
           reviewReason: '',
           matchedMarks: [],
@@ -2174,10 +2176,33 @@ app.get('/paper/:sessionId/confirm', authMiddleware, (req, res) => {
   if (session.userId !== req.user.id) return res.status(403).json({ error: '无权访问' });
 
   const errors = listErrorProblems({ userId: req.user.id, sessionId: req.params.sessionId, limit: 200 });
+  // 阶段A A1: 置信分级 — green(语义证据齐全,自动确认) / yellow(几何/VL,需确认) / gray(低质恢复,需留意)
+  const ERR_SRC_LABEL = {
+    semantic_mismatch: '学生答案与红笔正确答案不一致', semantic_match: '学生答案与红笔正确答案一致',
+    vl_classified: 'AI识别到批改标记', red_centroids: '检测到红笔批改痕迹',
+    textin_overlap: '红笔与学生手写重叠', centroid_fallback: '红笔区域匹配',
+  };
+  const withLight = (errors.records || []).map(q => {
+    let src = '', source = '', conf = 'high', ocrSrc = '';
+    try {
+      const raw = JSON.parse(q.aiRaw || '{}');
+      source = raw.errorSource || ''; conf = raw.confidence || 'high'; ocrSrc = raw._source || '';
+    } catch (_) {}
+    let light;
+    if (String(source).startsWith('semantic')) light = 'green';
+    else if (conf === 'low' || ocrSrc === 'ocr-recovered' || !q.questionNumber) light = 'gray';
+    else light = 'yellow';
+    return { ...q, light, judgeReason: ERR_SRC_LABEL[source] || (light === 'gray' ? '恢复的低置信题' : '红笔批改检测') };
+  });
+  const stats = {
+    green: withLight.filter(q => q.light === 'green').length,
+    yellow: withLight.filter(q => q.light === 'yellow').length,
+    gray: withLight.filter(q => q.light === 'gray').length,
+  };
   // v5.0 ① + P0-3: 低质页提示（内存优先，重启后从 session 列回读）
   const lowQualityPages = paperTasks.get(req.params.sessionId)?.result?.lowQualityPages
     || session.lowQualityPages || [];
-  res.json({ success: true, questions: errors, lowQualityPages });
+  res.json({ success: true, questions: withLight, lowQualityPages, stats });
 });
 
 // POST: 提交确认结果
@@ -2198,6 +2223,13 @@ app.post('/paper/:sessionId/confirm', authMiddleware, async (req, res) => {
       if (target) {
         try {
           updateErrorReviewStatus(target.id, 'confirmed');
+          // 阶段A A5: 确认回流 — 记录机器判定与用户最终决定（判错迭代的数据飞轮）
+          try {
+            let machineSrc = '';
+            try { machineSrc = JSON.parse(target.aiRaw || '{}').errorSource || ''; } catch (_) {}
+            saveReview({ errorId: target.id, sessionId: req.params.sessionId, userId: req.user.id,
+              reviewAction: 'confirmed', correctionData: { machineErrorSource: machineSrc, questionNumber: qnum } });
+          } catch (_) {}
         } catch(e) {
           log('error', 'confirm: updateErrorReviewStatus failed', { errorId: target.id, error: e.message, stack: e.stack });
         }
@@ -2213,6 +2245,13 @@ app.post('/paper/:sessionId/confirm', authMiddleware, async (req, res) => {
       const target = errorRecords.find(e => e.topic && e.topic.includes(`Q${qnum}`));
       if (target) {
         try {
+          // 阶段A A5: 否认回流（这是最有价值的负样本 — 机器判错/用户判对）
+          try {
+            let machineSrc = '';
+            try { machineSrc = JSON.parse(target.aiRaw || '{}').errorSource || ''; } catch (_) {}
+            saveReview({ errorId: target.id, sessionId: req.params.sessionId, userId: req.user.id,
+              reviewAction: 'user_removed', correctionData: { machineErrorSource: machineSrc, questionNumber: qnum } });
+          } catch (_) {}
           deleteErrorProblem(target.id);
         } catch(e) {
           log('error', 'confirm: deleteErrorProblem failed', { errorId: target.id, error: e.message, stack: e.stack });
