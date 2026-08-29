@@ -1,7 +1,16 @@
 <template>
   <div class="max-w-5xl mx-auto py-8 px-4">
-    <h1 class="text-2xl font-bold text-gray-900 mb-2">📔 错题本</h1>
-    <p class="text-gray-500 mb-6">按试卷、时间或科目查看已整理的错题</p>
+    <div class="flex items-start justify-between mb-2 flex-wrap gap-3">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900">📔 错题本</h1>
+        <p class="text-gray-500 mt-1">按试卷、时间或科目查看已整理的错题</p>
+      </div>
+      <router-link to="/error/export"
+        class="px-4 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 shadow-sm transition-colors whitespace-nowrap">
+        📄 生成错题卷
+      </router-link>
+    </div>
+    <div class="mb-6"></div>
 
     <!-- 统计卡片 -->
     <div class="grid grid-cols-3 gap-4 mb-6" v-if="stats">

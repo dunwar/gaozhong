@@ -18,6 +18,7 @@ const routes = [
   // ===== 错题整理模块 =====
   { path: '/paper/upload', name: 'PaperUpload', component: () => import('../views/PaperUpload.vue'), meta: { requiresAuth: true } },
   { path: '/error/list', name: 'ErrorWorkbook', component: () => import('../views/ErrorWorkbook.vue'), meta: { requiresAuth: true } },
+  { path: '/error/export', name: 'PaperExport', component: () => import('../views/PaperExport.vue'), meta: { requiresAuth: true } },
   { path: '/error/:id', name: 'ErrorDetail', component: () => import('../views/ErrorDetail.vue'), meta: { requiresAuth: true } },
   { path: '/paper/:sessionId/errors', name: 'PaperErrors', component: () => import('../views/PaperErrors.vue'), meta: { requiresAuth: true } },
   { path: '/knowledge', name: 'KnowledgeMap', component: () => import('../views/KnowledgeMap.vue'), meta: { requiresAuth: true } },

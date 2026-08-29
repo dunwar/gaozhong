@@ -1,0 +1,13 @@
+{
+  "name": "gaozhong 错题本",
+  "short_name": "错题本",
+  "description": "拍照试卷，自动整理错题本，考前生成错题重做卷",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#16a34a",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}
