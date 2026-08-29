@@ -218,6 +218,7 @@
 import { ref, computed } from 'vue'
 import { authStore, authFetch } from '../utils/authStore.js'
 import { registerPaperTask, paperTasks } from '../utils/paperTaskPoller.js'
+import { compressImageDataUrl } from '../utils/imageCompress.js'
 
 const maxFiles = 10
 const subjects = ['英语', '数学', '语文', '生物', '物理', '化学', '自动']
@@ -285,11 +286,13 @@ function addFiles(files) {
     if (isImg) {
       const reader = new FileReader()
       pending++
-      reader.onload = (e) => {
+      reader.onload = async (e) => {
+        // 手机拍照直传修复: 浏览器端压缩（长边2000px/JPEG 0.82），5MB→约500KB
+        const compressed = await compressImageDataUrl(e.target.result)
         images.value.push({
           file: f,
-          preview: e.target.result,
-          base64: e.target.result.split(',')[1],
+          preview: compressed,
+          base64: compressed.split(',')[1],
           isImage: true
         })
         if (--pending === 0) sortImages()

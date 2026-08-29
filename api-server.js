@@ -1516,7 +1516,8 @@ async function executeGuidanceTask(task) {
 const app = express();
 
 // 中间件
-app.use(express.json({ limit: '10mb' }));
+// 60mb: 手机照片直传（多张×base64膨胀33%）——前端已做压缩，此为兜底上限
+app.use(express.json({ limit: '60mb' }));
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
