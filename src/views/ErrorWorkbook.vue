@@ -23,9 +23,16 @@
         <p class="text-sm text-gray-500">今日新增</p>
       </div>
       <div class="bg-white rounded-xl p-4 border text-center">
-        <p class="text-3xl font-bold text-purple-600">{{ Object.keys(stats.bySubject || {}).length || 0 }}</p>
-        <p class="text-sm text-gray-500">知识点</p>
+        <p class="text-3xl font-bold text-rose-500">{{ stats.byMastery?.pending || 0 }}</p>
+        <p class="text-sm text-gray-500">待订正</p>
       </div>
+    </div>
+
+    <!-- 掌握度筛选 -->
+    <div v-if="view === 'list'" class="flex gap-2 mb-3 flex-wrap items-center text-xs">
+      <span class="text-gray-400">订正状态：</span>
+      <button v-for="m in masteryFilters" :key="m.key" @click="masteryFilter = m.key"
+        :class="['px-2.5 py-1 rounded-full font-medium', masteryFilter === m.key ? m.activeCls : 'bg-white border text-gray-500']">{{ m.label }}</button>
     </div>
 
     <!-- 分组切换 -->
@@ -172,8 +179,9 @@
     <template v-else>
       <div class="bg-white rounded-xl border overflow-hidden">
         <div class="divide-y">
-          <div v-for="err in items" :key="err.id" class="px-5 py-3 hover:bg-gray-50 cursor-pointer" @click="$router.push(`/paper/${err.sessionId || err.session_id}/errors`)">
+          <div v-for="err in filteredItems" :key="err.id" class="px-5 py-3 hover:bg-gray-50 cursor-pointer" @click="$router.push(`/paper/${err.sessionId || err.session_id}/errors`)">
             <div class="flex items-start gap-3">
+              <button @click.stop="cycleMastery(err)" :title="masteryLabel(err)" :class="['w-2.5 h-2.5 rounded-full mt-2 shrink-0', masteryDotCls(err)]"></button>
               <span class="text-xs font-bold text-gray-400 min-w-[40px] pt-1">Q{{ err.questionNumber ?? (err.topic?.match(/(\d+)/)?.[1] ?? '?') }}</span>
               <div class="flex-1 min-w-0">
                 <p class="text-sm text-gray-800 line-clamp-2">{{ err.questionText || err.topic || '题目内容' }}</p>
@@ -232,7 +240,7 @@
 
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
-import { authStore } from '../utils/authStore.js'
+import { authStore, authFetch } from '../utils/authStore.js'
 
 const views = [
   { key: 'paper', label: '📄 按试卷' },
@@ -242,6 +250,7 @@ const views = [
 ]
 const view = ref('paper')
 const page = ref(1)
+const masteryFilter = ref('all')
 const items = ref([])
 const paperResults = ref({ papers: [], total: 0 })
 const timeResults = ref([])
@@ -263,6 +272,44 @@ const isEmpty = computed(() => {
 
 const pageSize = 20
 const totalPages = computed(() => Math.max(1, Math.ceil(items.value.length / pageSize)))
+
+// 阶段C: 订正三态 — 筛选/色点/点击切换
+const masteryFilters = [
+  { key: 'all', label: '全部', activeCls: 'bg-gray-800 text-white' },
+  { key: 'pending', label: '🔴 待订正', activeCls: 'bg-rose-100 text-rose-700 border border-rose-200' },
+  { key: 'corrected', label: '🟡 已订正', activeCls: 'bg-amber-100 text-amber-700 border border-amber-200' },
+  { key: 'mastered', label: '🟢 已掌握', activeCls: 'bg-emerald-100 text-emerald-700 border border-emerald-200' },
+]
+const MASTERY_NEXT = { pending: 'corrected', corrected: 'mastered', mastered: 'pending' }
+const MASTERY_LABEL = { pending: '待订正（点击标记已订正）', corrected: '已订正（点击标记已掌握）', mastered: '已掌握（点击重置）' }
+function masteryDotCls(err) {
+  const m = err.mastery || 'pending'
+  return m === 'mastered' ? 'bg-emerald-500' : m === 'corrected' ? 'bg-amber-400' : 'bg-rose-500'
+}
+function masteryLabel(err) { return MASTERY_LABEL[err.mastery || 'pending'] }
+const filteredItems = computed(() => {
+  if (masteryFilter.value === 'all') return items.value
+  return items.value.filter(err => (err.mastery || 'pending') === masteryFilter.value)
+})
+async function cycleMastery(err) {
+  const prev = err.mastery || 'pending'
+  const next = MASTERY_NEXT[prev]
+  try {
+    const res = await authFetch(`/api/error/${err.id}/mastery`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mastery: next })
+    })
+    const data = await res.json()
+    if (data.success) {
+      err.mastery = next
+      if (stats.value?.byMastery) {
+        stats.value.byMastery[prev] = Math.max(0, (stats.value.byMastery[prev] || 0) - 1)
+        stats.value.byMastery[next] = (stats.value.byMastery[next] || 0) + 1
+      }
+    }
+  } catch (e) { console.error('mastery update failed:', e) }
+}
 
 // Group by paper session (for paper view)
 const groupedItems = computed(() => {

@@ -185,6 +185,10 @@ export async function initDB() {
   // V5: 错题内容完整性 — 阅读理解原文（阶段1a）
   try { db.run(`ALTER TABLE error_problems ADD COLUMN passage_text TEXT DEFAULT '';`); } catch (_) {}
 
+  // 阶段C: 订正三态 pending(待订正)/corrected(已订正)/mastered(已掌握) — 对齐学校错题流程
+  try { db.run(`ALTER TABLE error_problems ADD COLUMN mastery TEXT DEFAULT 'pending';`); } catch (_) {}
+  try { db.run(`ALTER TABLE error_problems ADD COLUMN mastery_updated_at INTEGER DEFAULT 0;`); } catch (_) {}
+
   // 错题复核记录表
   db.run(`
     CREATE TABLE IF NOT EXISTS error_reviews (
@@ -513,9 +517,9 @@ export function saveErrorProblem(record) {
       knowledge_explanation, grading_evidence,
       notes, source, ai_raw, status,
       session_id, paper_index, review_status,
-      passage_text,
+      passage_text, mastery,
       created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   stmt.run([
     record.id,
@@ -540,6 +544,7 @@ export function saveErrorProblem(record) {
     record.paperIndex || 1,
     record.reviewStatus || 'pending',
     record.passageText || '',
+    record.mastery || 'pending',
     record.createdAt || Date.now(),
     Date.now()
   ]);
@@ -617,11 +622,16 @@ export function getErrorStats(userId = null) {
   const subjectRows = db.exec(`SELECT subject, COUNT(*) as c FROM error_problems WHERE 1=1${userClause} GROUP BY subject`, userParam);
   if (subjectRows[0]) for (const row of subjectRows[0].values) bySubject[row[0]] = row[1];
 
+  // 阶段C: 订正三态统计
+  const byMastery = { pending: 0, corrected: 0, mastered: 0 };
+  const masteryRows = db.exec(`SELECT COALESCE(mastery,'pending'), COUNT(*) FROM error_problems WHERE 1=1${userClause} GROUP BY mastery`, userParam);
+  if (masteryRows[0]) for (const row of masteryRows[0].values) byMastery[row[0]] = row[1];
+
   const byErrorType = {};
   const typeRows = db.exec(`SELECT error_type, COUNT(*) as c FROM error_problems WHERE error_type != ''${userClause} GROUP BY error_type`, userParam);
   if (typeRows[0]) for (const row of typeRows[0].values) byErrorType[row[0]] = row[1];
 
-  return { total, bySubject, byErrorType, todayCount };
+  return { total, bySubject, byErrorType, todayCount, byMastery };
 }
 
 /** 按知识点聚合：每个知识点关联的错题数 */
@@ -905,6 +915,16 @@ export function saveReview({ errorId, sessionId, userId, reviewAction, correctio
   saveDBDeferred();
 }
 
+/** 阶段C: 订正三态更新（pending/corrected/mastered） */
+export function updateErrorMastery(errorId, mastery) {
+  if (!db) return null;
+  if (!['pending', 'corrected', 'mastered'].includes(mastery)) return null;
+  db.run(`UPDATE error_problems SET mastery = ?, mastery_updated_at = ?, updated_at = ? WHERE id = ?`,
+    [mastery, Date.now(), Date.now(), errorId]);
+  saveDBDeferred();
+  return getErrorProblem(errorId);
+}
+
 export function updateErrorReviewStatus(errorId, reviewStatus, correctionData = null) {
   if (!db) return null;
   const sets = ['review_status = ?'];
@@ -1020,6 +1040,7 @@ function deserializeError(row) {
     reviewStatus: row.review_status || 'pending',
     positionData: row.position_data || '',
     passageText: row.passage_text || '',
+    mastery: row.mastery || 'pending',
     createdAt: row.created_at, updatedAt: row.updated_at
   };
 }

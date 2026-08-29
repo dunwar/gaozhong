@@ -55,7 +55,7 @@ process.on('SIGINT', () => {
 
 // Scanner v3.0
 const SCANNER_VERSION = 'v4.2';
-import { initDB, saveDB, saveRecord, getRecord, getHistory, getStats, createUser, getUserByEmail, getUserById, updateUser, changePassword, listUsers, saveErrorProblem, saveErrorKnowledgeTags, getErrorProblem, listErrorProblems, getErrorStats, getKnowledgeStats, getErrorsByKnowledgePoint, searchKnowledgePoints, createPaperSession, updatePaperSession, getPaperSession, listPaperSessions, listErrorsByPaper, listErrorsByTime, listErrorsBySubject, listErrorsForGuidance, saveReview, updateErrorReviewStatus, deleteErrorProblem, getSessionReviews, resetStalledPaperSessions, countPaperSessionsToday } from './db.js';
+import { initDB, saveDB, saveRecord, getRecord, getHistory, getStats, createUser, getUserByEmail, getUserById, updateUser, changePassword, listUsers, saveErrorProblem, saveErrorKnowledgeTags, getErrorProblem, listErrorProblems, getErrorStats, getKnowledgeStats, getErrorsByKnowledgePoint, searchKnowledgePoints, createPaperSession, updatePaperSession, getPaperSession, listPaperSessions, listErrorsByPaper, listErrorsByTime, listErrorsBySubject, listErrorsForGuidance, saveReview, updateErrorReviewStatus, updateErrorMastery, deleteErrorProblem, getSessionReviews, resetStalledPaperSessions, countPaperSessionsToday } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3001;
@@ -1454,6 +1454,7 @@ async function executeConfirmationAnalysis(sessionId, userId, confirmedQuestions
           paperIndex: target.paperIndex || 1,
           status: 'done',
           reviewStatus: 'confirmed',
+          mastery: target.mastery || 'pending',  // 阶段C: 重写不丢订正状态
           createdAt: target.createdAt || Date.now()
         });
 
@@ -1925,6 +1926,16 @@ app.get('/error/list', authMiddleware, (req, res) => {
 app.get('/error/stats', authMiddleware, (req, res) => {
   const stats = getErrorStats(req.user.id);
   res.json({ success: true, ...stats });
+});
+
+// 阶段C: 订正三态更新 — 待订正(pending)/已订正(corrected)/已掌握(mastered)
+app.post('/error/:id/mastery', authMiddleware, (req, res) => {
+  const { mastery } = req.body || {};
+  const record = getErrorProblem(req.params.id, req.user.id);
+  if (!record) return res.status(404).json({ error: '错题记录不存在' });
+  const updated = updateErrorMastery(req.params.id, mastery);
+  if (!updated) return res.status(400).json({ error: '无效的订正状态' });
+  res.json({ success: true, record: updated });
 });
 
 // 错题详情

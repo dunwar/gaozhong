@@ -4,13 +4,20 @@
     <div class="flex items-center justify-between mb-5">
       <div>
         <h1 class="text-2xl font-bold text-gray-900">📄 生成错题卷</h1>
-        <p class="text-gray-500 text-sm mt-1">筛选错题 → 打印/存PDF → 考前重做</p>
+        <p class="text-gray-500 text-sm mt-1">订正纸=题目印好只写订正（代替抄题）｜重做卷=考前自测</p>
       </div>
       <router-link to="/error/list" class="text-sm text-gray-400 hover:text-gray-600">← 返回错题本</router-link>
     </div>
 
     <div class="bg-white rounded-xl border p-4 mb-5 space-y-3">
       <div class="flex flex-wrap gap-3">
+        <div>
+          <label class="text-xs text-gray-500 block mb-1">模式</label>
+          <div class="flex gap-1">
+            <button @click="mode='correct'; applyFilters()" :class="['px-3 py-2 rounded-lg text-sm', mode==='correct' ? 'bg-blue-600 text-white' : 'bg-gray-50 border text-gray-600']">✏️ 订正纸</button>
+            <button @click="mode='redo'; applyFilters()" :class="['px-3 py-2 rounded-lg text-sm', mode==='redo' ? 'bg-emerald-600 text-white' : 'bg-gray-50 border text-gray-600']">🔁 重做卷</button>
+          </div>
+        </div>
         <div>
           <label class="text-xs text-gray-500 block mb-1">科目</label>
           <select v-model="subject" class="px-3 py-2 bg-gray-50 border rounded-lg text-sm">
@@ -24,6 +31,14 @@
             <button v-for="r in ranges" :key="r.key" @click="range=r.key; loadData()"
               :class="['px-3 py-2 rounded-lg text-sm', range===r.key ? 'bg-emerald-600 text-white' : 'bg-gray-50 border text-gray-600']">{{ r.label }}</button>
           </div>
+        </div>
+        <div>
+          <label class="text-xs text-gray-500 block mb-1">范围</label>
+          <select v-model="masteryFilter" @change="applyFilters" class="px-3 py-2 bg-gray-50 border rounded-lg text-sm">
+            <option v-if="mode==='correct'" value="pending">仅待订正</option>
+            <option v-if="mode==='redo'" value="unmastered">未掌握（待订正+已订正）</option>
+            <option value="all">全部错题</option>
+          </select>
         </div>
         <div v-if="range==='custom'" class="flex items-end gap-2">
           <div><label class="text-xs text-gray-500 block mb-1">起</label>
@@ -60,7 +75,7 @@
   <div v-if="paperQuestions.length > 0" class="bg-white rounded-xl border p-8 mb-10 print:border-0 print:p-0 print:rounded-none shadow-sm print:shadow-none max-w-3xl mx-auto">
     <!-- 卷头 -->
     <div class="text-center border-b-2 border-gray-800 pb-3 mb-6">
-      <h1 class="text-xl font-bold">{{ subject === 'all' ? '' : subject }}错题重做卷</h1>
+      <h1 class="text-xl font-bold">{{ subject === 'all' ? '' : subject }}{{ mode === 'correct' ? '错题订正纸' : '错题重做卷' }}</h1>
       <p class="text-xs text-gray-500 mt-1">
         {{ rangeLabel }} · 共 {{ paperQuestions.length }} 题 · 生成于 {{ today }}
       </p>
@@ -84,6 +99,16 @@
                 <span v-for="opt in parsedOptions(q)" :key="opt">{{ opt }}</span>
               </div>
             </template>
+          </div>
+        </div>
+        <!-- 订正纸模式: 订正留白 + 错因栏（学校要求格式） -->
+        <div v-if="mode==='correct'" class="mt-2 ml-6">
+          <div class="border border-dashed border-gray-300 rounded h-36 flex items-start justify-between p-1">
+            <span class="text-[10px] text-gray-300">订正区</span>
+            <span class="text-[10px] text-gray-300">原答案: {{ q.wrongAnswer || '—' }}</span>
+          </div>
+          <div class="flex items-center gap-2 mt-1 text-xs text-gray-500 border-b border-gray-200 pb-1">
+            <span>错因：概念不清 / 审题失误 / 计算错误 / 其他__________</span>
           </div>
         </div>
       </div>
@@ -120,6 +145,8 @@ const dateFrom = ref('')
 const dateTo = ref('')
 const withAnswers = ref(true)
 const screenshotsFirst = ref(true)
+const mode = ref('correct')                 // 阶段C: 订正纸(默认,贴合学校流程) / 重做卷
+const masteryFilter = ref('pending')
 const records = ref([])
 const loading = ref(true)
 
@@ -131,7 +158,16 @@ const rangeLabel = computed(() => {
   return `${dateFrom.value || '…'} ~ ${dateTo.value || '…'}`
 })
 
-const paperQuestions = computed(() => records.value.filter(q => q.questionNumber))
+function applyFilters() {
+  if (mode.value === 'correct' && masteryFilter.value === 'unmastered') masteryFilter.value = 'pending'
+  if (mode.value === 'redo' && masteryFilter.value === 'pending') masteryFilter.value = 'unmastered'
+}
+const paperQuestions = computed(() => records.value.filter(q => {
+  if (!q.questionNumber) return false
+  if (masteryFilter.value === 'pending') return (q.mastery || 'pending') === 'pending'
+  if (masteryFilter.value === 'unmastered') return (q.mastery || 'pending') !== 'mastered'
+  return true
+}))
 
 function timeRange() {
   const now = new Date()
