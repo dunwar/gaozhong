@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """
-gaozhong.online — 预处理 v8.3
+gaozhong.online — 预处理 v8.4
 功能: 矫正+对比度 + 红笔突出图 + 连通域红笔区域检测 + 去红处理 + 页面准备 + TextIn
+v8.4: prepare-pages 内容感知 — 旋转前判文字方向(投影方差)，分割前判书缝白带(≥5%)
 v8.3: 新增 /prepare-pages 端点 — 自动旋转+双页水平分割+页面排序
 v8.2: 新增 /textin/* 端点 — TextIn OCR 集成
 v8.1: 新增 /de-red 端点 — 用红笔 mask 擦除原图红笔墨水，输出干净图像供 OCR
 """
-import base64, traceback, json, os, sys, numpy as np
+import base64, traceback, json, os, sys, re, numpy as np
 from pathlib import Path
 
 # ═══════════════════════════════════════════════════════════════
@@ -174,7 +175,7 @@ def red_highlighted_image(img):
 
 @app.route('/health', methods=['GET'])
 def health():
-    return jsonify({'status': 'ok', 'service': 'gaozhong-preprocess', 'version': 'v8.1'})
+    return jsonify({'status': 'ok', 'service': 'gaozhong-preprocess', 'version': 'v8.4'})
 
 @app.route('/preprocess', methods=['POST'])
 def preprocess():
@@ -482,13 +483,54 @@ def split_columns():
 # 页面准备端点 (v8.3) — 自动旋转 + 双页照片分割 + 页面排序
 # ═══════════════════════════════════════════════════════════════
 
+def _text_is_sideways(img):
+    """横版图里的文字是否横躺（需旋转90°扶正）。
+    原理: 正立文本的行结构 → 逐行墨迹投影方差 >> 逐列投影方差；横躺则相反。
+    实测分离度: 正向 rv/cv=3.2~4.8，横躺 rv/cv=0.27，阈值1.2留足余量。
+    仅对横版图调用；180°翻转不在此处理（TextIn/VL 可容忍）。
+    v8.4: 修复"正向横版扫描件被误旋转90°"——旧逻辑只看宽>高就转。"""
+    import cv2
+    sw = 600
+    sc = sw / img.shape[1]
+    small = cv2.resize(img, (sw, max(1, int(img.shape[0] * sc))))
+    gray = cv2.cvtColor(small, cv2.COLOR_BGR2GRAY)
+    bw = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C,
+                               cv2.THRESH_BINARY_INV, 15, 10)
+    row_var = float(np.var(bw.sum(axis=1)))
+    col_var = float(np.var(bw.sum(axis=0)))
+    return col_var > row_var * 1.2
+
+
+def _central_gutter_width(img):
+    """中央书缝白带宽度（占图宽%）。
+    双页并排照片: 中缝=左页右边距+物理空隙+右页左边距，白带≥5%；
+    单张横版页(双栏试卷): 栏距窄(<5%)或中央有墨迹。
+    v8.4: 防止旋转修复后，横版单页落入 1.2~1.6 宽高比区间被错切两半。"""
+    import cv2
+    sw = 800
+    sc = sw / img.shape[1]
+    small = cv2.resize(img, (sw, max(1, int(img.shape[0] * sc))))
+    gray = cv2.cvtColor(small, cv2.COLOR_BGR2GRAY)
+    bw = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C,
+                               cv2.THRESH_BINARY_INV, 15, 10)
+    prof = bw.sum(axis=0) / 255.0
+    if prof.max() > 0:
+        prof = prof / prof.max()
+    lo, hi = int(sw * 0.40), int(sw * 0.60)
+    best = cur = 0
+    for v in prof[lo:hi]:
+        cur = cur + 1 if v < 0.02 else 0
+        best = max(best, cur)
+    return best / sw * 100.0
+
+
 @app.route('/prepare-pages', methods=['POST'])
 def prepare_pages():
     """
     页面准备：将手机拍摄的试卷照片转为独立页面
     0. 裁切背景 — 自动检测试卷边缘，裁掉桌面/背景
-    1. 自动旋转 — 横拍竖版自动转正（宽>高且宽>1000时旋转90°）
-    2. 水平分页 — 一张照片拍两页时，从中间切开为独立页面
+    1. 自动旋转 — 横版且文字横躺才转正（v8.4 投影方差判别，不再只看宽高比）
+    2. 水平分页 — 双页并排(宽高比1.2~1.6 + 中央书缝白带≥5%)才从中间切开
     3. 页面排序 — 每张照片的右半页先（通常为奇数页），左半页后
 
     输入: {"images": ["base64...", ...]}
@@ -576,21 +618,27 @@ def prepare_pages():
                 ch, cw = img.shape[:2]
                 print(f"  Photo {photo_idx}: cropped {orig_w}x{orig_h} → {cw}x{ch}", flush=True)
 
-            # Step 1: Auto-rotate (kimi 逻辑)
-            # 手机横拍竖版试卷 → 宽>高且宽>1000 → 旋转90°使文字正立
+            # Step 1: Auto-rotate (v8.4 内容感知)
+            # 仅当横版且文字确实横躺（投影方差判别）才旋转；
+            # 修复: 正向横版扫描件(1707x1280等)曾被无条件旋转，下游crop/VL全变横躺
             h, w = img.shape[:2]
             rotated = False
             if w > h and w > 1000:
                 import cv2
-                img = cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE)
-                h, w = img.shape[:2]
-                rotated = True
-                print(f"  Photo {photo_idx}: auto-rotated 90° → {w}x{h}", flush=True)
+                if _text_is_sideways(img):
+                    img = cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE)
+                    h, w = img.shape[:2]
+                    rotated = True
+                    print(f"  Photo {photo_idx}: auto-rotated 90° → {w}x{h}", flush=True)
+                else:
+                    print(f"  Photo {photo_idx}: landscape but text upright, no rotation ({w}x{h})", flush=True)
 
-            # Step 2: Horizontal split (kimi 逻辑)
-            # 判断是否需要分页：宽高比接近 1.3~1.5（两张竖版A4并排）时进行中分
+            # Step 2: Horizontal split (v8.4 加书缝判别)
+            # 宽高比 1.2~1.6 且中央有书缝白带(≥5%)才是真正的双页并排；
+            # 单张横版页(双栏排版)同样落在该宽高比区间，但中缝有墨迹/栏距<5%
             aspect = w / h if h > 0 else 1
-            if 1.2 <= aspect <= 1.6 and w > 800:
+            gutter = _central_gutter_width(img) if (1.2 <= aspect <= 1.6 and w > 800) else 0.0
+            if 1.2 <= aspect <= 1.6 and w > 800 and gutter >= 5.0:
                 # 水平中分：左右各为独立页面
                 mid = w // 2
                 # R = 右半页（通常为奇数页，页码较小）
@@ -627,7 +675,7 @@ def prepare_pages():
                     'split': False
                 })
                 page_index += 1
-                print(f"  Photo {photo_idx}: single page (aspect={aspect:.2f})", flush=True)
+                print(f"  Photo {photo_idx}: single page (aspect={aspect:.2f}, gutter={gutter:.1f}%)", flush=True)
 
         split_count = sum(1 for p in pages if p['split'])
         rotated_count = sum(1 for p in pages if p['rotated'])
@@ -912,7 +960,41 @@ def exam_extract():
         for pi, img_b64 in enumerate(images_b64):
             raw = img_b64.split(',')[-1] if ',' in img_b64 else img_b64
 
-            # 1) xParse OCR（先做 — L2/L3 需要 detail items，v3 重试策略也用它做预期）
+            # v8.5 方向解耦（坐标实证修正版）:
+            # - v3 智能抽取: 横版页提交竖版副本(旋转90°CW)抽取质量显著更好(P1 21题 vs 10题);
+            #   v3 服务端会自动转正并**直接返回正向横版帧坐标**(Q43锚点实证: 返回(65,77)恰为
+            #   原图左上角Q43区), 故不做任何坐标变换。
+            # - xParse OCR: 提交横版原图, 返回坐标即横版帧, 与 _cropSrc/红笔质心同帧。
+            _img = None
+            _port = None
+            try:
+                import cv2
+                _img = cv2.imdecode(np.frombuffer(_b64.b64decode(raw), dtype=np.uint8), cv2.IMREAD_COLOR)
+                if _img is not None and _img.shape[1] > _img.shape[0]:
+                    _port = cv2.rotate(_img, cv2.ROTATE_90_CLOCKWISE)
+                    print(f"Exam P{pi+1}: landscape {_img.shape[1]}x{_img.shape[0]} → portrait copy for v3", flush=True)
+            except Exception as _e:
+                _img = None
+                print(f"Exam P{pi+1}: orientation precheck failed ({_e}), submit as-is", flush=True)
+
+            def _to_b64(arr, quality=92, trim=0):
+                """ndarray → jpeg b64（quality/trim 扰动用于 v3 多次采样不同抽取）"""
+                import cv2
+                a = arr
+                if trim > 0 and a.shape[0] > 40 and a.shape[1] > 40:
+                    ty, tx = int(a.shape[0] * trim), int(a.shape[1] * trim)
+                    a = a[ty:-ty, tx:-tx]
+                return _b64.b64encode(
+                    cv2.imencode('.jpg', a, [cv2.IMWRITE_JPEG_QUALITY, quality])[1].tobytes()
+                ).decode()
+
+            # v8.6: v3 双发扰动采样（相同字节相同结果，需扰动输入）
+            if _port is not None:
+                variants = [_to_b64(_port, 92), _to_b64(_port, 88)]
+            else:
+                variants = [raw]
+
+            # 1) xParse OCR（横版原图 — 返回坐标即横版帧，与v3自动转正坐标同帧）
             try:
                 with tempfile.NamedTemporaryFile(suffix='.jpg', delete=False) as tmp:
                     tmp.write(_b64.b64decode(raw))
@@ -938,18 +1020,60 @@ def exam_extract():
                             'pageIndex': pi + 1
                         })
 
-            # 2) v3 智能抽取（dewarp=1）+ 页级重试（v3 有运行方差，题数远低于
-            #    OCR item 预期时重试一次取优 — 实验记录 P3 单轮 5题 vs 23题）
-            v3 = ep.call_v3_extract(raw, app_id, secret, timeout=180)
-            page_qs = ep.parse_v3_page(v3, pi + 1) if v3 else []
-            expect_min = max(4, len(items) // 8)
+            # 2) v3 智能抽取（dewarp=1）— v8.6 双发取优 + OCR可信度选择
+            #    v3 单次尝试是抽签: 好则全对(21题/真题号)，坏则整页丢题(5题)或
+            #    伪造顺序题号(实测 P2 真Q24-42 被标成 11-22)。
+            #    选择器: 可信度 = v3题号命中本页OCR印刷题号集合的比例；
+            #    可信度≥0.6 的尝试中取题数最多者，全不可信则退回题数最多。
+            def _v3_attempt(variant_b64):
+                # 注: v3 返回坐标已在正向(自动转正)帧，直接使用，不做变换
+                v3x = ep.call_v3_extract(variant_b64, app_id, secret, timeout=180)
+                return ep.parse_v3_page(v3x, pi + 1) if v3x else []
+
+            # OCR 印刷题号集合: 题号常与选项A粘连("1.A.at ease")或带噪声前缀("CD75.A...")
+            ocr_num_tokens = set()
+            for it in items:
+                m2 = re.match(r'^[A-Za-z]{0,3}\s*(\d{1,3})\s*[.、]', (it.get('text') or '').strip())
+                if m2:
+                    ocr_num_tokens.add(int(m2.group(1)))
+
+            def _cred(qs):
+                if not qs:
+                    return 0.0
+                hit = sum(1 for q in qs if q.get('questionNumber') in ocr_num_tokens)
+                return hit / len(qs)
+
+            # 前页已选题号最大值 — 伪造尝试的题号会大量重叠前页(实测 P2 伪造11-22
+            # 重叠 P1 的 1-21 共11题)，真题号是顺延的(24-42 零重叠)
+            _prev_max = max((q.get('questionNumber') or 0 for q in questions), default=0)
+
+            def _ovl_ratio(a):
+                if not a or not _prev_max:
+                    return 0.0
+                nums = [q.get('questionNumber') or 0 for q in a]
+                return sum(1 for n in nums if 0 < n <= _prev_max) / len(nums)
+
+            def _pick(cands):
+                sane = [a for a in cands if _ovl_ratio(a) <= 0.34]
+                pool = sane if sane else cands
+                good = [a for a in pool if _cred(a) >= 0.6]
+                pool2 = good if good else pool
+                return max(pool2, key=lambda a: (len(a), round(_cred(a), 2)))
+
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor(max_workers=2) as ex:
+                futs = [ex.submit(_v3_attempt, v) for v in variants[:2]]
+                attempts = [f.result() for f in futs]
+            page_qs = _pick(attempts)
+
+            expect_min = max(6, len(items) // 8)
             if 0 < len(page_qs) < expect_min:
-                print(f"Exam P{pi+1}: v3 低产出 {len(page_qs)} < 预期 {expect_min}，重试...", flush=True)
-                v3b = ep.call_v3_extract(raw, app_id, secret, timeout=180)
-                if v3b:
-                    page_qs2 = ep.parse_v3_page(v3b, pi + 1)
-                    if len(page_qs2) > len(page_qs):
-                        page_qs = page_qs2
+                print(f"Exam P{pi+1}: v3 低产出 {len(page_qs)} < 预期 {expect_min}，第三变体...", flush=True)
+                third = _to_b64(_port if _port is not None else _img, 92, trim=0.01) if (_port is not None or _img is not None) else variants[0]
+                attempts.append(_v3_attempt(third))
+                page_qs = _pick(attempts)
+            _best_cred = _cred(page_qs)
+            print(f"Exam P{pi+1}: v3 attempts={[len(a) for a in attempts]} cred={[round(_cred(a),2) for a in attempts]} → pick {len(page_qs)} (cred={_best_cred:.2f})", flush=True)
             if page_qs:
                 questions.extend(page_qs)
                 page_status.append('ok')
