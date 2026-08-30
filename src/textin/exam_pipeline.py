@@ -255,75 +255,150 @@ _RE_ANCHOR = re.compile(r'Questions?\s+(\d+)\s*(?:through|to|-|–)\s*(\d+)', re
 
 
 def recover_missing_questions(questions: List[Dict], ocr_items_by_page: Dict[int, List[Dict]]) -> List[Dict]:
-    """L2: 用本地 OCR detail items 恢复缺失题号的题。
+    """L2 v2: 缺失题恢复 — 行匹配 + 锚点分段 + 位置内插。
 
-    依据（实验实证）: 截断题号行 '1.A.at ease' = Q21、'2.A.targeted' = Q22。
-    规则: 期望号（区间锚点/连续性）在 OCR 里找尾数匹配的截断行 → 建最小题记录。
+    依据（高一下P1-P3实测）:
+    ① section锚点行精确覆盖缺失区: "Questions 14 through 16" / "17 through 20"
+       （OCR粘连"through113"=through 13, 需拆位修复）
+    ② OCR行丢十位: "4."=14, "7."=17（截断行, 锚点段内可定）
+    ③ 完整题号行: "11. A.A new plan..."
+    ④ 整块区域OCR完全缺失(P2的22/23, P3的63-65): 邻题bbox内插定位,
+       题干留空由裁剪图crop+VL兜底（crop才是复习时的真实载体）
     """
     recovered = []
     if not questions:
         return recovered
     existing = {q['questionNumber'] for q in questions if q['questionNumber']}
+    if not existing:
+        return recovered
+    max_num = max(existing)
 
-    # 期望号集：锚点区间 ∪ 邻居连续外推
+    def _ypos(it):
+        pos = it.get('position') or []
+        return min(pos[1::2]) if len(pos) >= 8 else 0
+
+    def _mk(n, pi, text, bbox, src_tag):
+        questions.append({
+            'questionNumber': n,
+            'questionType': 'choice',
+            'questionText': text[:200],
+            'options': {},
+            'passageText': '',
+            'pageIndex': pi,
+            'qnBbox': bbox,
+            'textBboxes': [bbox] if bbox.get('w') else [],
+            'pageWidth': 0, 'pageHeight': 0,
+            'studentAnswer': '',
+            'confidence': 'low',
+            '_source': src_tag,
+            '_qnOriginal': n,
+        })
+        existing.add(n)
+        missing.remove(n)
+        recovered.append(n)
+        logger.info("L2恢复: Q%d (page %d, %s)", n, pi, src_tag)
+
+    # ── 期望号集: 锚点 ∪ 邻居±1 ∪ 连续缺口填充(2≤gap≤16) ──
     expect = set()
+    anchors = []  # (page, a, b, y)
     for pi, items in ocr_items_by_page.items():
         for it in items:
-            m = _RE_ANCHOR.search(it.get('text', '') or '')
+            m = _RE_ANCHOR.search((it.get('text') or ''))
             if m:
                 a, b = int(m.group(1)), int(m.group(2))
-                if 0 < a < b < 300 and b - a < 120:
+                if b - a > 25:  # OCR粘连: "through113" → 13
+                    for b2 in (b % 100, b % 10):
+                        if b2 > a and b2 - a <= 25:
+                            b = b2
+                            break
+                if 0 < a < b < 300 and b - a <= 25:
                     expect.update(range(a, b + 1))
+                    anchors.append((pi, a, b, _ypos(it)))
     for q in questions:
         if q['questionNumber']:
             expect.update(range(max(1, q['questionNumber'] - 1), q['questionNumber'] + 2))
-    missing = sorted(m for m in expect if m not in existing)
+    nums_sorted = sorted(existing)
+    for x, y in zip(nums_sorted, nums_sorted[1:]):
+        if 2 <= y - x <= 16:
+            expect.update(range(x + 1, y))
+    missing = sorted(m for m in expect if m not in existing and 0 < m <= max_num)
     if not missing:
         return recovered
 
+    # ── 锚点分段: 行落入段内则截断数字映射到段内号 ──
+    bands_by_page = {}
+    for pi, a, b, ay in sorted(anchors, key=lambda t: (t[0], t[3])):
+        bands_by_page.setdefault(pi, []).append((ay, a, b))
+
+    def _band_for(pi, y):
+        band = None
+        for ay, a, b in bands_by_page.get(pi, []):
+            if y >= ay - 20:
+                band = (a, b)
+        return band
+
+    # ── 行恢复: 完整题号行 + 截断题号行(段感知) ──
     for pi, items in sorted(ocr_items_by_page.items()):
         for it in items:
-            txt = (it.get('text', '') or '').strip()
-            m = _RE_TRUNC_QN.match(txt)
-            if not m:
+            txt = (it.get('text') or '').strip()
+            if not txt or len(txt) < 3:
                 continue
-            d = int(m.group(1))
-            tail_rest = m.group(2)
-            # 该页已有正常题号 d 就不是截断行（正常单数字题）
-            if any(q['questionNumber'] == d and q['pageIndex'] == pi for q in questions):
+            y = _ypos(it)
+            bbox = _pos_to_bbox(it.get('position') or [])
+            mfull = re.match(r'^[A-Za-z]{0,3}\s*(\d{1,3})\s*[.、]\s*(.*)$', txt)
+            if mfull:
+                n = int(mfull.group(1))
+                if n in missing and not any(q['questionNumber'] == n and q['pageIndex'] == pi for q in questions):
+                    _mk(n, pi, mfull.group(2), bbox, 'ocr-recovered')
+                    continue
+            mtr = _RE_TRUNC_QN.match(txt)
+            if not mtr:
                 continue
-            cands = [x for x in missing if str(x).endswith(str(d))]
-            if len(cands) != 1:
-                continue
-            target = cands[0]
-            pos = it.get('position') or []
-            bbox = _pos_to_bbox(pos)
-            questions.append({
-                'questionNumber': target,
-                'questionType': 'choice',
-                'questionText': tail_rest[:200],
-                'options': {},
-                'passageText': '',
-                'pageIndex': pi,
-                'qnBbox': bbox,
-                'textBboxes': [bbox] if bbox['w'] else [],
-                'pageWidth': 0, 'pageHeight': 0,
-                'studentAnswer': '',
-                'confidence': 'low',
-                '_source': 'ocr-recovered',
-                '_qnOriginal': d,
-            })
-            existing.add(target)
-            missing.remove(target)
-            recovered.append(target)
-            logger.info("L2缺失恢复: OCR行 %r → Q%d (page %d)", txt[:30], target, pi)
+            d = int(mtr.group(1))
+            rest = mtr.group(2)
+            band = _band_for(pi, y)
+            if band:
+                a, b = band
+                cands = [x for x in missing if a <= x <= b and str(x).endswith(str(d))]
+            else:
+                if any(q['questionNumber'] == d and q['pageIndex'] == pi for q in questions):
+                    continue
+                cands = [x for x in missing if str(x).endswith(str(d))]
+            if len(cands) == 1:
+                _mk(cands[0], pi, rest, bbox, 'ocr-recovered-trunc')
 
-    questions.sort(key=lambda x: (x.get('pageIndex', 0), x['questionNumber']))
+    # ── 内插恢复: 仍缺失的期望号, 用邻题bbox定位(题干空, crop兜底) ──
+    for n in list(missing):
+        prev_n = max((x for x in existing if x < n), default=None)
+        next_n = min((x for x in existing if x > n), default=None)
+        if prev_n is None or next_n is None or next_n - prev_n > 17:
+            continue
+        pq = next(q for q in questions if q['questionNumber'] == prev_n)
+        nq = next(q for q in questions if q['questionNumber'] == next_n)
+        if pq['pageIndex'] == nq['pageIndex']:
+            pb, nb = pq.get('qnBbox') or {}, nq.get('qnBbox') or {}
+            if not pb.get('w') or not nb.get('w'):
+                continue
+            span = next_n - prev_n
+            k = (n - prev_n) / span
+            ib = {'x': pb['x'], 'y': int(pb['y'] + (nb['y'] - pb['y']) * k),
+                  'w': pb['w'], 'h': max(24, int((nb['y'] + nb['h'] - pb['y'] - pb['h']) / span))}
+            pi = nq['pageIndex']
+        else:
+            nb = nq.get('qnBbox') or {}
+            if not nb.get('w'):
+                continue
+            step = max(30, int(nb['h'] * 1.4))
+            k = next_n - n
+            ib = {'x': nb['x'], 'y': max(0, nb['y'] - step * k - step // 2),
+                  'w': nb['w'], 'h': step}
+            pi = nq['pageIndex']
+        _mk(n, pi, '', ib, 'gap-interpolated')
+
+    questions.sort(key=lambda x: (x.get('pageIndex', 0), x['questionNumber'] or 10**6))
     return recovered
 
 
-# ═══════════════════════════════════════════════════════════════════════
-# L3 学生答案（handwritten 标签孤立字母 → 就近归属）
 # ═══════════════════════════════════════════════════════════════════════
 
 _RE_ANSWER_TOKEN = re.compile(r'^[A-Za-z]{1,12}$')
@@ -448,10 +523,47 @@ def validate_questions(questions: List[Dict]) -> List[Dict]:
 # 编排：整卷流水线
 # ═══════════════════════════════════════════════════════════════════════
 
+def drop_page_outliers(questions: List[Dict]) -> int:
+    """L1.5: 跨页离群题号清零 — v3 偶发把伪造题号安到错误页
+    （实测 P3 出现 Q11、P4 出现 Q18/23，均远离本页主簇且落在前页号段，
+    还会占用真题号让 L2 无法恢复正确的题）。
+    规则: 页序按题号中位数排列后，本页有效区间 =
+    [前页中位max-15, 后页中位min+15]；区间外题号清零（保留题目本体，
+    置信 low，进复核灰灯）。页题数 <4 不判（避免小页误伤）。
+    """
+    from statistics import median
+    page_nums = {}
+    for q in questions:
+        n = q.get('questionNumber') or 0
+        if n:
+            page_nums.setdefault(q.get('pageIndex', 0), []).append(n)
+    if len(page_nums) < 2:
+        return 0
+    meds = {pi: median(ns) for pi, ns in page_nums.items()}
+    order = sorted(meds, key=lambda pi: meds[pi])
+    removed = 0
+    for idx, pi in enumerate(order):
+        if len(page_nums[pi]) < 4:
+            continue
+        lo = max((meds[p] for p in order[:idx]), default=0) - 15
+        hi = min((meds[p] for p in order[idx + 1:]), default=10 ** 6) + 15
+        for q in questions:
+            if q.get('pageIndex') == pi and q.get('questionNumber'):
+                n = q['questionNumber']
+                if n < lo or n > hi:
+                    q['_qnOriginal'] = n
+                    q['questionNumber'] = 0
+                    q['confidence'] = 'low'
+                    removed += 1
+                    logger.info("L1.5离群清零: Q%d (page %d, 有效区间[%d,%d])", n, pi, lo, hi)
+    return removed
+
+
 def run_refinement(questions: List[Dict], ocr_items_by_page: Dict[int, List[Dict]]) -> Dict:
     """对 parse_v3_page 的合并结果跑 L1→L5。返回统计。"""
     stats = {}
     stats['qnFixes'] = fix_question_numbers(questions)
+    stats['phantoms'] = drop_page_outliers(questions)
     stats['recovered'] = recover_missing_questions(questions, ocr_items_by_page)
     stats['answersAttached'] = attach_student_answers(questions, ocr_items_by_page)
     stats['bboxesBuilt'] = build_question_bboxes(questions)
