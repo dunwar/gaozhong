@@ -902,6 +902,10 @@ function semanticJudge(q) {
   const first = s => (s.match(/[A-Z]/) || [''])[0];
   const a = first(sa), b = first(ca);
   if (!a || !b || a < 'A' || a > 'F' || b < 'A' || b > 'F') return null;
+  // v5.3: 证据自洽检查 — 红笔字母与读取到的正确答案首字母不一致 → 读数噪声，弃权
+  // （实测Q27: stu=C corr=B red=D 三字母互异，GT实为对题）
+  const ra = first(String(q.redAnswer || '').trim().toUpperCase());
+  if (ra && ra >= 'A' && ra <= 'F' && ra !== b) return null;
   return a !== b;
 }
 
@@ -1053,9 +1057,14 @@ function matchCentroidsToQuestions(questions, regions, pageStats, vlClassifiedMa
 // v4.9: 裁剪图答案读取 — 补齐 studentAnswer/correctAnswer
 // （correctAnswer 的零成本来源是 vlMarks 红笔字母；studentAnswer 需读裁剪图）
 // ═══════════════════════════════════════
-async function readCropAnswers(cropPath) {
+async function readCropAnswers(cropPath, variant = false) {
   const imageB64 = imgToBase64(cropPath);
-  const prompt = `这是一道高中试卷题目的裁剪图，包含：
+  const prompt = variant
+    ? `Look at this cropped exam question image carefully.
+Printed text and options are in black ink. The teacher's red-pen marking is visible: a red letter usually means the CORRECT answer written by the teacher; ✗/✓ are judgment marks. The STUDENT's own handwriting (pencil/blue/black pen) is separate from red pen — look near the options (circled), beside the question number, inside ( ), or on the ____ blank.
+Output ONLY JSON:
+{"studentAnswer": "<student's own letter/word, EMPTY string if no student handwriting visible>", "correctAnswer": "<red-pen correct answer, EMPTY if none>"}`
+    : `这是一道高中试卷题目的裁剪图，包含：
 - 印刷体题目和选项（黑字）
 - 老师的红笔批改：题号旁的红笔字母通常是老师标注的正确答案；✗/勾是判定标记
 - 学生的作答：蓝笔/黑笔/铅笔写的字母或单词，常见位置——选项旁圈选、题号旁、括号( )内、空格____上
@@ -1075,7 +1084,7 @@ async function readCropAnswers(cropPath) {
         { type: 'image_url', image_url: { url: imageB64, detail: 'high' } }
       ]}
     ],
-    temperature: 0.1,
+    temperature: variant ? 0.3 : 0.1,
     max_tokens: 200
   });
 
@@ -1721,11 +1730,28 @@ export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 
       .filter(q => q._cropFile && !(q.studentAnswer && q.correctAnswer)
         && (q.isError || q.redAnswer || q.correctAnswer));
     if (targets.length > 0) {
+      let dualAgree = 0, dualReject = 0;
       await Promise.all(targets.map(q => ansGate.run(async () => {
         for (let attempt = 0; attempt < 2; attempt++) {
           try {
             const r = await readCropAnswers(q._cropFile);
-            if (r.studentAnswer) q.studentAnswer = r.studentAnswer;
+            // v5.3 双读一致: 读数噪声是语义误判主因(实测Q27 stu/corr/red三字母互异)
+            // 第一读取有学生答案时，换prompt+温度再读一次，首字母不一致→不采信
+            if (r.studentAnswer) {
+              try {
+                const r2 = await readCropAnswers(q._cropFile, true);
+                const L = s => (String(s).toUpperCase().match(/[A-Z]/) || [''])[0];
+                if (L(r2.studentAnswer) && L(r2.studentAnswer) === L(r.studentAnswer)) {
+                  q.studentAnswer = r.studentAnswer;
+                  dualAgree++;
+                } else {
+                  q._answerReadInconsistent = true;  // 弃权，交回保守规则
+                  dualReject++;
+                }
+              } catch (_) {
+                q.studentAnswer = r.studentAnswer;  // 第二读失败(限流等)不阻塞
+              }
+            }
             if (r.correctAnswer) q.correctAnswer = r.correctAnswer;
             return;
           } catch (e) {
@@ -1738,22 +1764,45 @@ export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 
         }
       })));
       const filled = targets.filter(q => q.studentAnswer || q.correctAnswer).length;
-      console.log(`[scanner] Answer reading: ${filled}/${targets.length} errors enriched`);
+      console.log(`[scanner] Answer reading: ${filled}/${targets.length} errors enriched (dual-read: ${dualAgree} agree, ${dualReject} rejected)`);
     }
   }
 
-  // ═══ v5.2 ②: 二次语义判定 — 答案补全后对比对一次，并重建 errors 数组 ═══
+  // ═══ v5.2 ② + v5.3: 二次语义判定 — 答案补全后比对一次 + 字母风格卷保守化 ═══
   {
     let overridden = 0, judged = 0;
+    // v5.3 字母风格检测(强信号, 答案补全后): 红笔/正确答案字母覆盖率≥40%
+    // = 教师每题写正确答案字母的批改风格。该风格下:
+    // ① "红笔在旁边"≠"这题错了" → 几何/VL证据必然过杀(实测21/34 FP) → 不判错,人工勾选
+    // ② 学生答案靠VL读图,存在稳定系统性误读(双读一致仍错,实测Q27 stu/corr/red三字母互异)
+    //    → 语义判错降级 semantic_review(确认流黄灯), 不再绿灯自动入错题本
+    const firstLetter = s => { const m = String(s || '').toUpperCase().match(/[A-F]/); return m ? m[0] : ''; };
+    const allQs = pageResults.flatMap(p => p.questions);
+    const withLetter = allQs.filter(q => firstLetter(q.redAnswer || q.correctAnswer)).length;
+    const letterStyle = allQs.length > 0 && (withLetter / allQs.length) >= 0.40;
+    let conserved = 0, demoted = 0;
     for (const pr of pageResults) {
       for (const q of pr.questions) {
         if (applySemanticOverride(q)) {
           judged++;
           if (q._semanticOverride) overridden++;
         }
+        if (letterStyle && q.isError && q.errorSource) {
+          if (String(q.errorSource).startsWith('semantic')) {
+            q.errorSource = 'semantic_review';
+            demoted++;
+          } else {
+            q.isError = false;
+            q.errorSource = 'letter_style_conservative';
+            conserved++;
+          }
+        }
       }
       pr.errors = pr.questions.filter(q => q.isError);
       pr.totalErrors = pr.errors.length;
+    }
+    if (letterStyle) {
+      console.log(`[scanner] Letter-style paper: ${withLetter}/${allQs.length} letter coverage → ${conserved} non-semantic dropped (manual review), ${demoted} semantic demoted to review`);
     }
     if (judged > 0) {
       console.log(`[scanner] Semantic judge: ${judged} 题有完整答案证据, 其中 ${overridden} 题判定被语义推翻`);

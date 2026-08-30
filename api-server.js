@@ -2191,8 +2191,10 @@ app.get('/paper/:sessionId/confirm', authMiddleware, (req, res) => {
   // 阶段A A1: 置信分级 — green(语义证据齐全,自动确认) / yellow(几何/VL,需确认) / gray(低质恢复,需留意)
   const ERR_SRC_LABEL = {
     semantic_mismatch: '学生答案与红笔正确答案不一致', semantic_match: '学生答案与红笔正确答案一致',
+    semantic_review: '学生答案与红笔字母不一致（字母风格卷·读图判定，请核对）',
     vl_classified: 'AI识别到批改标记', red_centroids: '检测到红笔批改痕迹',
     textin_overlap: '红笔与学生手写重叠', centroid_fallback: '红笔区域匹配',
+    letter_style_conservative: '字母风格卷保守跳过（教师每题写答案字母，AI 不自动判错）',
   };
   const withLight = (errors.records || []).map(q => {
     let src = '', source = '', conf = 'high', ocrSrc = '';
@@ -2201,7 +2203,9 @@ app.get('/paper/:sessionId/confirm', authMiddleware, (req, res) => {
       source = raw.errorSource || ''; conf = raw.confidence || 'high'; ocrSrc = raw._source || '';
     } catch (_) {}
     let light;
-    if (String(source).startsWith('semantic')) light = 'green';
+    // v5.3: 字母风格卷的语义判错有系统性读图误读风险 → 黄灯人工确认，不绿灯自动入本
+    if (source === 'semantic_review') light = 'yellow';
+    else if (String(source).startsWith('semantic')) light = 'green';
     else if (conf === 'low' || ocrSrc === 'ocr-recovered' || !q.questionNumber) light = 'gray';
     else light = 'yellow';
     return { ...q, light, judgeReason: ERR_SRC_LABEL[source] || (light === 'gray' ? '恢复的低置信题' : '红笔批改检测') };
