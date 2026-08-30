@@ -1771,38 +1771,45 @@ export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 
   // ═══ v5.2 ② + v5.3: 二次语义判定 — 答案补全后比对一次 + 字母风格卷保守化 ═══
   {
     let overridden = 0, judged = 0;
-    // v5.3 字母风格检测(强信号, 答案补全后): 红笔/正确答案字母覆盖率≥40%
-    // = 教师每题写正确答案字母的批改风格。该风格下:
-    // ① "红笔在旁边"≠"这题错了" → 几何/VL证据必然过杀(实测21/34 FP) → 不判错,人工勾选
-    // ② 学生答案靠VL读图,存在稳定系统性误读(双读一致仍错,实测Q27 stu/corr/red三字母互异)
-    //    → 语义判错降级 semantic_review(确认流黄灯), 不再绿灯自动入错题本
+    // 先跑语义比对并统计"推翻几何/VL判定"的频率 — 这是字母风格的自校验信号:
+    // 教师每题写答案字母时红笔存在≠错题, 语义证据(字母一致)会频繁推翻几何判错
+    // (实测高一下 13/29=45% 推翻; 澜大标记即错题 0 推翻, 几何判定本就准)
     const firstLetter = s => { const m = String(s || '').toUpperCase().match(/[A-F]/); return m ? m[0] : ''; };
     const allQs = pageResults.flatMap(p => p.questions);
     const withLetter = allQs.filter(q => firstLetter(q.redAnswer || q.correctAnswer)).length;
-    const letterStyle = allQs.length > 0 && (withLetter / allQs.length) >= 0.40;
-    let conserved = 0, demoted = 0;
+    let flipped = 0;
     for (const pr of pageResults) {
       for (const q of pr.questions) {
         if (applySemanticOverride(q)) {
           judged++;
-          if (q._semanticOverride) overridden++;
+          if (q._semanticOverride) { overridden++; flipped++; }
         }
-        if (letterStyle && q.isError && q.errorSource) {
+      }
+    }
+    // v5.3b 字母风格判定: 语义推翻 ≥3 次且占比 ≥25% → 几何/VL证据在本卷不可信
+    const letterStyle = flipped >= 3 && (flipped / Math.max(1, judged)) >= 0.25;
+    let conserved = 0, demoted = 0;
+    if (letterStyle) {
+      for (const pr of pageResults) {
+        for (const q of pr.questions) {
+          if (!q.isError || !q.errorSource) continue;
           if (String(q.errorSource).startsWith('semantic')) {
-            q.errorSource = 'semantic_review';
+            q.errorSource = 'semantic_review';   // 读图判定有系统性误读风险 → 黄灯
             demoted++;
           } else {
-            q.isError = false;
+            q.isError = false;                    // 几何证据过杀 → 不判错,人工勾选
             q.errorSource = 'letter_style_conservative';
             conserved++;
           }
         }
       }
+    }
+    for (const pr of pageResults) {
       pr.errors = pr.questions.filter(q => q.isError);
       pr.totalErrors = pr.errors.length;
     }
     if (letterStyle) {
-      console.log(`[scanner] Letter-style paper: ${withLetter}/${allQs.length} letter coverage → ${conserved} non-semantic dropped (manual review), ${demoted} semantic demoted to review`);
+      console.log(`[scanner] Letter-style paper: ${flipped}/${judged} semantic flips (${withLetter}/${allQs.length} letter coverage) → ${conserved} non-semantic dropped (manual), ${demoted} semantic demoted to review`);
     }
     if (judged > 0) {
       console.log(`[scanner] Semantic judge: ${judged} 题有完整答案证据, 其中 ${overridden} 题判定被语义推翻`);

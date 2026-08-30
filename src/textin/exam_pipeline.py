@@ -368,10 +368,17 @@ def recover_missing_questions(questions: List[Dict], ocr_items_by_page: Dict[int
                 _mk(cands[0], pi, rest, bbox, 'ocr-recovered-trunc')
 
     # ── 内插恢复: 仍缺失的期望号, 用邻题bbox定位(题干空, crop兜底) ──
+    # 限制: 仅 ①锚点区间覆盖的号(section行明示该号存在) 或 ②≤3的小缺口
+    # (实测澜大 Q15→Q21 中间 16-20 是真实的号段跳跃, 无锚点宽缺口内插=幻觉)
+    anchor_covered = set()
+    for _pi, _a, _b, _ay in anchors:
+        anchor_covered.update(range(_a, _b + 1))
     for n in list(missing):
         prev_n = max((x for x in existing if x < n), default=None)
         next_n = min((x for x in existing if x > n), default=None)
-        if prev_n is None or next_n is None or next_n - prev_n > 17:
+        if prev_n is None or next_n is None:
+            continue
+        if n not in anchor_covered and next_n - prev_n > 3:
             continue
         pq = next(q for q in questions if q['questionNumber'] == prev_n)
         nq = next(q for q in questions if q['questionNumber'] == next_n)
