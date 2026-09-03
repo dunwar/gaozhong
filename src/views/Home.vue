@@ -39,75 +39,74 @@
       </div>
     </section>
 
-    <!-- ═══ 演示一：同一篇作文，两种批改（AI侧=真实批改案例） ═══ -->
+    <!-- ═══ 演示一：手写作文拍照 → AI 细批（照片与批改均为真实案例） ═══ -->
     <section class="py-16 md:py-24 bg-white">
       <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="text-center mb-10 md:mb-14">
           <span class="text-xs font-semibold tracking-widest text-blue-600 uppercase">亮点一 · 作文批改</span>
-          <h2 class="mt-2 text-2xl md:text-3xl font-bold text-gray-900">学校批了 2 行，AI 给出五维评分 + 10 处引用点评 + 5 条升格建议</h2>
-          <p class="mt-3 text-gray-500 text-sm md:text-base max-w-xl mx-auto">右侧为本站真实批改案例（高一议论文《技术与我》）——每处评价都引用你的原文</p>
+          <h2 class="mt-2 text-2xl md:text-3xl font-bold text-gray-900">手写作文拍张照，AI 批得比学校老师细</h2>
+          <p class="mt-3 text-gray-500 text-sm md:text-base max-w-xl mx-auto">左图是学生手写原稿实拍，右图是本站对这篇作文的真实批改——每处点评都引用原文，改哪一句都指给你看</p>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-8 items-stretch">
-          <!-- 左：学校批改 -->
+          <!-- 左：真实手写原稿 -->
           <div class="rounded-2xl border-2 border-gray-200 bg-gray-50 p-5 sm:p-6 flex flex-col">
             <div class="flex items-center justify-between mb-4">
-              <span class="text-xs font-semibold text-gray-400 bg-gray-100 px-2.5 py-1 rounded-md">🏫 学校老师批改</span>
+              <span class="text-xs font-semibold text-gray-500 bg-gray-100 px-2.5 py-1 rounded-md">① 手机拍照上传</span>
+              <span class="text-[10px] font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">学生原稿实拍</span>
             </div>
-            <!-- 卷面 mock -->
-            <div class="bg-white rounded-xl border border-gray-200 p-4 sm:p-5 font-serif text-[13px] sm:text-sm text-gray-700 leading-7 flex-1">
-              <p class="mb-1">技术的发展改变着生活的方方面面。有人说，技术让生活更便利；也有人说，技术让人变得懒惰……</p>
-              <p class="mb-1">我认为技术本身并无好坏，关键在于人如何使用技术<mark class="bg-red-100 text-red-500 px-0.5 rounded no-underline">。论证不够充分</mark>，第三段例子重复。</p>
-              <p>总之，我们要做技术的主人，而不是奴隶。</p>
+            <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-2.5 rotate-[-1deg] flex-1 flex items-center">
+              <img src="/essay-photo.jpg" alt="学生手写作文原稿" class="w-full rounded-lg shadow-md" loading="lazy" />
             </div>
-            <div class="mt-4 flex items-end justify-between">
-              <div>
-                <p class="text-gray-400 text-xs mb-1">评语全文</p>
-                <p class="text-gray-600 text-sm leading-6">“立意尚可，论证不够充分，注意卷面。”</p>
-              </div>
-              <div class="text-right shrink-0 ml-4">
-                <span class="font-bold text-3xl text-red-500 font-serif">52</span>
-                <span class="text-gray-400 text-sm">/70</span>
-              </div>
-            </div>
-            <p class="mt-3 text-center text-xs text-gray-400">批改用时约 40 秒 · 共 2 处批注</p>
+            <p class="mt-4 text-center text-xs text-gray-400">高一作文《创造转化文化 兼收并蓄美德》· 约 850 字</p>
           </div>
 
           <!-- 右：AI 批改（真实案例数据） -->
           <div class="rounded-2xl border-2 border-blue-300 bg-blue-50/50 p-5 sm:p-6 flex flex-col relative overflow-hidden shadow-lg shadow-blue-100">
-            <span class="absolute top-3 right-3 bg-blue-600 text-white text-[10px] font-semibold px-2 py-0.5 rounded-full">真实案例</span>
+            <span class="absolute top-3 right-3 bg-blue-600 text-white text-[10px] font-semibold px-2 py-0.5 rounded-full">② 真实批改结果</span>
             <div class="flex items-center justify-between mb-4">
               <span class="text-xs font-semibold text-blue-700 bg-blue-100 px-2.5 py-1 rounded-md">🤖 AI 细批 · 上海高考 70 分制</span>
             </div>
             <!-- 五维评分条（真实输出） -->
             <div class="bg-white rounded-xl border border-blue-100 p-4 space-y-2.5 mb-3">
               <div class="flex items-center gap-3"><span class="text-xs text-gray-500 w-16 shrink-0">审题立意</span><div class="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden"><div class="h-full bg-blue-500 rounded-full" style="width:80%"></div></div><span class="text-xs font-semibold text-gray-700 w-11 text-right">16/20</span></div>
-              <div class="flex items-center gap-3"><span class="text-xs text-gray-500 w-16 shrink-0">思辨深度</span><div class="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden"><div class="h-full bg-blue-500 rounded-full" style="width:75%"></div></div><span class="text-xs font-semibold text-gray-700 w-11 text-right">15/20</span></div>
-              <div class="flex items-center gap-3"><span class="text-xs text-gray-500 w-16 shrink-0">结构布局</span><div class="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden"><div class="h-full bg-blue-500 rounded-full" style="width:80%"></div></div><span class="text-xs font-semibold text-gray-700 w-11 text-right">16/20</span></div>
-              <div class="flex items-center gap-3"><span class="text-xs text-gray-500 w-16 shrink-0">语言表达</span><div class="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden"><div class="h-full bg-blue-500 rounded-full" style="width:70%"></div></div><span class="text-xs font-semibold text-gray-700 w-11 text-right">14/20</span></div>
+              <div class="flex items-center gap-3"><span class="text-xs text-gray-500 w-16 shrink-0">思辨深度</span><div class="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden"><div class="h-full bg-blue-500 rounded-full" style="width:70%"></div></div><span class="text-xs font-semibold text-gray-700 w-11 text-right">14/20</span></div>
+              <div class="flex items-center gap-3"><span class="text-xs text-gray-500 w-16 shrink-0">结构布局</span><div class="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden"><div class="h-full bg-blue-500 rounded-full" style="width:65%"></div></div><span class="text-xs font-semibold text-gray-700 w-11 text-right">13/20</span></div>
+              <div class="flex items-center gap-3"><span class="text-xs text-gray-500 w-16 shrink-0">语言表达</span><div class="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden"><div class="h-full bg-blue-500 rounded-full" style="width:60%"></div></div><span class="text-xs font-semibold text-gray-700 w-11 text-right">12/20</span></div>
               <div class="flex items-center gap-3"><span class="text-xs text-gray-500 w-16 shrink-0">素材运用</span><div class="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden"><div class="h-full bg-blue-500 rounded-full" style="width:60%"></div></div><span class="text-xs font-semibold text-gray-700 w-11 text-right">12/20</span></div>
             </div>
-            <!-- 真实点评节选 -->
+            <!-- 真实点评 + 升格示范 -->
             <div class="bg-white rounded-xl border border-blue-100 p-4 text-[13px] sm:text-sm text-gray-700 leading-7 flex-1">
               <p class="mb-2 text-xs text-gray-400">真实点评节选（每处评价引用原文）：</p>
-              <p class="mb-1.5">✦ “<span class="font-serif">技术是镜子，照出的是使用者自己的态度</span>”——全文<span class="text-emerald-600 font-medium">最有思辨价值的判断</span>，超出简单二元对立（+2分）</p>
-              <p class="mb-1.5">✦ “<span class="font-serif">正如一位科学家所说</span>”——<span class="text-amber-600">不点名的引用容易被阅卷老师视为“编造引用”</span>，削弱可信度</p>
-              <p>✦ 古罗马供水系统例证<span class="text-amber-600">只作现象陈述，未完成因果分析</span>，属典型的“以例代证”</p>
+              <p class="mb-1.5">✦ “<span class="font-serif">文化或许能保留在文化馆、博物馆之中，却很难传进人的心中</span>”——空间与心灵的对照，<span class="text-emerald-600 font-medium">全篇最出彩的一句</span></p>
+              <p class="mb-1.5">✦ “<span class="font-serif">与文化最好的相处方式，是被创造出来的</span>”——<span class="text-amber-600">主谓搭配不当，全篇最严重的语病</span></p>
+              <p class="mb-2">✦ 打铁花、侗族大歌等素材<span class="text-emerald-600 font-medium">时代感强、不落俗套</span>（+1分），但只列举未分析，“以例代证”（-1分）</p>
+              <div class="border-t border-dashed border-blue-100 pt-2">
+                <p class="mb-1 text-xs text-gray-400">真实升格示范（全文共 6 处）：</p>
+                <p class="text-[12px] sm:text-[13px] leading-6"><span class="text-red-400">与文化最好的相处方式，是被创造出来的</span><br>→ <span class="text-emerald-700 font-medium">文化本来就是被创造出来的——它是一个时代的人们在共同生活中逐渐形成的</span></p>
+              </div>
             </div>
             <div class="mt-4 flex items-end justify-between">
               <div class="text-xs text-gray-500 leading-5">
                 <p>✓ 五维明细 · 10 处原文引用点评</p>
-                <p>✓ 5 条升格修改建议（附改法）</p>
-                <p>✓ 一句话总评 + 定档理由</p>
+                <p>✓ 6 条升格修改建议（附改法与理由）</p>
+                <p>✓ 升格路径：二类卷 / 一类卷各怎么走</p>
               </div>
               <div class="text-right shrink-0 ml-4">
-                <span class="font-bold text-3xl text-blue-600 font-serif">53</span>
+                <span class="font-bold text-3xl text-blue-600 font-serif">50</span>
                 <span class="text-gray-400 text-sm">/70</span>
-                <p class="text-[11px] text-gray-400">二类卷 · 与校评分接近</p>
+                <p class="text-[11px] text-gray-400">三类卷上段 · 距二类卷一步之遥</p>
               </div>
             </div>
             <p class="mt-3 text-center text-xs text-blue-400">逐句批注 · 升格示范 · 可修改后重批看进步</p>
           </div>
+        </div>
+
+        <!-- 学校 vs AI 对比条 -->
+        <div class="mt-6 md:mt-8 rounded-2xl bg-slate-50 border border-gray-200 px-5 py-4 flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-6 text-xs sm:text-sm">
+          <span class="text-gray-500">🏫 学校老师通常：一个分数 + 一行评语</span>
+          <span class="text-gray-300">→</span>
+          <span class="text-gray-700 font-medium">🤖 AI 细批：五维评分 + 10 处引用点评 + 6 条升格修改 + 升格路径</span>
         </div>
 
         <div class="text-center mt-8">
