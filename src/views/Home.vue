@@ -1,49 +1,51 @@
 <template>
   <div>
     <!-- Hero Section -->
-    <section class="relative overflow-hidden bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-950">
-      <div class="absolute inset-0 opacity-20">
-        <div class="absolute top-10 left-10 w-72 h-72 bg-blue-400 rounded-full blur-3xl"></div>
-        <div class="absolute bottom-10 right-10 w-96 h-96 bg-indigo-500 rounded-full blur-3xl"></div>
+    <section class="relative overflow-hidden bg-slate-900 min-h-[560px] flex items-center">
+      <!-- 宣传图背景：右侧人物，左侧渐变遮罩保证文字可读 -->
+      <div class="absolute inset-0">
+        <img src="/promo-essay.png" alt="" class="absolute inset-0 w-full h-full object-cover object-[70%_center] opacity-70" />
+        <div class="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/85 to-slate-900/20"></div>
+        <div class="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-slate-950/40"></div>
       </div>
-      <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24">
-        <div class="text-center">
-          <span class="inline-flex items-center gap-1.5 bg-white/10 border border-white/15 text-blue-200 text-xs sm:text-sm font-medium px-3.5 py-1.5 rounded-full mb-6">
+      <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24 w-full">
+        <div class="max-w-xl">
+          <span class="inline-flex items-center gap-1.5 bg-white/10 border border-white/15 text-blue-200 text-xs sm:text-sm font-medium px-3.5 py-1.5 rounded-full mb-6 backdrop-blur-sm">
             📍 专为上海高中生打造 · 上海高考评分口径
           </span>
           <h1 class="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-4 tracking-tight leading-tight">
-            作文批得<span class="text-blue-400">比学校细</span>，<br class="sm:hidden">错题<span class="text-emerald-400">不用自己抄</span>
+            作文批得<span class="text-blue-400">比学校细</span>，<br>错题<span class="text-emerald-400">不用自己抄</span>
           </h1>
-          <p class="text-sm sm:text-base md:text-lg text-blue-200/80 mb-2 max-w-2xl mx-auto">
+          <p class="text-sm sm:text-base md:text-lg text-blue-200/90 mb-2">
             每周作文 AI 细批：70 分制四维评分 + 逐句标注 + 升格建议
           </p>
-          <p class="text-sm sm:text-base md:text-lg text-blue-200/80 mb-8 max-w-2xl mx-auto">
+          <p class="text-sm sm:text-base md:text-lg text-blue-200/90 mb-8">
             考后试卷拍张照：错题本 + 可打印订正纸自动生成
           </p>
 
           <!-- Two CTAs -->
-          <div class="flex flex-col sm:flex-row gap-4 justify-center">
-            <router-link to="/upload" class="inline-flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-medium px-6 py-3.5 rounded-2xl text-sm sm:text-base transition-all shadow-lg shadow-blue-600/30 hover:shadow-blue-500/40">
+          <div class="flex flex-col sm:flex-row gap-4">
+            <router-link to="/upload" class="inline-flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-medium px-6 py-3.5 rounded-2xl text-sm sm:text-base transition-all shadow-lg shadow-blue-600/40 hover:shadow-blue-500/50">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
               免费批改第一篇作文
             </router-link>
-            <router-link to="/paper/upload" class="inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-medium px-6 py-3.5 rounded-2xl text-sm sm:text-base transition-all shadow-lg shadow-emerald-600/30 hover:shadow-emerald-500/40">
+            <router-link to="/paper/upload" class="inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-medium px-6 py-3.5 rounded-2xl text-sm sm:text-base transition-all shadow-lg shadow-emerald-600/40 hover:shadow-emerald-500/50">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
               拍卷子整错题
             </router-link>
           </div>
-          <p class="mt-5 text-xs sm:text-sm text-blue-300/50">新用户免费体验 · 手机拍照即用 · 无需下载 App</p>
+          <p class="mt-5 text-xs sm:text-sm text-blue-300/60">新用户注册送 3 点 · 手机拍照即用 · 无需下载 App</p>
         </div>
       </div>
     </section>
 
-    <!-- ═══ 演示一：同一篇作文，两种批改 ═══ -->
+    <!-- ═══ 演示一：同一篇作文，两种批改（AI侧=真实批改案例） ═══ -->
     <section class="py-16 md:py-24 bg-white">
       <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="text-center mb-10 md:mb-14">
           <span class="text-xs font-semibold tracking-widest text-blue-600 uppercase">亮点一 · 作文批改</span>
-          <h2 class="mt-2 text-2xl md:text-3xl font-bold text-gray-900">同一篇作文，学校批了 2 行，AI 批了 37 处</h2>
-          <p class="mt-3 text-gray-500 text-sm md:text-base max-w-xl mx-auto">学校老师没时间逐句改——AI 按 20 年阅卷经验标准，把每一处可提升的地方都指出来</p>
+          <h2 class="mt-2 text-2xl md:text-3xl font-bold text-gray-900">学校批了 2 行，AI 给出五维评分 + 10 处引用点评 + 5 条升格建议</h2>
+          <p class="mt-3 text-gray-500 text-sm md:text-base max-w-xl mx-auto">右侧为本站真实批改案例（高一议论文《技术与我》）——每处评价都引用你的原文</p>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-8 items-stretch">
@@ -71,54 +73,40 @@
             <p class="mt-3 text-center text-xs text-gray-400">批改用时约 40 秒 · 共 2 处批注</p>
           </div>
 
-          <!-- 右：AI 批改 -->
+          <!-- 右：AI 批改（真实案例数据） -->
           <div class="rounded-2xl border-2 border-blue-300 bg-blue-50/50 p-5 sm:p-6 flex flex-col relative overflow-hidden shadow-lg shadow-blue-100">
-            <span class="absolute top-3 right-3 bg-blue-600 text-white text-[10px] font-semibold px-2 py-0.5 rounded-full">本产品</span>
+            <span class="absolute top-3 right-3 bg-blue-600 text-white text-[10px] font-semibold px-2 py-0.5 rounded-full">真实案例</span>
             <div class="flex items-center justify-between mb-4">
               <span class="text-xs font-semibold text-blue-700 bg-blue-100 px-2.5 py-1 rounded-md">🤖 AI 细批 · 上海高考 70 分制</span>
             </div>
-            <!-- 四维评分条 -->
+            <!-- 五维评分条（真实输出） -->
             <div class="bg-white rounded-xl border border-blue-100 p-4 space-y-2.5 mb-3">
-              <div class="flex items-center gap-3">
-                <span class="text-xs text-gray-500 w-16 shrink-0">审题立意</span>
-                <div class="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden"><div class="h-full bg-blue-500 rounded-full" style="width:80%"></div></div>
-                <span class="text-xs font-semibold text-gray-700 w-11 text-right">16/20</span>
-              </div>
-              <div class="flex items-center gap-3">
-                <span class="text-xs text-gray-500 w-16 shrink-0">思辨深度</span>
-                <div class="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden"><div class="h-full bg-blue-500 rounded-full" style="width:65%"></div></div>
-                <span class="text-xs font-semibold text-gray-700 w-11 text-right">13/20</span>
-              </div>
-              <div class="flex items-center gap-3">
-                <span class="text-xs text-gray-500 w-16 shrink-0">结构布局</span>
-                <div class="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden"><div class="h-full bg-blue-500 rounded-full" style="width:80%"></div></div>
-                <span class="text-xs font-semibold text-gray-700 w-11 text-right">16/20</span>
-              </div>
-              <div class="flex items-center gap-3">
-                <span class="text-xs text-gray-500 w-16 shrink-0">语言表达</span>
-                <div class="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden"><div class="h-full bg-blue-500 rounded-full" style="width:75%"></div></div>
-                <span class="text-xs font-semibold text-gray-700 w-11 text-right">15/20</span>
-              </div>
+              <div class="flex items-center gap-3"><span class="text-xs text-gray-500 w-16 shrink-0">审题立意</span><div class="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden"><div class="h-full bg-blue-500 rounded-full" style="width:80%"></div></div><span class="text-xs font-semibold text-gray-700 w-11 text-right">16/20</span></div>
+              <div class="flex items-center gap-3"><span class="text-xs text-gray-500 w-16 shrink-0">思辨深度</span><div class="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden"><div class="h-full bg-blue-500 rounded-full" style="width:75%"></div></div><span class="text-xs font-semibold text-gray-700 w-11 text-right">15/20</span></div>
+              <div class="flex items-center gap-3"><span class="text-xs text-gray-500 w-16 shrink-0">结构布局</span><div class="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden"><div class="h-full bg-blue-500 rounded-full" style="width:80%"></div></div><span class="text-xs font-semibold text-gray-700 w-11 text-right">16/20</span></div>
+              <div class="flex items-center gap-3"><span class="text-xs text-gray-500 w-16 shrink-0">语言表达</span><div class="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden"><div class="h-full bg-blue-500 rounded-full" style="width:70%"></div></div><span class="text-xs font-semibold text-gray-700 w-11 text-right">14/20</span></div>
+              <div class="flex items-center gap-3"><span class="text-xs text-gray-500 w-16 shrink-0">素材运用</span><div class="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden"><div class="h-full bg-blue-500 rounded-full" style="width:60%"></div></div><span class="text-xs font-semibold text-gray-700 w-11 text-right">12/20</span></div>
             </div>
-            <!-- 逐句标注 mock -->
-            <div class="bg-white rounded-xl border border-blue-100 p-4 font-serif text-[13px] sm:text-sm text-gray-700 leading-7 flex-1">
-              <p class="mb-2 text-xs text-gray-400 font-sans">逐句标注（节选 3/37 处）：</p>
-              <p class="mb-1">第三段“技术的<span class="bg-amber-100 border-b-2 border-amber-400">发展必然</span>带来便利”——<span class="text-amber-600">“必然”过于绝对</span>，反例：技术性失业。建议改为“往往”。</p>
-              <p class="mb-1">第四段缺少<span class="bg-amber-100 border-b-2 border-amber-400">过渡句</span>，<span class="text-amber-600">从“便利”跳到“懒惰”缺乏衔接</span>。</p>
-              <p>结尾<span class="bg-amber-100 border-b-2 border-amber-400">“总之”</span>收束仓促，<span class="text-amber-600">可升格为对“使用者自觉”的展望</span>。</p>
+            <!-- 真实点评节选 -->
+            <div class="bg-white rounded-xl border border-blue-100 p-4 text-[13px] sm:text-sm text-gray-700 leading-7 flex-1">
+              <p class="mb-2 text-xs text-gray-400">真实点评节选（每处评价引用原文）：</p>
+              <p class="mb-1.5">✦ “<span class="font-serif">技术是镜子，照出的是使用者自己的态度</span>”——全文<span class="text-emerald-600 font-medium">最有思辨价值的判断</span>，超出简单二元对立（+2分）</p>
+              <p class="mb-1.5">✦ “<span class="font-serif">正如一位科学家所说</span>”——<span class="text-amber-600">不点名的引用容易被阅卷老师视为“编造引用”</span>，削弱可信度</p>
+              <p>✦ 古罗马供水系统例证<span class="text-amber-600">只作现象陈述，未完成因果分析</span>，属典型的“以例代证”</p>
             </div>
             <div class="mt-4 flex items-end justify-between">
               <div class="text-xs text-gray-500 leading-5">
-                <p>✓ 四维明细评分</p>
-                <p>✓ 37 处逐句标注 · 升格建议</p>
-                <p>✓ 不改变你的立意，只让表达更有力</p>
+                <p>✓ 五维明细 · 10 处原文引用点评</p>
+                <p>✓ 5 条升格修改建议（附改法）</p>
+                <p>✓ 一句话总评 + 定档理由</p>
               </div>
               <div class="text-right shrink-0 ml-4">
-                <span class="font-bold text-3xl text-blue-600 font-serif">60</span>
+                <span class="font-bold text-3xl text-blue-600 font-serif">53</span>
                 <span class="text-gray-400 text-sm">/70</span>
+                <p class="text-[11px] text-gray-400">二类卷 · 与校评分接近</p>
               </div>
             </div>
-            <p class="mt-3 text-center text-xs text-blue-400">逐句批注 · 升格示范 · 可反复修改重批</p>
+            <p class="mt-3 text-center text-xs text-blue-400">逐句批注 · 升格示范 · 可修改后重批看进步</p>
           </div>
         </div>
 
@@ -220,7 +208,16 @@
           <span>✓ 每题带原题截图，不用抄题</span>
           <span class="text-gray-400">目前支持英语 · 语文/数学即将开放</span>
         </div>
-        <div class="text-center mt-8">
+
+        <!-- 真实产品界面截图 -->
+        <div class="mt-10 max-w-3xl mx-auto">
+          <div class="rounded-2xl border border-gray-200 bg-white p-2 shadow-lg shadow-gray-200/60">
+            <img src="/screenshot-errors.jpg" alt="真实错题分析界面" class="w-full rounded-xl" loading="lazy" />
+          </div>
+          <p class="mt-3 text-center text-xs text-gray-400">↑ 真实产品界面：每道错题自动标注错因（如"平行结构误判"）与难度，支持打印订正</p>
+        </div>
+
+        <div class="text-center mt-10">
           <router-link to="/paper/upload" class="inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-medium px-6 py-3 rounded-2xl text-sm sm:text-base transition-all shadow-lg shadow-emerald-600/30">
             上传第一份试卷 →
           </router-link>

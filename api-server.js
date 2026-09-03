@@ -330,12 +330,13 @@ function kimiRequest(body) {
   throw new Error('KIMI_API_KEY not configured');
 }
 
-function deepseekRequest(body) {
+function deepseekRequest(body, timeout = 120_000) {
   return apiRequest({
     hostname: 'api.deepseek.com',
     path: '/v1/chat/completions',
     apiKey: DEEPSEEK_KEY,
-    body
+    body,
+    timeout
   });
 }
 
@@ -558,12 +559,14 @@ function parseResult(result) {
 async function gradeText(text, topic) {
   const prompt = renderPrompt(GRADING_PROMPT, topic, text);
   log('info', '文本批改', { provider: 'DeepSeek', model: MODEL_GRADING, version: PROMPT_VERSION, textLen: text.length });
+  // max_tokens 12000: deepseek-v4-pro 是推理模型, reasoning 段不定长(实测单次 3.7k),
+  // 6000 时推理偶发吃满预算导致 content 为空/截断; 超时 180s(实测完整批改 85s+)
   const result = await deepseekRequest({
     model: MODEL_GRADING,
     messages: [{ role: 'user', content: prompt }],
     temperature: 1,
-    max_tokens: 6000
-  });
+    max_tokens: 12000
+  }, 180_000);
   return parseResult(result);
 }
 
