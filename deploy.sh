@@ -75,36 +75,36 @@ echo -e "${GREEN}✅ API Server + Scanner + Preprocess + TextIn 已更新${NC}"
 echo -e "\n${YELLOW}[4/5] 重启服务...${NC}"
 
 # 重启 API Server (Node.js)
-OLD_API_PID=$(cat "$PROD_DIR/api-server.pid" 2>/dev/null)
-if [ -n "$OLD_API_PID" ] && kill -0 "$OLD_API_PID" 2>/dev/null; then
-    kill "$OLD_API_PID" && echo "已停止旧 API 进程 PID:$OLD_API_PID"
+# 2026-09-03 修复：不再依赖 pid 文件（会失效），pkill 杀净所有实例（含孤儿进程）再启动
+if pkill -f "node api-server.js" 2>/dev/null; then
+    echo "已停止旧 API 进程（pkill 全量）"
+    sleep 2
+    pkill -9 -f "node api-server.js" 2>/dev/null || true
+else
+    echo "无运行中的 API 进程"
 fi
 cd "$PROD_DIR"
 nohup node api-server.js > api-server.log 2>&1 &
 echo $! > api-server.pid
-sleep 1
-if kill -0 "$(cat api-server.pid)" 2>/dev/null; then
+sleep 3
+if curl -s --max-time 5 http://localhost:3001/health | grep -q "ok"; then
     echo -e "${GREEN}✅ API 服务已启动 PID:$(cat api-server.pid)${NC}"
 else
     echo -e "${RED}❌ API 服务启动失败，查看日志: tail $PROD_DIR/api-server.log${NC}"
     exit 1
 fi
 
-# 重启 Preprocess Server (Python)
-OLD_PP_PID=$(cat "$PROD_DIR/preprocess-server.pid" 2>/dev/null)
-if [ -n "$OLD_PP_PID" ] && kill -0 "$OLD_PP_PID" 2>/dev/null; then
-    kill "$OLD_PP_PID" && echo "已停止旧 Preprocess 进程 PID:$OLD_PP_PID"
-fi
-cd "$PROD_DIR"
-nohup python3 preprocess-server.py > preprocess-server.log 2>&1 &
-echo $! > preprocess-server.pid
-sleep 2
-if kill -0 "$(cat preprocess-server.pid)" 2>/dev/null; then
-    echo -e "${GREEN}✅ Preprocess 服务已启动 PID:$(cat preprocess-server.pid)${NC}"
+# 重启 Preprocess Server (gunicorn，与 /app/data/start-preprocess.sh 和 guard 保持一致)
+# 2026-09-03 修复：原裸 python3 启动为 dev 模式，生产必须 gunicorn（timeout 600）
+if pkill -f "gunicorn.*preprocess-server" 2>/dev/null; then
+    echo "已停止旧 Preprocess (gunicorn)"
+    sleep 2
+    pkill -9 -f "gunicorn.*preprocess-server" 2>/dev/null || true
 else
-    echo -e "${RED}❌ Preprocess 服务启动失败，查看日志: tail $PROD_DIR/preprocess-server.log${NC}"
-    exit 1
+    echo "无运行中的 Preprocess 进程"
 fi
+rm -f /tmp/preprocess-gunicorn.pid
+bash /app/data/start-preprocess.sh || { echo -e "${RED}❌ Preprocess 启动失败${NC}"; exit 1; }
 
 # 5. 健康检查
 echo -e "\n${YELLOW}[5/5] 健康检查...${NC}"
