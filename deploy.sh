@@ -26,7 +26,8 @@ if [ "$CUR_BRANCH" != "main" ]; then
     git checkout main
 fi
 git pull origin main
-echo -e "${GREEN}✅ main 分支已更新 ($(git rev-parse --short HEAD))${NC}"
+DEPLOY_REV=$(git rev-parse --short HEAD)
+echo -e "${GREEN}✅ main 分支已更新 ($DEPLOY_REV)${NC}"
 
 # 1. 安装依赖 + 构建
 echo -e "\n${YELLOW}[1/5] 构建前端...${NC}"
@@ -118,7 +119,7 @@ echo "  Preprocess:  $PP_HEALTH"
 echo -e "\n${GREEN}=== 部署完成 ===${NC}"
 echo ""
 echo "部署摘要:"
-echo "  Branch:  main ($(git rev-parse --short HEAD))"
+echo "  Branch:  main ($DEPLOY_REV)"
 echo "  文件:    api-server.js, scanner-v3.mjs, preprocess-server.py, src/textin/*.py"
 echo ""
 echo -e "${YELLOW}⚠️  如需 Nginx 重载：${NC}"
@@ -126,3 +127,4 @@ echo "  sudo cp /var/lib/openclaw/nginx-configs/gaozhong.online.conf /etc/nginx/
 echo "  sudo nginx -t && sudo nginx -s reload"
 echo ""
 echo "验证: curl http://localhost:3001/health"
+
