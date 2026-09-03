@@ -92,6 +92,21 @@ export async function initDB() {
   try { db.run(`ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'user';`); } catch (_) {}
   try { db.run(`ALTER TABLE users ADD COLUMN wechat_openid TEXT;`); } catch (_) {}
   try { db.run(`ALTER TABLE users ADD COLUMN must_change_password INTEGER NOT NULL DEFAULT 0;`); } catch (_) {}
+  try { db.run(`ALTER TABLE users ADD COLUMN points INTEGER NOT NULL DEFAULT 3;`); } catch (_) {}
+
+  // ========== 点数流水（点数制付费: 1点=1次作文批改或1份试卷整理） ==========
+  db.run(`
+    CREATE TABLE IF NOT EXISTS point_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id TEXT NOT NULL,
+      delta INTEGER NOT NULL,
+      balance_after INTEGER NOT NULL,
+      reason TEXT NOT NULL,
+      operator_id TEXT,
+      created_at INTEGER NOT NULL
+    );
+  `);
+  db.run(`CREATE INDEX IF NOT EXISTS idx_point_logs_user ON point_logs(user_id, created_at);`);
   try { db.run(`ALTER TABLE grading_records ADD COLUMN user_id TEXT;`); } catch (_) {}
   try { db.run(`ALTER TABLE grading_records ADD COLUMN is_guest INTEGER NOT NULL DEFAULT 0;`); } catch (_) {}
 
@@ -323,6 +338,53 @@ export function listUsers(page = 1, limit = 50) {
   while (stmt.step()) users.push(deserializeUser(stmt.getAsObject()));
   stmt.free();
   return { users, total, page, limit, totalPages: Math.ceil(total / limit) };
+}
+
+// ========== 点数（点数制付费：1点 = 1次作文批改 或 1份试卷整理） ==========
+
+/** 查询用户点数余额 */
+export function getPoints(userId) {
+  if (!db) return 0;
+  const stmt = db.prepare('SELECT points FROM users WHERE id = ?');
+  stmt.bind([userId]);
+  const row = stmt.step() ? stmt.getAsObject() : null;
+  stmt.free();
+  return row ? (row.points ?? 0) : 0;
+}
+
+/** 扣1点：余额不足返回 { ok:false, balance }，成功返回 { ok:true, balance } */
+export function deductPoint(userId, reason) {
+  if (!db) return { ok: false, balance: 0 };
+  const bal = getPoints(userId);
+  if (bal < 1) return { ok: false, balance: bal };
+  const newBal = bal - 1;
+  db.run('UPDATE users SET points = ?, updated_at = ? WHERE id = ?', [newBal, Date.now(), userId]);
+  db.run('INSERT INTO point_logs (user_id, delta, balance_after, reason, operator_id, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+    [userId, -1, newBal, reason, null, Date.now()]);
+  saveDBDeferred();
+  return { ok: true, balance: newBal };
+}
+
+/** 加点（管理员人工充值/失败退款/注册赠送） */
+export function grantPoints(userId, delta, reason, operatorId = null) {
+  if (!db) return { ok: false, balance: 0 };
+  const bal = getPoints(userId) + delta;
+  db.run('UPDATE users SET points = ?, updated_at = ? WHERE id = ?', [bal, Date.now(), userId]);
+  db.run('INSERT INTO point_logs (user_id, delta, balance_after, reason, operator_id, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+    [userId, delta, bal, reason, operatorId, Date.now()]);
+  saveDBDeferred();
+  return { ok: true, balance: bal };
+}
+
+/** 用户点数流水 */
+export function listPointLogs(userId, limit = 50) {
+  if (!db) return [];
+  const stmt = db.prepare('SELECT * FROM point_logs WHERE user_id = ? ORDER BY created_at DESC LIMIT ?');
+  stmt.bind([userId, limit]);
+  const rows = [];
+  while (stmt.step()) rows.push(stmt.getAsObject());
+  stmt.free();
+  return rows;
 }
 
 // ========== 批改记录 CRUD ==========

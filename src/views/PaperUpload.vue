@@ -376,7 +376,10 @@ async function submit() {
       body: JSON.stringify(payload)
     })
     const data = await res.json()
-    if (!data.success) throw new Error(data.error || '提交失败')
+    if (!data.success) {
+      if (res.status === 402) throw new Error(`${data.error}。请到「充值 / 我的点数」页面扫码充值`)
+      throw new Error(data.error || '提交失败')
+    }
 
     const taskId = data.taskId
     registerPaperTask(taskId, title.value || `${subject.value}试卷`, subject.value)

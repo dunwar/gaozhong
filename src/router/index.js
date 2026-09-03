@@ -25,6 +25,9 @@ const routes = [
   { path: '/review/:sessionId', name: 'PaperReview', component: () => import('../views/PaperReview.vue'), meta: { requiresAuth: true } },
   { path: '/confirm/:sessionId', name: 'PaperConfirm', component: () => import('../views/PaperConfirm.vue'), meta: { requiresAuth: true } },
   
+  // ===== 充值 =====
+  { path: '/pricing', name: 'Pricing', component: () => import('../views/Pricing.vue') },
+
   // ===== 认证 =====
   { path: '/login', name: 'Login', component: Login },
   { path: '/register', name: 'Register', component: () => import('../views/Register.vue') },

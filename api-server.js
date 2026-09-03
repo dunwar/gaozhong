@@ -55,7 +55,7 @@ process.on('SIGINT', () => {
 
 // Scanner v3.0
 const SCANNER_VERSION = 'v4.2';
-import { initDB, saveDB, saveRecord, getRecord, getHistory, getStats, createUser, getUserByEmail, getUserById, updateUser, changePassword, listUsers, saveErrorProblem, saveErrorKnowledgeTags, getErrorProblem, listErrorProblems, getErrorStats, getKnowledgeStats, getErrorsByKnowledgePoint, searchKnowledgePoints, createPaperSession, updatePaperSession, getPaperSession, listPaperSessions, listErrorsByPaper, listErrorsByTime, listErrorsBySubject, listErrorsForGuidance, saveReview, updateErrorReviewStatus, updateErrorMastery, deleteErrorProblem, getSessionReviews, resetStalledPaperSessions, countPaperSessionsToday } from './db.js';
+import { initDB, saveDB, saveRecord, getRecord, getHistory, getStats, createUser, getUserByEmail, getUserById, updateUser, changePassword, listUsers, saveErrorProblem, saveErrorKnowledgeTags, getErrorProblem, listErrorProblems, getErrorStats, getKnowledgeStats, getErrorsByKnowledgePoint, searchKnowledgePoints, createPaperSession, updatePaperSession, getPaperSession, listPaperSessions, listErrorsByPaper, listErrorsByTime, listErrorsBySubject, listErrorsForGuidance, saveReview, updateErrorReviewStatus, updateErrorMastery, deleteErrorProblem, getSessionReviews, resetStalledPaperSessions, countPaperSessionsToday, getPoints, deductPoint, grantPoints, listPointLogs } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3001;
@@ -640,6 +640,11 @@ async function executeTask(task) {
     log('info', 'task 完成', { taskId: task.id, score: result.totalScore, grade: result.grade });
   } catch (err) {
     log('error', 'task 失败', { taskId: task.id, error: err.message });
+
+    // 点数退款：批改失败不扣点
+    if (input.pointsCharged && input.userId) {
+      try { grantPoints(input.userId, 1, `批改失败退款 ${task.id}`); } catch (_) {}
+    }
 
     // 失败也记录到数据库
     try {
@@ -1374,6 +1379,10 @@ async function executePaperTask(task) {
 
   } catch (err) {
     log('error', '整卷分析失败', { taskId: id, error: err.message });
+    // 点数退款：分析失败不扣点
+    if (input.pointsCharged && input.userId) {
+      try { grantPoints(input.userId, 1, `试卷分析失败退款 ${id}`); } catch (_) {}
+    }
     paperTasks.get(id).status = 'failed';
     paperTasks.get(id).error = err.message;
     paperTasks.get(id).progress = { stage: 'failed', message: err.message };
@@ -1715,6 +1724,26 @@ app.get('/admin/users', authMiddleware, adminMiddleware, (req, res) => {
   res.json({ success: true, ...result });
 });
 
+// ========== 点数（点数制付费） ==========
+
+// 我的点数余额 + 流水
+app.get('/points/me', authMiddleware, (req, res) => {
+  res.json({ points: getPoints(req.user.id), logs: listPointLogs(req.user.id, 30) });
+});
+
+// 管理员人工充值/扣点（收款码付款 → 截图核实 → 此接口开通）
+app.post('/admin/points', authMiddleware, adminMiddleware, (req, res) => {
+  const { userId, delta, note } = req.body;
+  if (!userId || !Number.isInteger(delta) || delta === 0) {
+    return res.status(400).json({ error: '需要 userId 和非零整数 delta' });
+  }
+  const u = getUserById(userId);
+  if (!u) return res.status(404).json({ error: '用户不存在' });
+  const result = grantPoints(userId, delta, note || '管理员人工充值', req.user.id);
+  log('info', '管理员调整点数', { userId, delta, note, operator: req.user.id, balance: result.balance });
+  res.json({ success: true, ...result });
+});
+
 // 提交批改任务（立即返回 taskId）
 app.post('/analyze', (req, res) => {
   const ip = req.ip || req.socket.remoteAddress || 'unknown';
@@ -1740,15 +1769,28 @@ app.post('/analyze', (req, res) => {
     } catch (_) { /* token 无效也允许匿名提交 */ }
   }
 
+  // 点数计费：登录用户 1点/次（管理员豁免；匿名提交走 IP 限流的免费试用通道）
+  let pointsCharged = false;
+  if (userId) {
+    const u = getUserById(userId);
+    if (u && u.role !== 'admin' && u.email !== ADMIN_EMAIL) {
+      const d = deductPoint(userId, '作文批改');
+      if (!d.ok) {
+        return res.status(402).json({ error: `点数不足（余额 ${d.balance} 点）。请到「充值 / 我的点数」页面微信扫码充值`, code: 'POINTS_INSUFFICIENT', points: d.balance });
+      }
+      pointsCharged = true;
+    }
+  }
+
   if (!file && !text) {
     return res.status(400).json({ error: '请提供 text（文本）或 file（图片base64）' });
   }
 
   let input;
   if (file && file.startsWith('data:image')) {
-    input = { type: 'image', file, topic, userId };
+    input = { type: 'image', file, topic, userId, pointsCharged };
   } else if (text) {
-    input = { type: 'text', text, topic, userId };
+    input = { type: 'text', text, topic, userId, pointsCharged };
   } else {
     return res.status(400).json({ error: '不支持的文件格式' });
   }
@@ -1990,6 +2032,16 @@ app.post('/paper/analyze', authMiddleware, (req, res) => {
     }
   }
 
+  // 点数计费：1点/份（管理员豁免）
+  let pointsCharged = false;
+  if (req.user.role !== 'admin' && req.user.email !== ADMIN_EMAIL) {
+    const d = deductPoint(req.user.id, `试卷整理 ${subject || ''}`);
+    if (!d.ok) {
+      return res.status(402).json({ error: `点数不足（余额 ${d.balance} 点）。请到「充值 / 我的点数」页面微信扫码充值`, code: 'POINTS_INSUFFICIENT', points: d.balance });
+    }
+    pointsCharged = true;
+  }
+
   const { subject, images, title, markingMethod } = req.body;
   if (!subject) return res.status(400).json({ error: '请选择学科' });
   if (!images || !Array.isArray(images) || images.length === 0) return res.status(400).json({ error: '请上传至少一张试卷图片' });
@@ -1999,7 +2051,7 @@ app.post('/paper/analyze', authMiddleware, (req, res) => {
 
   const taskId = createTaskId();
   createPaperSession({ id: taskId, userId: req.user.id, subject, title: title || '', imageCount: images.length, status: 'pending' });
-  const task = { id: taskId, status: 'queued', input: { subject, images, userId: req.user.id, title, markingMethod: markingMethod || 'red_pen' }, result: null, error: null,
+  const task = { id: taskId, status: 'queued', input: { subject, images, userId: req.user.id, title, markingMethod: markingMethod || 'red_pen', pointsCharged }, result: null, error: null,
     progress: { stage: 'queued', message: `排队中… 前面还有 ${paperQueue.pending} 个任务` }, createdAt: Date.now(), updatedAt: Date.now() };
   paperTasks.set(taskId, task);
   log('info', '整卷分析任务创建', { taskId, subject, imageCount: images.length, userId: req.user.id });

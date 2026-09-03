@@ -68,6 +68,7 @@
                   修改密码
                   <span v-if="authStore.mustChangePassword" class="ml-1 w-2 h-2 bg-orange-400 rounded-full inline-block"></span>
                 </router-link>
+                <router-link to="/pricing" class="dropdown-link">充值 / 我的点数</router-link>
                 <hr class="my-1 border-gray-100" />
                 <button @click="handleLogout" class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors">退出登录</button>
               </div>
@@ -111,6 +112,7 @@
 
           <template v-if="authStore.isLoggedIn">
             <div class="px-4 py-2 text-sm text-gray-500">{{ authStore.user?.nickname || authStore.user?.email }}</div>
+            <router-link to="/pricing" class="mobile-link" @click="mobileOpen = false">充值 / 我的点数</router-link>
             <router-link to="/password" class="mobile-link" @click="mobileOpen = false">修改密码</router-link>
             <button @click="handleLogout" class="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors">退出登录</button>
           </template>
