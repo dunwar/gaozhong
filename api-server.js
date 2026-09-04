@@ -2038,7 +2038,7 @@ app.post('/paper/analyze', authMiddleware, (req, res) => {
   // 点数计费：1点/份（管理员豁免）
   let pointsCharged = false;
   if (req.user.role !== 'admin' && req.user.email !== ADMIN_EMAIL) {
-    const d = deductPoint(req.user.id, `试卷整理 ${subject || ''}`);
+    const d = deductPoint(req.user.id, `试卷整理 ${req.body.subject || ''}`);
     if (!d.ok) {
       return res.status(402).json({ error: `点数不足（余额 ${d.balance} 点）。请到「充值 / 我的点数」页面微信扫码充值`, code: 'POINTS_INSUFFICIENT', points: d.balance });
     }
