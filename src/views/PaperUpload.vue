@@ -81,6 +81,7 @@
             ]"
           >{{ s }}</button>
         </div>
+        <p class="text-xs text-gray-400 mt-1.5">目前支持英语试卷的错题整理，其他科目即将开放</p>
       </div>
 
       <!-- 批改方式选择 -->
@@ -132,6 +133,12 @@
             <div class="h-full bg-emerald-500 rounded-full transition-all duration-300" :style="{ width: (images.length / maxFiles * 100) + '%' }"></div>
           </div>
         </div>
+      </div>
+
+      <!-- 拍照指引 -->
+      <div class="mb-4 flex items-start gap-2 rounded-xl bg-amber-50 border border-amber-100 px-3.5 py-2.5">
+        <span class="text-sm leading-5">📸</span>
+        <p class="text-xs text-amber-700 leading-5">A3 试卷可整张拍，<span class="font-medium">对折分页逐张拍识别更准</span>；请按页序上传全部页面</p>
       </div>
 
       <!-- 已选文件列表 -->
