@@ -1786,8 +1786,10 @@ export async function scanPages(pagePaths, { apiKey, outputDir, markingMethod = 
         }
       }
     }
-    // v5.3b 字母风格判定: 语义推翻 ≥3 次且占比 ≥25% → 几何/VL证据在本卷不可信
-    const letterStyle = flipped >= 3 && (flipped / Math.max(1, judged)) >= 0.25;
+    // v5.3c 字母风格判定: 语义推翻 ≥3 次且占比 ≥15% → 几何/VL证据在本卷不可信
+    // (v5.3b 的 25% 实测方差不足: 高一下同类卷两次实测 45%/23.5%, 23.5%时漏触发致 55 疑似错题;
+    //  澜大符号卷翻转恒 0-1 次, flipped>=3 已隔离, 降比例无回归风险)
+    const letterStyle = flipped >= 3 && (flipped / Math.max(1, judged)) >= 0.15;
     let conserved = 0, demoted = 0;
     if (letterStyle) {
       for (const pr of pageResults) {
