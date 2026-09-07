@@ -54,6 +54,10 @@ cp "$DEV_DIR/db.js" "$PROD_DIR/"
 cp "$DEV_DIR/scanner-v3.mjs" "$PROD_DIR/"
 cp -r "$DEV_DIR/prompts" "$PROD_DIR/"
 
+# 示例卷快照(免登录体验, 2026-09-08)
+mkdir -p "$PROD_DIR/demo"
+cp -r "$DEV_DIR/demo/"* "$PROD_DIR/demo/"
+
 # Preprocess Server + TextIn module + launcher
 cp "$DEV_DIR/preprocess-server.py" "$PROD_DIR/"
 cp "$DEV_DIR/start-preprocess.sh" "$PROD_DIR/"
