@@ -23,7 +23,7 @@ const routes = [
   { path: '/paper/:sessionId/errors', name: 'PaperErrors', component: () => import('../views/PaperErrors.vue'), meta: { requiresAuth: true } },
   { path: '/knowledge', name: 'KnowledgeMap', component: () => import('../views/KnowledgeMap.vue'), meta: { requiresAuth: true } },
   { path: '/review/:sessionId', name: 'PaperReview', component: () => import('../views/PaperReview.vue'), meta: { requiresAuth: true } },
-  { path: '/confirm/:sessionId', name: 'PaperConfirm', component: () => import('../views/PaperConfirm.vue'), meta: { requiresAuth: true } },
+  { path: '/confirm/:sessionId', name: 'PaperConfirm', component: () => import('../views/PaperConfirm.vue') }, // 免登录: 支持示例卷体验(非demo session后端仍校验)
   
   // ===== 充值 =====
   { path: '/pricing', name: 'Pricing', component: () => import('../views/Pricing.vue') },

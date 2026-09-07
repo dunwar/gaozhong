@@ -1,0 +1,731 @@
+{
+ "_comment": "示例卷快照: 英语澜大训练1, 真实管线扫描结果(v10, scanner v5.3+L2v2), 用于免登录示例体验. 重新生成: node scripts/build-demo-snapshot.mjs",
+ "subject": "英语",
+ "title": "示例卷 · 高一英语训练卷",
+ "totalQuestions": 28,
+ "totalErrors": 17,
+ "lowQualityPages": [],
+ "errors": [
+  {
+   "pageIndex": 1,
+   "questionNumber": 2,
+   "questionType": "choice",
+   "questionText": "AI will be doing workers a tremendous ______ if it gets rid of grunt work, the sort of tediously repetitive tasks that take up too much of everyone's days.",
+   "options": {},
+   "studentAnswer": "",
+   "correctAnswer": "D",
+   "passageText": "A. disservice B. lift C. favor D. harm",
+   "bbox": {
+    "h": 118,
+    "w": 867,
+    "x": 116,
+    "y": 283
+   },
+   "redAnswer": "D",
+   "errorSource": "vl_classified",
+   "confidence": "medium",
+   "errorType": "未知"
+  },
+  {
+   "pageIndex": 1,
+   "questionNumber": 3,
+   "questionType": "choice",
+   "questionText": "People do not like being bored out of their skulls, and will do whatever they can to ______ things up.",
+   "options": {},
+   "studentAnswer": "D",
+   "correctAnswer": "B",
+   "passageText": "A. liven B. mix C. set D. blow",
+   "bbox": {
+    "h": 685,
+    "w": 832,
+    "x": 118,
+    "y": 375
+   },
+   "redAnswer": "A",
+   "errorSource": "vl_classified",
+   "confidence": "medium",
+   "errorType": "未知"
+  },
+  {
+   "pageIndex": 1,
+   "questionNumber": 4,
+   "questionType": "choice",
+   "questionText": "Reducing drudge work is indeed a noble aim. Getting rid of it entirely is much less ______.",
+   "options": {},
+   "studentAnswer": "",
+   "correctAnswer": "C",
+   "passageText": "A. hopeful B. feasible C. sensible D. useful",
+   "bbox": {
+    "h": 44,
+    "w": 703,
+    "x": 175,
+    "y": 553
+   },
+   "redAnswer": "C",
+   "errorSource": "vl_classified",
+   "confidence": "medium",
+   "errorType": "未知"
+  },
+  {
+   "pageIndex": 1,
+   "questionNumber": 5,
+   "questionType": "choice",
+   "questionText": "One argument for drudge work is its ______ to entry-level jobs.",
+   "options": {},
+   "studentAnswer": "",
+   "correctAnswer": "C D A D C",
+   "passageText": "A. dedication B. centrality C. aversion D. application",
+   "bbox": {
+    "h": 738,
+    "w": 662,
+    "x": 0,
+    "y": 0
+   },
+   "redAnswer": "B",
+   "errorSource": "vl_classified",
+   "confidence": "medium",
+   "errorType": "未知"
+  },
+  {
+   "pageIndex": 1,
+   "questionNumber": 6,
+   "questionType": "choice",
+   "questionText": "The obvious answer to that worry is to get younger employees to do higher-value tasks sooner. Law firms talk of putting juniors in front of clients earlier in their careers, for example. But the goal of filling working days with nothing but ______ tasks is misconceived.",
+   "options": {},
+   "studentAnswer": "",
+   "correctAnswer": "C",
+   "passageText": "A. higher-density B. higher-margin C. higher-ranking D. higher-order",
+   "bbox": {
+    "h": 95,
+    "w": 865,
+    "x": 117,
+    "y": 864
+   },
+   "redAnswer": "D",
+   "errorSource": "vl_classified",
+   "confidence": "medium",
+   "errorType": "未知"
+  },
+  {
+   "pageIndex": 1,
+   "questionNumber": 7,
+   "questionType": "choice",
+   "questionText": "Because even experienced workers need a chance to move up and down through the ______.",
+   "options": {},
+   "studentAnswer": "",
+   "correctAnswer": "C",
+   "passageText": "A. gears B. levels C. ladders D. stairs",
+   "bbox": {
+    "h": 163,
+    "w": 866,
+    "x": 117,
+    "y": 916
+   },
+   "redAnswer": "A",
+   "errorSource": "vl_classified",
+   "confidence": "medium",
+   "errorType": "未知"
+  },
+  {
+   "pageIndex": 1,
+   "questionNumber": 8,
+   "questionType": "choice",
+   "questionText": "That's partly because of cognitive capacity. It's hard to imagine many jobs where ______ performance matters more than being an air-traffic controller.",
+   "options": {},
+   "studentAnswer": "D",
+   "correctAnswer": "B",
+   "passageText": "A. legitimate B. abysmal C. average D. optimal",
+   "bbox": {
+    "h": 1152,
+    "w": 955,
+    "x": 0,
+    "y": 0
+   },
+   "redAnswer": "D",
+   "errorSource": "vl_classified",
+   "confidence": "medium",
+   "errorType": "未知"
+  },
+  {
+   "pageIndex": 1,
+   "questionNumber": 9,
+   "questionType": "choice",
+   "questionText": "______ is a definite risk: controllers have been known to combine sectors of airspace into bigger blocks if traffic ______ are too low.",
+   "options": {},
+   "studentAnswer": "",
+   "correctAnswer": "A",
+   "passageText": "A. under-stimulation B. overestimation C. underrepresentation D. overproduction",
+   "bbox": {
+    "h": 116,
+    "w": 861,
+    "x": 117,
+    "y": 1109
+   },
+   "redAnswer": "A",
+   "errorSource": "vl_classified",
+   "confidence": "medium",
+   "errorType": "未知"
+  },
+  {
+   "pageIndex": 1,
+   "questionNumber": 10,
+   "questionType": "choice",
+   "questionText": "combine sectors of airspace into bigger blocks if traffic ______ are too low.",
+   "options": {},
+   "studentAnswer": "",
+   "correctAnswer": "D",
+   "passageText": "A. rates B. volumes C. quantities D. amounts",
+   "bbox": {
+    "h": 43,
+    "w": 648,
+    "x": 117,
+    "y": 1134
+   },
+   "redAnswer": "D",
+   "errorSource": "vl_classified",
+   "confidence": "medium",
+   "errorType": "未知"
+  },
+  {
+   "pageIndex": 2,
+   "questionNumber": 12,
+   "questionType": "choice",
+   "questionText": "People like ______ completing tasks.",
+   "options": {
+    "B": "necessity",
+    "C": "agency",
+    "D": "surprise"
+   },
+   "studentAnswer": "D",
+   "correctAnswer": "C",
+   "passageText": "",
+   "bbox": {
+    "h": 210,
+    "w": 850,
+    "x": 121,
+    "y": 280
+   },
+   "redAnswer": "C",
+   "errorSource": "semantic_mismatch",
+   "confidence": "high",
+   "errorType": "未知"
+  },
+  {
+   "pageIndex": 2,
+   "questionNumber": 13,
+   "questionType": "choice",
+   "questionText": "Much as nobody ______ in doing their expenses, they can at least be done.",
+   "options": {
+    "B": "excels",
+    "C": "invests",
+    "D": "engages"
+   },
+   "studentAnswer": "A",
+   "correctAnswer": "C",
+   "passageText": "",
+   "bbox": {
+    "h": 210,
+    "w": 864,
+    "x": 122,
+    "y": 364
+   },
+   "redAnswer": "A",
+   "errorSource": "vl_classified",
+   "confidence": "high",
+   "errorType": "未知"
+  },
+  {
+   "pageIndex": 2,
+   "questionNumber": 14,
+   "questionType": "choice",
+   "questionText": "You can press the submit button and feel ______ satisfied.",
+   "options": {
+    "B": "intrinsically",
+    "C": "enormously",
+    "D": "minutely"
+   },
+   "studentAnswer": "",
+   "correctAnswer": "C A B",
+   "passageText": "",
+   "bbox": {
+    "h": 370,
+    "w": 930,
+    "x": 121,
+    "y": 364
+   },
+   "redAnswer": "B",
+   "errorSource": "vl_classified",
+   "confidence": "high",
+   "errorType": "未知"
+  },
+  {
+   "pageIndex": 2,
+   "questionNumber": 28,
+   "questionType": "choice",
+   "questionText": "Now he needed to pick up a plate of sashimi, which he'd never eaten. Lines of Japanese, Korean and Yunnan restaurants occupied the mall's top floor, ______ for customers who weren't there.",
+   "options": {
+    "B": "begging",
+    "C": "begging",
+    "D": "begging"
+   },
+   "studentAnswer": "",
+   "correctAnswer": "",
+   "passageText": "",
+   "bbox": {
+    "h": 100,
+    "w": 914,
+    "x": 121,
+    "y": 1357
+   },
+   "redAnswer": "",
+   "errorSource": "centroid_textin_overlap",
+   "confidence": "high",
+   "errorType": "未知"
+  },
+  {
+   "pageIndex": 3,
+   "questionNumber": 29,
+   "questionType": "cloze",
+   "questionText": "He's voice when he told the waiters: \"I'm ______ the deliveryman.\"",
+   "options": {},
+   "studentAnswer": "",
+   "correctAnswer": "",
+   "passageText": "There was pride in He's voice when he told the waiters: \"I'm (30) the deliveryman. He picked up the sushi, nodded at the other drivers, and got back on his bike. Hungry people were waiting.",
+   "bbox": {
+    "h": 93,
+    "w": 660,
+    "x": 198,
+    "y": 249
+   },
+   "redAnswer": "",
+   "errorSource": "centroid_textin_overlap",
+   "confidence": "high",
+   "errorType": "未知"
+  },
+  {
+   "pageIndex": 4,
+   "questionNumber": 63,
+   "questionType": "choice",
+   "questionText": "Which of the following statement about stoptober is false?",
+   "options": {
+    "A": "It is an official organization administered by the UK authorities.",
+    "B": "It contributes to the decrease in the number of smokers in the UK.",
+    "C": "It encourages people to stop smoking through a variety of channels.",
+    "D": "It inspired Samantha Griffiths to give up smoking."
+   },
+   "studentAnswer": "",
+   "correctAnswer": "A",
+   "passageText": "",
+   "bbox": {
+    "h": 278,
+    "w": 645,
+    "x": 130,
+    "y": 232
+   },
+   "redAnswer": "AC",
+   "errorSource": "vl_classified",
+   "confidence": "high",
+   "errorType": "未知"
+  },
+  {
+   "pageIndex": 4,
+   "questionNumber": 64,
+   "questionType": "choice",
+   "questionText": "Which of the following measures have the UK authorities adopted to control the amount of smokers?",
+   "options": {
+    "A": "Those who quit smoking were granted a free trip to Paris Disneyland.",
+    "B": "A tax as heavy as that in Australia was imposed on a tobacco products.",
+    "C": "The use of green color is totally forbidden in the packing of cigarettes.",
+    "D": "Regular-sized cigarette were not permitted to be sold throughout the UK."
+   },
+   "studentAnswer": "",
+   "correctAnswer": "C",
+   "passageText": "",
+   "bbox": {
+    "h": 280,
+    "w": 926,
+    "x": 129,
+    "y": 482
+   },
+   "redAnswer": "BC",
+   "errorSource": "vl_classified",
+   "confidence": "high",
+   "errorType": "未知"
+  },
+  {
+   "pageIndex": 4,
+   "questionNumber": 66,
+   "questionType": "choice",
+   "questionText": "Which of the following can best explain the last sentence \"fortunately China has a Disneyland of its own.\"",
+   "options": {
+    "A": "Patriotic China citizens will visit their own Disneyland rather than go abroad.",
+    "B": "In China, the expense spared from quitting smoking can still afford a trip to China's Disneyland.",
+    "C": "The strict no-smoking policy is gladly being implemented in China's Disneyland.",
+    "D": "Tourists are entitled to purchasing less expensive cigarettes in China's Disneyland."
+   },
+   "studentAnswer": "",
+   "correctAnswer": "A",
+   "passageText": "",
+   "bbox": {
+    "h": 1073,
+    "w": 1103,
+    "x": 0,
+    "y": 0
+   },
+   "redAnswer": "B",
+   "errorSource": "vl_classified",
+   "confidence": "high",
+   "errorType": "未知"
+  }
+ ],
+ "allQuestionsFlat": [
+  {
+   "questionNumber": 2,
+   "questionText": "AI will be doing workers a tremendous ______ if it gets rid of grunt work, the sort of tediously repetitive tasks that take up too much of everyone's days.",
+   "questionType": "choice",
+   "options": {},
+   "pageIndex": 1,
+   "isError": true,
+   "centroidCount": 98,
+   "redEnergy": 15037
+  },
+  {
+   "questionNumber": 3,
+   "questionText": "People do not like being bored out of their skulls, and will do whatever they can to ______ things up.",
+   "questionType": "choice",
+   "options": {},
+   "pageIndex": 1,
+   "isError": true,
+   "centroidCount": 262,
+   "redEnergy": 30478
+  },
+  {
+   "questionNumber": 4,
+   "questionText": "Reducing drudge work is indeed a noble aim. Getting rid of it entirely is much less ______.",
+   "questionType": "choice",
+   "options": {},
+   "pageIndex": 1,
+   "isError": true,
+   "centroidCount": 0,
+   "redEnergy": 0
+  },
+  {
+   "questionNumber": 5,
+   "questionText": "One argument for drudge work is its ______ to entry-level jobs.",
+   "questionType": "choice",
+   "options": {},
+   "pageIndex": 1,
+   "isError": true,
+   "centroidCount": 44,
+   "redEnergy": 20441
+  },
+  {
+   "questionNumber": 6,
+   "questionText": "The obvious answer to that worry is to get younger employees to do higher-value tasks sooner. Law firms talk of putting juniors in front of clients earlier in their careers, for example. But the goal of filling working days with nothing but ______ tasks is misconceived.",
+   "questionType": "choice",
+   "options": {},
+   "pageIndex": 1,
+   "isError": true,
+   "centroidCount": 1,
+   "redEnergy": 262
+  },
+  {
+   "questionNumber": 7,
+   "questionText": "Because even experienced workers need a chance to move up and down through the ______.",
+   "questionType": "choice",
+   "options": {},
+   "pageIndex": 1,
+   "isError": true,
+   "centroidCount": 15,
+   "redEnergy": 1461
+  },
+  {
+   "questionNumber": 8,
+   "questionText": "That's partly because of cognitive capacity. It's hard to imagine many jobs where ______ performance matters more than being an air-traffic controller.",
+   "questionType": "choice",
+   "options": {},
+   "pageIndex": 1,
+   "isError": true,
+   "centroidCount": 78,
+   "redEnergy": 13939
+  },
+  {
+   "questionNumber": 9,
+   "questionText": "______ is a definite risk: controllers have been known to combine sectors of airspace into bigger blocks if traffic ______ are too low.",
+   "questionType": "choice",
+   "options": {},
+   "pageIndex": 1,
+   "isError": true,
+   "centroidCount": 49,
+   "redEnergy": 4782
+  },
+  {
+   "questionNumber": 10,
+   "questionText": "combine sectors of airspace into bigger blocks if traffic ______ are too low.",
+   "questionType": "choice",
+   "options": {},
+   "pageIndex": 1,
+   "isError": true,
+   "centroidCount": 0,
+   "redEnergy": 0
+  },
+  {
+   "questionNumber": 11,
+   "questionText": "Too much ______ is a bad thing, in other words, but so is too little.",
+   "questionType": "choice",
+   "options": {},
+   "pageIndex": 1,
+   "isError": false,
+   "centroidCount": 0,
+   "redEnergy": 0
+  },
+  {
+   "questionNumber": 12,
+   "questionText": "People like ______ completing tasks.",
+   "questionType": "choice",
+   "options": {
+    "B": "necessity",
+    "C": "agency",
+    "D": "surprise"
+   },
+   "pageIndex": 2,
+   "isError": true,
+   "centroidCount": 129,
+   "redEnergy": 12507
+  },
+  {
+   "questionNumber": 13,
+   "questionText": "Much as nobody ______ in doing their expenses, they can at least be done.",
+   "questionType": "choice",
+   "options": {
+    "B": "excels",
+    "C": "invests",
+    "D": "engages"
+   },
+   "pageIndex": 2,
+   "isError": true,
+   "centroidCount": 42,
+   "redEnergy": 2623
+  },
+  {
+   "questionNumber": 14,
+   "questionText": "You can press the submit button and feel ______ satisfied.",
+   "questionType": "choice",
+   "options": {
+    "B": "intrinsically",
+    "C": "enormously",
+    "D": "minutely"
+   },
+   "pageIndex": 2,
+   "isError": true,
+   "centroidCount": 88,
+   "redEnergy": 5403
+  },
+  {
+   "questionNumber": 15,
+   "questionText": "Puttering has its place.",
+   "questionType": "choice",
+   "options": {
+    "B": "toil",
+    "C": "endurance",
+    "D": "creativity"
+   },
+   "pageIndex": 2,
+   "isError": false,
+   "centroidCount": 135,
+   "redEnergy": 9187
+  },
+  {
+   "questionNumber": 21,
+   "questionText": "He exhaled. The hungry office worker probably won't remember who brought him lunch on a Friday afternoon, or ______ was 11 minutes and 20 seconds before the allotted time.",
+   "questionType": "choice",
+   "options": {
+    "B": "whether",
+    "C": "whether",
+    "D": "whether"
+   },
+   "pageIndex": 2,
+   "isError": false,
+   "centroidCount": 0,
+   "redEnergy": 0
+  },
+  {
+   "questionNumber": 22,
+   "questionText": "The sg wai mai, or take-out, drivers symbolize China's transformation from a poor society ______ to manufacturing to a more affluent ______ driven by consumption.",
+   "questionType": "choice",
+   "options": {
+    "B": "dicatated",
+    "C": "dicatated",
+    "D": "dicatated"
+   },
+   "pageIndex": 2,
+   "isError": false,
+   "centroidCount": 100,
+   "redEnergy": 12276
+  },
+  {
+   "questionNumber": 23,
+   "questionText": "The sg wai mai, or take-out, drivers symbolize China's transformation from a poor society ______ to manufacturing to a more affluent ______ driven by consumption.",
+   "questionType": "choice",
+   "options": {
+    "B": "economy",
+    "C": "economy",
+    "D": "economy"
+   },
+   "pageIndex": 2,
+   "isError": false,
+   "centroidCount": 0,
+   "redEnergy": 0
+  },
+  {
+   "questionNumber": 24,
+   "questionText": "Delivery drivers are \"high risk\" because they run red lights and drive through traffic. They meld into the ______ against the chaos of the street, where cars make U-turns in the middle of the road, bicycles ride on sidewalks and motorcycles play chicken with oncoming traffic.",
+   "questionType": "choice",
+   "options": {
+    "B": "against",
+    "C": "against",
+    "D": "against"
+   },
+   "pageIndex": 2,
+   "isError": false,
+   "centroidCount": 0,
+   "redEnergy": 0
+  },
+  {
+   "questionNumber": 25,
+   "questionText": "Electric scooters like He's ______ add to the scramble only.",
+   "questionType": "choice",
+   "options": {
+    "B": "add",
+    "C": "add",
+    "D": "add"
+   },
+   "pageIndex": 2,
+   "isError": false,
+   "centroidCount": 20,
+   "redEnergy": 4768
+  },
+  {
+   "questionNumber": 26,
+   "questionText": "The dinner crush ______ by 6 p.m. when He walked into a west Beijing mall.",
+   "questionType": "choice",
+   "options": {
+    "B": "gathered",
+    "C": "gathered",
+    "D": "gathered"
+   },
+   "pageIndex": 2,
+   "isError": false,
+   "centroidCount": 0,
+   "redEnergy": 0
+  },
+  {
+   "questionNumber": 27,
+   "questionText": "He'd just passed a bag of noodles to the hand that ______ from an apartment door.",
+   "questionType": "choice",
+   "options": {
+    "B": "emerged",
+    "C": "emerged",
+    "D": "emerged"
+   },
+   "pageIndex": 2,
+   "isError": false,
+   "centroidCount": 64,
+   "redEnergy": 5260
+  },
+  {
+   "questionNumber": 28,
+   "questionText": "Now he needed to pick up a plate of sashimi, which he'd never eaten. Lines of Japanese, Korean and Yunnan restaurants occupied the mall's top floor, ______ for customers who weren't there.",
+   "questionType": "choice",
+   "options": {
+    "B": "begging",
+    "C": "begging",
+    "D": "begging"
+   },
+   "pageIndex": 2,
+   "isError": true,
+   "centroidCount": 38,
+   "redEnergy": 5567
+  },
+  {
+   "questionNumber": 29,
+   "questionText": "He's voice when he told the waiters: \"I'm ______ the deliveryman.\"",
+   "questionType": "cloze",
+   "options": {},
+   "pageIndex": 3,
+   "isError": true,
+   "centroidCount": 24,
+   "redEnergy": 2484
+  },
+  {
+   "questionNumber": 30,
+   "questionText": "He's voice when he told the waiters: \"I'm ______ the deliveryman.\"",
+   "questionType": "cloze",
+   "options": {},
+   "pageIndex": 3,
+   "isError": false,
+   "centroidCount": 0,
+   "redEnergy": 0
+  },
+  {
+   "questionNumber": 63,
+   "questionText": "Which of the following statement about stoptober is false?",
+   "questionType": "choice",
+   "options": {
+    "A": "It is an official organization administered by the UK authorities.",
+    "B": "It contributes to the decrease in the number of smokers in the UK.",
+    "C": "It encourages people to stop smoking through a variety of channels.",
+    "D": "It inspired Samantha Griffiths to give up smoking."
+   },
+   "pageIndex": 4,
+   "isError": true,
+   "centroidCount": 82,
+   "redEnergy": 12334
+  },
+  {
+   "questionNumber": 64,
+   "questionText": "Which of the following measures have the UK authorities adopted to control the amount of smokers?",
+   "questionType": "choice",
+   "options": {
+    "A": "Those who quit smoking were granted a free trip to Paris Disneyland.",
+    "B": "A tax as heavy as that in Australia was imposed on a tobacco products.",
+    "C": "The use of green color is totally forbidden in the packing of cigarettes.",
+    "D": "Regular-sized cigarette were not permitted to be sold throughout the UK."
+   },
+   "pageIndex": 4,
+   "isError": true,
+   "centroidCount": 114,
+   "redEnergy": 15054
+  },
+  {
+   "questionNumber": 65,
+   "questionText": "According to the \"plain packing\" rules conducted in the UK, what's not printed on its cigarette packing?",
+   "questionType": "choice",
+   "options": {
+    "A": "warning image",
+    "B": "brand name",
+    "C": "brand logo",
+    "D": "price tag"
+   },
+   "pageIndex": 4,
+   "isError": false,
+   "centroidCount": 25,
+   "redEnergy": 2433
+  },
+  {
+   "questionNumber": 66,
+   "questionText": "Which of the following can best explain the last sentence \"fortunately China has a Disneyland of its own.\"",
+   "questionType": "choice",
+   "options": {
+    "A": "Patriotic China citizens will visit their own Disneyland rather than go abroad.",
+    "B": "In China, the expense spared from quitting smoking can still afford a trip to China's Disneyland.",
+    "C": "The strict no-smoking policy is gladly being implemented in China's Disneyland.",
+    "D": "Tourists are entitled to purchasing less expensive cigarettes in China's Disneyland."
+   },
+   "pageIndex": 4,
+   "isError": true,
+   "centroidCount": 158,
+   "redEnergy": 51586
+  }
+ ]
+}

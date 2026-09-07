@@ -1566,6 +1566,18 @@ function adminMiddleware(req, res, next) {
   next();
 }
 
+// 可选登录: 有合法 token 则注入 req.user, 无 token 也放行(用于示例卷免登录体验)
+function optionalAuth(req, res, next) {
+  const header = req.headers.authorization;
+  if (!header || !header.startsWith('Bearer ')) return next();
+  try {
+    const payload = jwt.verify(header.slice(7), JWT_SECRET);
+    const user = getUserById(payload.sub);
+    if (user) req.user = user;
+  } catch (_) { /* 无效 token 按未登录处理 */ }
+  next();
+}
+
 // ========== 路由 ==========
 
 // 健康检查
@@ -2234,15 +2246,91 @@ app.get('/paper/:sessionId', authMiddleware, (req, res) => {
   res.json({ success: true, session });
 });
 
+// ===== P0: 错题示例卷体验（免登录, 预跑快照秒开, 不烧识别费用）=====
+const DEMO_USER_ID = 'demo';
+const DEMO_DIR = path.join(__dirname, 'demo', 'landa');
+let demoSnapshotCache = null;
+
+app.post('/paper/demo', (req, res) => {
+  const rl = checkRateLimit('demo-' + (req.ip || req.socket.remoteAddress || 'unknown'));
+  if (!rl.allowed) return res.status(429).json({ error: '请求过于频繁，请稍后再试', retryAfter: rl.retryAfter });
+
+  if (!demoSnapshotCache) {
+    try {
+      demoSnapshotCache = JSON.parse(fs.readFileSync(path.join(DEMO_DIR, 'snapshot.json'), 'utf-8'));
+    } catch (e) {
+      log('error', '示例卷快照缺失', { error: e.message });
+      return res.status(500).json({ error: '示例卷数据未部署，请联系管理员' });
+    }
+  }
+  const snap = demoSnapshotCache;
+
+  const sessionId = createTaskId();
+  const sessionDir = path.join('/app/data/papers', sessionId);
+  try {
+    fs.mkdirSync(sessionDir, { recursive: true });
+    // 原图 + 裁剪图从 demo 目录拷入(缩略图缺失时 thumb 端点自动回退原图)
+    for (const f of fs.readdirSync(DEMO_DIR)) {
+      if (/^page_\d+\.jpe?g$/i.test(f)) fs.copyFileSync(path.join(DEMO_DIR, f), path.join(sessionDir, f));
+    }
+    const cropsDir = path.join(DEMO_DIR, 'crops');
+    for (const f of fs.readdirSync(cropsDir)) {
+      if (/^p\d+_q\d+\.jpe?g$/i.test(f)) fs.copyFileSync(path.join(cropsDir, f), path.join(sessionDir, f));
+    }
+  } catch (e) {
+    log('error', '示例卷文件拷贝失败', { error: e.message });
+    return res.status(500).json({ error: '示例卷初始化失败' });
+  }
+
+  // 落库: session + 疑似错题(格式与 executePaperTask 保存路径一致)
+  createPaperSession({ id: sessionId, userId: DEMO_USER_ID, subject: snap.subject, title: snap.title, imageCount: 4, status: 'awaiting_confirmation' });
+  for (const q of snap.errors) {
+    const errorId = crypto.randomUUID().slice(0, 8);
+    saveErrorProblem({
+      id: errorId, userId: DEMO_USER_ID, subject: snap.subject,
+      topic: `错题 Q${q.questionNumber}`,
+      questionText: q.questionText || '',
+      questionType: q.questionType || 'unknown',
+      answerOptions: JSON.stringify(q.options || {}),
+      wrongAnswer: q.studentAnswer || '',
+      correctAnswer: q.correctAnswer || '',
+      passageText: q.passageText || '',
+      errorType: '待分析',
+      correctSolution: '',
+      difficulty: 3,
+      knowledgeExplanation: '{}',
+      gradingEvidence: `示例卷 · 红笔匹配率: ${q.redRatio}, 页: ${q.pageIndex}`,
+      aiRaw: JSON.stringify({ pipeline: 'demo-snapshot', ...q }),
+      notes: '',
+      sessionId, paperIndex: q.pageIndex || 1, status: 'done',
+      reviewStatus: 'pending',
+      createdAt: Date.now()
+    });
+  }
+  updatePaperSession(sessionId, {
+    status: 'awaiting_confirmation',
+    errorCount: snap.errors.length,
+    totalQuestions: snap.totalQuestions,
+    scanData: JSON.stringify(snap.allQuestionsFlat || []),
+    lowQualityPages: JSON.stringify(snap.lowQualityPages || [])
+  });
+  log('info', '示例卷体验创建', { sessionId, errors: snap.errors.length, totalQuestions: snap.totalQuestions });
+  res.status(201).json({ success: true, sessionId, demo: true, totalQuestions: snap.totalQuestions, totalErrors: snap.errors.length });
+});
+
 // ===== V3.0 错题确认 API =====
 
-// GET: 获取待确认的错题列表
-app.get('/paper/:sessionId/confirm', authMiddleware, (req, res) => {
+// GET: 获取待确认的错题列表(示例卷 session 免登录可看)
+app.get('/paper/:sessionId/confirm', optionalAuth, (req, res) => {
   const session = getPaperSession(req.params.sessionId);
   if (!session) return res.status(404).json({ error: '试卷不存在' });
-  if (session.userId !== req.user.id) return res.status(403).json({ error: '无权访问' });
+  const isDemo = session.userId === DEMO_USER_ID;
+  if (!isDemo) {
+    if (!req.user) return res.status(401).json({ error: '未登录，请先登录' });
+    if (session.userId !== req.user.id) return res.status(403).json({ error: '无权访问' });
+  }
 
-  const errors = listErrorProblems({ userId: req.user.id, sessionId: req.params.sessionId, limit: 200 });
+  const errors = listErrorProblems(isDemo ? { sessionId: req.params.sessionId, limit: 200 } : { userId: req.user.id, sessionId: req.params.sessionId, limit: 200 });
   // 阶段A A1: 置信分级 — green(语义证据齐全,自动确认) / yellow(几何/VL,需确认) / gray(低质恢复,需留意)
   const ERR_SRC_LABEL = {
     semantic_mismatch: '学生答案与红笔正确答案不一致', semantic_match: '学生答案与红笔正确答案一致',
@@ -2263,7 +2351,8 @@ app.get('/paper/:sessionId/confirm', authMiddleware, (req, res) => {
     else if (String(source).startsWith('semantic')) light = 'green';
     else if (conf === 'low' || ocrSrc === 'ocr-recovered' || !q.questionNumber) light = 'gray';
     else light = 'yellow';
-    return { ...q, light, judgeReason: ERR_SRC_LABEL[source] || (light === 'gray' ? '恢复的低置信题' : '红笔批改检测') };
+    // isError: 进入确认列表的记录均为疑似错题(前端黄灯卡片流以 q.isError 分流, 缺失会导致全部落灰灯)
+    return { ...q, isError: true, light, judgeReason: ERR_SRC_LABEL[source] || (light === 'gray' ? '恢复的低置信题' : '红笔批改检测') };
   });
   const stats = {
     green: withLight.filter(q => q.light === 'green').length,
@@ -2273,14 +2362,19 @@ app.get('/paper/:sessionId/confirm', authMiddleware, (req, res) => {
   // v5.0 ① + P0-3: 低质页提示（内存优先，重启后从 session 列回读）
   const lowQualityPages = paperTasks.get(req.params.sessionId)?.result?.lowQualityPages
     || session.lowQualityPages || [];
-  res.json({ success: true, questions: withLight, lowQualityPages, stats });
+  res.json({ success: true, questions: withLight, lowQualityPages, stats, demo: isDemo, session: { subject: session.subject, title: session.title } });
 });
 
 // POST: 提交确认结果
-app.post('/paper/:sessionId/confirm', authMiddleware, async (req, res) => {
+app.post('/paper/:sessionId/confirm', optionalAuth, async (req, res) => {
   try {
   const session = getPaperSession(req.params.sessionId);
   if (!session) return res.status(404).json({ error: '试卷不存在' });
+  // 示例卷: 不写入共享库, 由前端引导注册
+  if (session.userId === DEMO_USER_ID) {
+    return res.json({ success: true, demo: true, redirect: '/register?from=demo' });
+  }
+  if (!req.user) return res.status(401).json({ error: '未登录，请先登录' });
   if (session.userId !== req.user.id) return res.status(403).json({ error: '无权访问' });
 
   const { confirmed, removed, added } = req.body;

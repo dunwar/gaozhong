@@ -216,10 +216,14 @@
           <p class="mt-3 text-center text-xs text-gray-400">↑ 真实产品界面：每道错题自动标注错因（如"平行结构误判"）与难度，支持打印订正</p>
         </div>
 
-        <div class="text-center mt-10">
+        <div class="text-center mt-10 flex flex-col sm:flex-row items-center justify-center gap-3">
           <router-link to="/paper/upload" class="inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-medium px-6 py-3 rounded-2xl text-sm sm:text-base transition-all shadow-lg shadow-emerald-600/30">
             上传第一份试卷 →
           </router-link>
+          <button @click="startDemo" :disabled="demoLoading"
+            class="inline-flex items-center justify-center gap-2 border-2 border-emerald-600 text-emerald-700 hover:bg-emerald-50 font-medium px-6 py-3 rounded-2xl text-sm sm:text-base transition-all disabled:opacity-60">
+            {{ demoLoading ? '打开中…' : '🎬 5分钟示例卷体验（免注册）' }}
+          </button>
         </div>
       </div>
     </section>
@@ -271,3 +275,25 @@
     </section>
   </div>
 </template>
+
+<script setup>
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
+
+// P0: 错题示例卷免登录体验 — 一键打开预跑快照
+const router = useRouter()
+const demoLoading = ref(false)
+async function startDemo() {
+  demoLoading.value = true
+  try {
+    const res = await fetch('/api/paper/demo', { method: 'POST' })
+    const data = await res.json()
+    if (data.success) router.push('/confirm/' + data.sessionId)
+    else alert(data.error || '示例卷打开失败，请稍后再试')
+  } catch (e) {
+    alert('网络异常，请稍后再试')
+  } finally {
+    demoLoading.value = false
+  }
+}
+</script>

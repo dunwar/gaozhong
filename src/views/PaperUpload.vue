@@ -1,7 +1,19 @@
 <template>
   <div class="max-w-3xl mx-auto py-6 md:py-10 px-4">
     <h1 class="text-2xl font-bold text-gray-900 mb-1">📄 错题上传</h1>
-    <p class="text-gray-500 text-sm mb-6">上传已批改的试卷，AI 自动识别错题并整理到错题本</p>
+    <p class="text-gray-500 text-sm mb-4">上传已批改的试卷，AI 自动识别错题并整理到错题本</p>
+
+    <!-- 示例卷体验(P0: 免登录5分钟体验) -->
+    <div class="mb-6 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 flex items-center justify-between gap-3">
+      <div class="min-w-0">
+        <p class="text-sm text-blue-900 font-medium">试卷不在手边？先看示例卷效果</p>
+        <p class="text-xs text-blue-700 mt-0.5">真实试卷的真实识别结果 — 29题/17道疑似错题，免登录直接体验确认流</p>
+      </div>
+      <button @click="startDemo" :disabled="demoLoading"
+        class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:bg-blue-300 flex-shrink-0 transition-colors">
+        {{ demoLoading ? '打开中…' : '🎬 体验示例卷' }}
+      </button>
+    </div>
 
     <!-- ===== 进行中的任务队列 ===== -->
     <div v-if="paperTasks.length > 0" class="mb-8">
@@ -223,9 +235,25 @@
 
 <script setup>
 import { ref, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { authStore, authFetch } from '../utils/authStore.js'
 import { registerPaperTask, paperTasks } from '../utils/paperTaskPoller.js'
 import { compressImageDataUrl } from '../utils/imageCompress.js'
+
+const router = useRouter()
+const demoLoading = ref(false)
+async function startDemo() {
+  demoLoading.value = true
+  try {
+    const res = await fetch('/api/paper/demo', { method: 'POST' })
+    const data = await res.json()
+    if (data.success) router.push(`/confirm/${data.sessionId}`)
+  } catch (e) {
+    console.error('Demo failed:', e)
+  } finally {
+    demoLoading.value = false
+  }
+}
 
 const maxFiles = 10
 const subjects = ['英语', '数学', '语文', '生物', '物理', '化学', '自动']

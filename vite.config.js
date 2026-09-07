@@ -14,5 +14,12 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     port: 5173,
+    proxy: {
+      // 生产由 nginx 剥掉 /api 前缀, 本地 dev 同样 rewrite
+      '/api': {
+        target: 'http://localhost:3001',
+        rewrite: (path) => path.replace(/^\/api/, ''),
+      },
+    },
   }
 })

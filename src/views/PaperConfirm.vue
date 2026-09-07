@@ -6,7 +6,13 @@
         <h1 class="text-2xl font-bold text-gray-900 mb-1">✅ 确认错题</h1>
         <p class="text-gray-500 text-sm">快速扫一眼黄灯题，绿灯题已自动确认。</p>
       </div>
-      <router-link :to="`/review/${sessionId}`" class="text-sm text-gray-400 hover:text-gray-600">跳过确认 →</router-link>
+      <router-link v-if="!isDemo" :to="`/review/${sessionId}`" class="text-sm text-gray-400 hover:text-gray-600">跳过确认 →</router-link>
+    </div>
+
+    <!-- 示例卷演示横幅 -->
+    <div v-if="isDemo" class="mb-6 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3">
+      <p class="text-sm text-blue-800 font-medium">🎬 示例卷演示 — 以下是一份真实试卷的真实识别结果</p>
+      <p class="text-xs text-blue-700 mt-1">注册后上传你自己孩子的试卷，也能在几分钟内得到同样的错题整理。</p>
     </div>
 
     <!-- A4: 低质页提示 + 快捷补题 -->
@@ -130,11 +136,12 @@
 
       <!-- Submit -->
       <div class="mt-8 flex justify-end gap-3">
-        <router-link :to="`/review/${sessionId}`" class="px-6 py-3 bg-gray-100 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-200 transition-colors">稍后处理</router-link>
+        <router-link :to="isDemo ? '/' : `/review/${sessionId}`" class="px-6 py-3 bg-gray-100 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-200 transition-colors">{{ isDemo ? '返回首页' : '稍后处理' }}</router-link>
         <button @click="submitConfirmation" :disabled="submitting"
-          class="px-6 py-3 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 shadow-sm disabled:bg-gray-300 transition-colors flex items-center gap-2">
+          class="px-6 py-3 rounded-xl text-sm font-medium shadow-sm disabled:bg-gray-300 transition-colors flex items-center gap-2"
+          :class="isDemo ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-emerald-600 hover:bg-emerald-700 text-white'">
           <span v-if="submitting" class="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></span>
-          {{ submitting ? '保存中…' : '✅ 确认并保存错题本' }}
+          {{ submitting ? '保存中…' : (isDemo ? '🚀 注册，整理我自己孩子的错题' : '✅ 确认并保存错题本') }}
         </button>
       </div>
     </template>
@@ -152,6 +159,7 @@ const sessionId = route.params.sessionId
 
 const questions = ref([])
 const addedQuestions = ref([])
+const isDemo = ref(false)
 const loading = ref(true)
 const submitting = ref(false)
 const addQnum = ref('')
@@ -227,7 +235,11 @@ async function submitConfirmation() {
       })
     })
     const data = await res.json()
-    if (data.success) router.push(`/review/${sessionId}`)
+    if (data.success) {
+      // 示例卷: 引导注册(不写入真实错题本)
+      if (data.demo) router.push('/register?from=demo')
+      else router.push(`/review/${sessionId}`)
+    }
   } catch (e) {
     console.error('Confirmation failed:', e)
   } finally {
@@ -239,6 +251,7 @@ onMounted(async () => {
   try {
     const res = await authFetch(`/api/paper/${sessionId}/confirm`)
     const data = await res.json()
+    isDemo.value = !!data.demo
     if (data.questions) {
       questions.value = data.questions.map(q => ({
         ...q,
