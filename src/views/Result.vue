@@ -13,6 +13,14 @@
       </router-link>
     </div>
 
+    <!-- 加载失败提示 -->
+    <div v-if="loadError" class="parse-error-card">
+      <strong>⚠️ {{ loadError }}</strong>
+      <p style="margin-top: 8px;">
+        <router-link to="/upload" style="color: #8b5a2b; font-weight: 600;">去批改一篇作文 →</router-link>
+      </p>
+    </div>
+
     <!-- 总分和档位卡片 -->
     <div class="score-cards">
       <div class="total-score-card">
@@ -251,13 +259,20 @@
       <router-link to="/upload" class="action-button">
         批改下一篇作文
       </router-link>
+      <button class="action-button action-button-share" @click="showShareCard = true">
+        📤 生成分享卡片
+      </button>
     </div>
+
+    <!-- 分享卡片弹窗 -->
+    <ShareCard v-if="showShareCard && result" :result="result" @close="showShareCard = false" />
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
+import ShareCard from '../components/ShareCard.vue'
 
 // 模拟数据（开发用）
 const mockData = {
@@ -317,6 +332,8 @@ const mockData = {
 const result = ref(null)
 const openPanels = ref({})
 const showFullCommentary = ref(false)
+const showShareCard = ref(false)
+const loadError = ref('')
 
 // 计算属性
 const dimensions = computed(() => result.value?.dimensions || {})
@@ -440,22 +457,37 @@ onMounted(async () => {
       if (res.ok) {
         const data = await res.json()
         result.value = data.result
-      } else {
+      } else if (import.meta.env.DEV) {
         result.value = mockData
+      } else {
+        loadError.value = '未找到该批改记录，可能已过期或链接有误。'
       }
     } catch {
-      result.value = mockData
+      if (import.meta.env.DEV) {
+        result.value = mockData
+      } else {
+        loadError.value = '批改记录加载失败，请稍后重试。'
+      }
     }
   }
-  // 最后用 mock 数据
+  // 无参数: 开发模式显示 mock, 生产引导去批改
   else {
-    result.value = mockData
+    if (import.meta.env.DEV) {
+      result.value = mockData
+    } else {
+      loadError.value = '缺少批改任务参数。'
+    }
   }
 
   // 默认打开第一个维度
   const firstKey = Object.keys(result.value?.dimensions || {})[0]
   if (firstKey) {
     openPanels.value[firstKey] = true
+  }
+
+  // ?share=1 直接弹出分享卡片(方便预览/构造直链)
+  if (route.query.share === '1' && result.value) {
+    showShareCard.value = true
   }
 })
 </script>
@@ -1053,11 +1085,23 @@ onMounted(async () => {
   border-radius: 0.75rem;
   text-decoration: none;
   transition: all 0.2s;
+  margin: 0 0.375rem 0.375rem;
 }
 
 .action-button:hover {
   background: #6b4226;
   transform: translateY(-1px);
+}
+
+.action-button-share {
+  background: var(--color-primary, #0052d9);
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+}
+
+.action-button-share:hover {
+  background: #0040aa;
 }
 
 /* ===== 响应式 ===== */
