@@ -219,6 +219,15 @@ export async function initDB() {
     );
   `);
 
+  // 站点访问计数(单行表, 首页底栏展示)
+  db.run(`
+    CREATE TABLE IF NOT EXISTS visit_stats (
+      id          INTEGER PRIMARY KEY CHECK (id = 1),
+      total       INTEGER NOT NULL DEFAULT 0,
+      updated_at  INTEGER NOT NULL DEFAULT 0
+    );
+  `);
+
   // 索引
   db.run(`CREATE INDEX IF NOT EXISTS idx_paper_sessions_user ON paper_sessions(user_id, created_at DESC);`);
   db.run(`CREATE INDEX IF NOT EXISTS idx_paper_sessions_subject ON paper_sessions(subject);`);
@@ -244,6 +253,21 @@ export async function initDB() {
 }
 
 // ========== 持久化 ==========
+
+// ========== 站点访问计数 ==========
+export function getVisitorCount() {
+  if (!db) return 0;
+  const res = db.exec('SELECT total FROM visit_stats WHERE id = 1');
+  return res.length ? (res[0].values[0][0] || 0) : 0;
+}
+
+export function incrementVisitors() {
+  if (!db) return 0;
+  const now = Date.now();
+  db.run('INSERT INTO visit_stats (id, total, updated_at) VALUES (1, 1, ?) ON CONFLICT(id) DO UPDATE SET total = total + 1, updated_at = ?', [now, now]);
+  saveDBDeferred();
+  return getVisitorCount();
+}
 
 export function saveDB() {
   if (!db) return;

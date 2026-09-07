@@ -55,7 +55,7 @@ process.on('SIGINT', () => {
 
 // Scanner v3.0
 const SCANNER_VERSION = 'v4.2';
-import { initDB, saveDB, saveRecord, getRecord, getHistory, getStats, createUser, getUserByEmail, getUserById, updateUser, changePassword, listUsers, saveErrorProblem, saveErrorKnowledgeTags, getErrorProblem, listErrorProblems, getErrorStats, getKnowledgeStats, getErrorsByKnowledgePoint, searchKnowledgePoints, createPaperSession, updatePaperSession, getPaperSession, listPaperSessions, listErrorsByPaper, listErrorsByTime, listErrorsBySubject, listErrorsForGuidance, saveReview, updateErrorReviewStatus, updateErrorMastery, deleteErrorProblem, getSessionReviews, resetStalledPaperSessions, countPaperSessionsToday, getPoints, deductPoint, grantPoints, listPointLogs } from './db.js';
+import { initDB, saveDB, saveRecord, getRecord, getHistory, getStats, createUser, getUserByEmail, getUserById, updateUser, changePassword, listUsers, saveErrorProblem, saveErrorKnowledgeTags, getErrorProblem, listErrorProblems, getErrorStats, getKnowledgeStats, getErrorsByKnowledgePoint, searchKnowledgePoints, createPaperSession, updatePaperSession, getPaperSession, listPaperSessions, listErrorsByPaper, listErrorsByTime, listErrorsBySubject, listErrorsForGuidance, saveReview, updateErrorReviewStatus, updateErrorMastery, deleteErrorProblem, getSessionReviews, resetStalledPaperSessions, countPaperSessionsToday, getPoints, deductPoint, grantPoints, listPointLogs, getVisitorCount, incrementVisitors } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3001;
@@ -2244,6 +2244,37 @@ app.get('/paper/:sessionId', authMiddleware, (req, res) => {
   if (!session) return res.status(404).json({ error: '试卷不存在' });
   if (session.userId !== req.user.id) return res.status(403).json({ error: '无权访问' });
   res.json({ success: true, session });
+});
+
+// ===== 站点访问计数(首页底栏展示) =====
+// 口径: 会话级"访问人数" — 同 IP 当天重复访问不重复计(内存去重, 重启后当天可能少量重复, 可接受)
+const visitDedupeMap = new Map(); // ip -> 'YYYY-MM-DD'
+
+function visitDedupKey(req) {
+  const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || req.socket.remoteAddress || 'unknown';
+  const today = new Date().toISOString().slice(0, 10);
+  const last = visitDedupeMap.get(ip);
+  if (last === today) return { ip, today, counted: true };
+  visitDedupeMap.set(ip, today);
+  // 顺手清理过期条目, 防 Map 无限增长
+  if (visitDedupeMap.size > 10000) {
+    for (const [k, v] of visitDedupeMap) if (v !== today) visitDedupeMap.delete(k);
+  }
+  return { ip, today, counted: false };
+}
+
+app.post('/visit', (req, res) => {
+  const rl = checkRateLimit('visit-' + (req.ip || req.socket.remoteAddress || 'unknown'));
+  if (!rl.allowed) return res.status(429).json({ error: '请求过于频繁' });
+  const { counted } = visitDedupKey(req);
+  const total = counted ? getVisitorCount() : incrementVisitors();
+  res.setHeader('Cache-Control', 'no-store');
+  res.json({ success: true, total });
+});
+
+app.get('/visit', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  res.json({ success: true, total: getVisitorCount() });
 });
 
 // ===== P0: 错题示例卷体验（免登录, 预跑快照秒开, 不烧识别费用）=====

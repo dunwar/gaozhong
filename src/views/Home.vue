@@ -273,11 +273,22 @@
         </div>
       </div>
     </section>
+
+    <!-- 底栏: 访问计数 -->
+    <footer class="bg-slate-950 py-5 text-center border-t border-slate-800/60">
+      <p class="text-xs text-slate-500">
+        您是第
+        <span class="text-slate-300 font-semibold tabular-nums mx-0.5">{{ visitorCount ? visitorCount.toLocaleString() : '…' }}</span>
+        位访问者
+        <span class="mx-2 text-slate-700">·</span>
+        gaozhong.online · 高中生的 AI 学习管家
+      </p>
+    </footer>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 
 // P0: 错题示例卷免登录体验 — 一键打开预跑快照
@@ -296,4 +307,20 @@ async function startDemo() {
     demoLoading.value = false
   }
 }
+
+// 底栏访问计数: 每个浏览器会话上报一次(后端另有IP日去重兜底)
+const visitorCount = ref(0)
+onMounted(async () => {
+  try {
+    let res
+    if (!sessionStorage.getItem('gz_visited')) {
+      res = await fetch('/api/visit', { method: 'POST' })
+      sessionStorage.setItem('gz_visited', '1')
+    } else {
+      res = await fetch('/api/visit')
+    }
+    const data = await res.json()
+    if (data.success) visitorCount.value = data.total
+  } catch (_) { /* 计数失败静默, 不影响页面 */ }
+})
 </script>
