@@ -48,4 +48,13 @@ router.beforeEach((to, from, next) => {
   }
 })
 
+// 百度统计: SPA 路由切换上报 PV(首次加载由 index.html 的统计脚本自动记录, 跳过避免重复)
+let baiduFirstRoute = true
+router.afterEach((to) => {
+  if (baiduFirstRoute) { baiduFirstRoute = false; return }
+  if (typeof window._hmt !== 'undefined' && Array.isArray(window._hmt)) {
+    window._hmt.push(['_trackPageview', to.fullPath])
+  }
+})
+
 export default router
