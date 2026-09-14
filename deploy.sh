@@ -38,6 +38,11 @@ echo -e "${GREEN}✅ 构建完成${NC}"
 
 # 1.5 SEO 预渲染(公开页生成静态HTML; 无chromium环境自动跳过, 不阻塞部署)
 echo -e "\n${YELLOW}[1.5/5] SEO 预渲染...${NC}"
+# 容器内预渲染环境(2026-09-14): Chrome for Testing 装于 /app/data/browsers, 系统库免root解包至 deps/
+if [ -x /app/data/browsers/chrome-linux64/chrome ]; then
+    export PUPPETEER_EXECUTABLE_PATH=/app/data/browsers/chrome-linux64/chrome
+    export LD_LIBRARY_PATH="/app/data/browsers/deps/usr/lib/x86_64-linux-gnu:/app/data/browsers/deps/lib/x86_64-linux-gnu${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+fi
 if node scripts/prerender.mjs; then
     echo -e "${GREEN}✅ 预渲染完成${NC}"
 else
