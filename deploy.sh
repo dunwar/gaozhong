@@ -36,6 +36,14 @@ pnpm install --frozen-lockfile 2>/dev/null || pnpm install
 pnpm build
 echo -e "${GREEN}✅ 构建完成${NC}"
 
+# 1.5 SEO 预渲染(公开页生成静态HTML; 无chromium环境自动跳过, 不阻塞部署)
+echo -e "\n${YELLOW}[1.5/5] SEO 预渲染...${NC}"
+if node scripts/prerender.mjs; then
+    echo -e "${GREEN}✅ 预渲染完成${NC}"
+else
+    echo -e "${YELLOW}⚠️ 预渲染跳过(无可用Chrome或puppeteer-core缺失) — SEO 降级为空壳, 功能不受影响${NC}"
+fi
+
 # 2. 部署 dist 到生产目录
 echo -e "\n${YELLOW}[2/5] 部署静态文件...${NC}"
 rm -rf "$PROD_DIR/dist"
@@ -119,6 +127,17 @@ PP_HEALTH=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:5002/ 2>/dev
 echo "  API Server:  $API_HEALTH"
 echo "  Preprocess:  $PP_HEALTH"
 
+# 6. 百度普通收录 API 主动推送(sitemap 内全部URL; token 在服务器 .env: BAIDU_PUSH_TOKEN)
+[ -f "$DEV_DIR/.env" ] && set -a && . "$DEV_DIR/.env" && set +a
+if [ -n "$BAIDU_PUSH_TOKEN" ]; then
+    echo -e "\n${YELLOW}[6] 百度收录推送...${NC}"
+    grep -o '<loc>[^<]*</loc>' "$DEV_DIR/dist/sitemap.xml" | sed 's/<[^>]*>//g' > /tmp/baidu_urls.txt
+    PUSH_RESULT=$(curl -s -m 15 -H 'Content-Type:text/plain' --data-binary @/tmp/baidu_urls.txt \
+        "http://data.zz.baidu.com/urls?site=https://www.gaozhong.online&token=$BAIDU_PUSH_TOKEN")
+    echo "  推送 $(wc -l < /tmp/baidu_urls.txt) 条URL → $PUSH_RESULT"
+else
+    echo -e "\n${YELLOW}未配置 BAIDU_PUSH_TOKEN(.env), 跳过百度推送${NC}"
+fi
 # 完成
 echo -e "\n${GREEN}=== 部署完成 ===${NC}"
 echo ""

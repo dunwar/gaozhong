@@ -271,18 +271,22 @@
             📄 上传试卷整错题
           </router-link>
         </div>
+        <p class="mt-6 text-xs text-blue-200/50">
+          📖 干货：<router-link to="/articles/school-vs-ai" class="text-blue-200/80 hover:text-blue-100 underline underline-offset-2">学校老师怎么批作文，AI 细批差在哪？</router-link>
+        </p>
       </div>
     </section>
 
-    <!-- 底栏: 访问计数 -->
+    <!-- 底栏: 访问计数(未加载/预渲染快照时隐藏计数部分) -->
     <footer class="bg-slate-950 py-5 text-center border-t border-slate-800/60">
-      <p class="text-xs text-slate-500">
+      <p v-if="visitorCount" class="text-xs text-slate-500">
         您是第
-        <span class="text-slate-300 font-semibold tabular-nums mx-0.5">{{ visitorCount ? visitorCount.toLocaleString() : '…' }}</span>
+        <span class="text-slate-300 font-semibold tabular-nums mx-0.5">{{ visitorCount.toLocaleString() }}</span>
         位访问者
         <span class="mx-2 text-slate-700">·</span>
         gaozhong.online · 高中生的 AI 学习管家
       </p>
+      <p v-else class="text-xs text-slate-500">gaozhong.online · 高中生的 AI 学习管家</p>
     </footer>
   </div>
 </template>

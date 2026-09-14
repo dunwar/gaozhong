@@ -1,0 +1,13 @@
+User-agent: *
+Allow: /
+# 个人数据页(登录墙后, 无收录价值)
+Disallow: /error/
+Disallow: /history
+Disallow: /knowledge
+Disallow: /review/
+Disallow: /result/
+Disallow: /paper/
+Disallow: /tasks
+Disallow: /password
+
+Sitemap: https://www.gaozhong.online/sitemap.xml
