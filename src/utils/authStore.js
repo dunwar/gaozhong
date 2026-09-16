@@ -54,14 +54,14 @@ export const authStore = reactive({
   },
 
   // ======== 注册 ========
-  async register({ email, password, nickname, region, grade, school }) {
+  async register({ email, password, nickname, region, grade, school, ref }) {
     this.loading = true
     this.error = null
     try {
       const res = await fetch(`${API_BASE}/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, nickname, region, grade, school })
+        body: JSON.stringify({ email, password, nickname, region, grade, school, ref: ref || undefined })
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || '注册失败')

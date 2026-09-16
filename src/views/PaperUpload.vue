@@ -239,11 +239,13 @@ import { useRouter } from 'vue-router'
 import { authStore, authFetch } from '../utils/authStore.js'
 import { registerPaperTask, paperTasks } from '../utils/paperTaskPoller.js'
 import { compressImageDataUrl } from '../utils/imageCompress.js'
+import { trackEvent } from '../utils/analytics.js'
 
 const router = useRouter()
 const demoLoading = ref(false)
 async function startDemo() {
   demoLoading.value = true
+  trackEvent('paper', 'demo_click', 'upload_page')
   try {
     const res = await fetch('/api/paper/demo', { method: 'POST' })
     const data = await res.json()

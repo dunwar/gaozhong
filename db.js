@@ -93,6 +93,9 @@ export async function initDB() {
   try { db.run(`ALTER TABLE users ADD COLUMN wechat_openid TEXT;`); } catch (_) {}
   try { db.run(`ALTER TABLE users ADD COLUMN must_change_password INTEGER NOT NULL DEFAULT 0;`); } catch (_) {}
   try { db.run(`ALTER TABLE users ADD COLUMN points INTEGER NOT NULL DEFAULT 3;`); } catch (_) {}
+  // 邀请码(2026-09-16 分享得次数): register?ref=码 → 推荐人+1点
+  try { db.run(`ALTER TABLE users ADD COLUMN ref_code TEXT;`); } catch (_) {}
+  try { db.run(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_ref_code ON users(ref_code);`); } catch (_) {}
 
   // ========== 点数流水（点数制付费: 1点=1次作文批改或1份试卷整理） ==========
   db.run(`
@@ -292,13 +295,31 @@ export function createUser({ email, passwordHash, nickname, region = '上海', r
   if (!db) throw new Error('数据库未初始化');
   const id = crypto.randomUUID();
   const now = Date.now();
+  // 邀请码: 6位base36, 冲突重试
+  let refCode = '';
+  for (let k = 0; k < 5; k++) {
+    const candidate = crypto.randomBytes(4).toString('hex').slice(0, 6);
+    const exists = db.exec('SELECT 1 FROM users WHERE ref_code = ?', [candidate]);
+    if (!exists.length) { refCode = candidate; break; }
+  }
   db.run(
-    `INSERT INTO users (id, email, password_hash, nickname, region, role, wechat_openid, must_change_password, grade, school, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [id, email.toLowerCase().trim(), passwordHash, nickname || email.split('@')[0], region, role, wechatOpenid, mustChangePassword, grade, school, now, now]
+    `INSERT INTO users (id, email, password_hash, nickname, region, role, wechat_openid, must_change_password, grade, school, ref_code, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, email.toLowerCase().trim(), passwordHash, nickname || email.split('@')[0], region, role, wechatOpenid, mustChangePassword, grade, school, refCode || null, now, now]
   );
   saveDBDeferred();
   return getUserById(id);
+}
+
+// 按邀请码查用户(邀请注册用)
+export function getUserByRefCode(refCode) {
+  if (!db || !refCode) return null;
+  const stmt = db.prepare('SELECT * FROM users WHERE ref_code = ?');
+  stmt.bind([String(refCode).trim()]);
+  if (!stmt.step()) { stmt.free(); return null; }
+  const row = stmt.getAsObject();
+  stmt.free();
+  return deserializeUser(row);
 }
 
 export function getUserByEmail(email) {
@@ -1066,6 +1087,7 @@ function deserializeUser(row) {
     wechatOpenid: row.wechat_openid || null,
     mustChangePassword: !!row.must_change_password,
     grade: row.grade || '', school: row.school || '',
+    refCode: row.ref_code || null,
     passwordHash: row.password_hash,
     createdAt: row.created_at, updatedAt: row.updated_at
   };

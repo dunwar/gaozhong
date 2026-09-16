@@ -140,6 +140,7 @@
 </template>
 
 <script setup>
+import { trackEvent } from '../utils/analytics.js'
 import { ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { authStore } from '../utils/authStore.js'
@@ -156,6 +157,10 @@ const school = ref('')
 const loading = ref(false)
 const error = ref(null)
 
+onMounted(() => {
+  if (route.query.ref) sessionStorage.setItem('gz_ref', String(route.query.ref))
+})
+
 async function handleRegister() {
   error.value = null
   if (password.value.length < 6) {
@@ -164,14 +169,19 @@ async function handleRegister() {
   }
   loading.value = true
   try {
+    // 邀请码: 优先URL参数, sessionStorage兜底(注册流程内跳转不丢)
+    const refCode = route.query.ref || sessionStorage.getItem('gz_ref') || undefined
     await authStore.register({
       email: email.value,
       password: password.value,
       nickname: nickname.value || undefined,
       region: region.value,
       grade: grade.value || undefined,
-      school: school.value || undefined
+      school: school.value || undefined,
+      ref: refCode
     })
+    trackEvent('growth', 'register_success', refCode ? 'ref' : 'organic')
+    sessionStorage.removeItem('gz_ref')
     // 注册成功后跳转
     router.replace(route.query.redirect || '/')
   } catch (err) {

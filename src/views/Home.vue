@@ -272,7 +272,12 @@
           </router-link>
         </div>
         <p class="mt-6 text-xs text-blue-200/50">
-          📖 干货：<router-link to="/articles/school-vs-ai" class="text-blue-200/80 hover:text-blue-100 underline underline-offset-2">学校老师怎么批作文，AI 细批差在哪？</router-link>
+          📖 干货：
+          <router-link to="/articles/school-vs-ai" class="text-blue-200/80 hover:text-blue-100 underline underline-offset-2">学校vs AI批改</router-link>
+          <span class="mx-1.5">·</span>
+          <router-link to="/articles/paper-demo" class="text-blue-200/80 hover:text-blue-100 underline underline-offset-2">错题整理实测</router-link>
+          <span class="mx-1.5">·</span>
+          <router-link to="/articles/september-parents" class="text-blue-200/80 hover:text-blue-100 underline underline-offset-2">开学家长三件事</router-link>
         </p>
       </div>
     </section>
@@ -294,16 +299,18 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { trackEvent } from '../utils/analytics.js'
 
 // P0: 错题示例卷免登录体验 — 一键打开预跑快照
 const router = useRouter()
 const demoLoading = ref(false)
 async function startDemo() {
   demoLoading.value = true
+  trackEvent('paper', 'demo_click', 'home')
   try {
     const res = await fetch('/api/paper/demo', { method: 'POST' })
     const data = await res.json()
-    if (data.success) router.push('/confirm/' + data.sessionId)
+    if (data.success) { trackEvent('paper', 'demo_created'); router.push('/confirm/' + data.sessionId) }
     else alert(data.error || '示例卷打开失败，请稍后再试')
   } catch (e) {
     alert('网络异常，请稍后再试')

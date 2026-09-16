@@ -192,6 +192,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { trackEvent } from '../utils/analytics.js'
 import UploadArea from '../components/UploadArea.vue'
 import { addTask, updateTask, loadTasks } from '../utils/taskStore.js'
 import { authStore, authFetch } from '../utils/authStore.js'
@@ -235,6 +236,7 @@ const formatFileSize = (bytes) => {
 const POLL_INTERVAL = 3000
 
 const submitEssay = async () => {
+  trackEvent('essay', 'submit_click')
   if (!canSubmit.value) {
     errorMessage.value = inputMode.value === 'text' ? '请输入作文内容' : '请先选择要批改的文件'
     return

@@ -40,6 +40,27 @@
       </div>
     </div>
 
+    <!-- 进步曲线(登录用户的历史分数走势) -->
+    <div v-if="progressScores.length >= 2" class="section-card progress-card">
+      <h2 class="section-title">📈 你的进步曲线</h2>
+      <div class="progress-wrap">
+        <svg :viewBox="`0 0 ${progressViewW} 90`" preserveAspectRatio="none" class="progress-svg">
+          <polyline :points="progressLinePoints" fill="none" stroke="#0052D9" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" />
+          <polygon v-if="progressAreaPoints" :points="progressAreaPoints" fill="rgba(0,82,217,0.08)" />
+          <circle v-for="(p, i) in progressDotPoints" :key="i" :cx="p.x" :cy="p.y" r="3.2"
+            :fill="i === progressDotPoints.length - 1 ? '#0052D9' : '#fff'"
+            :stroke="'#0052D9'" stroke-width="1.6" />
+        </svg>
+      </div>
+      <div class="progress-meta">
+        <span>第 {{ progressScores.length }} 篇</span>
+        <span :class="progressDelta > 0 ? 'pd-up' : progressDelta < 0 ? 'pd-dn' : ''">
+          较上一篇 {{ progressDelta > 0 ? '+' : '' }}{{ progressDelta }} 分
+        </span>
+        <span class="pd-sub">坚持每周批改,看曲线爬坡</span>
+      </div>
+    </div>
+
     <!-- 一句话总结 -->
     <div v-if="oneSentenceSummary" class="quote-card">
       <blockquote>{{ oneSentenceSummary }}</blockquote>
@@ -259,7 +280,7 @@
       <router-link to="/upload" class="action-button">
         批改下一篇作文
       </router-link>
-      <button class="action-button action-button-share" @click="showShareCard = true">
+      <button class="action-button action-button-share" @click="showShareCard = true; trackEvent('essay', 'share_card')">
         📤 生成分享卡片
       </button>
     </div>
@@ -273,6 +294,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import ShareCard from '../components/ShareCard.vue'
+import { trackEvent } from '../utils/analytics.js'
 
 // 模拟数据（开发用）
 const mockData = {
@@ -333,6 +355,56 @@ const result = ref(null)
 const openPanels = ref({})
 const showFullCommentary = ref(false)
 const showShareCard = ref(false)
+// 埋点: 结果页到达(在数据就绪后触发更准, onMounted尾部打)
+const TRACKED_VIEW = { done: false }
+
+// ── 进步曲线: 历史分数走势(纯SVG, 免引库) ──
+const progressScores = ref([])   // 升序分数数组
+const progressViewW = 320
+const progressLinePoints = computed(() => toPolyline(progressScores.value))
+const progressAreaPoints = computed(() => {
+  const pts = progressScores.value
+  if (pts.length < 2) return ''
+  const line = toPolyline(pts)
+  return line + `,${progressViewW},90 0,90`
+})
+const progressDotPoints = computed(() => toDots(progressScores.value))
+const progressDelta = computed(() => {
+  const pts = progressScores.value
+  return pts.length >= 2 ? pts[pts.length - 1] - pts[pts.length - 2] : 0
+})
+
+function toXY(scores) {
+  const W = progressViewW, H = 90, pad = 10
+  const mn = Math.min(...scores), mx = Math.max(...scores)
+  const span = (mx - mn) || 1
+  return scores.map((s, i) => ({
+    x: pad + (W - 2 * pad) * (scores.length === 1 ? 0.5 : i / (scores.length - 1)),
+    y: H - pad - (H - 2 * pad) * (s - mn) / span,
+  }))
+}
+function toPolyline(scores) {
+  if (scores.length < 2) return ''
+  return toXY(scores).map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')
+}
+function toDots(scores) { return scores.length ? toXY(scores) : [] }
+
+async function loadProgress() {
+  try {
+    const { authStore, authFetch } = await import('../utils/authStore.js')
+    if (!authStore.isLoggedIn) return
+    const res = await authFetch('/api/history?limit=100')
+    const data = await res.json()
+    const done = (data.records || []).filter(r => r.total_score > 0)
+      .map(r => ({ score: r.total_score, at: r.created_at || 0 }))
+      .sort((a, b) => a.at - b.at)
+      .map(r => r.score)
+    // 匿名/首篇: 把当前篇也计入(若不在历史)
+    const cur = result.value?.totalScore
+    if (cur && (done.length === 0 || Math.abs(done[done.length - 1] - cur) > 0.01)) done.push(cur)
+    progressScores.value = done.slice(-30)   // 最多显示最近30篇
+  } catch (_) { /* 曲线加载失败静默 */ }
+}
 const loadError = ref('')
 
 // 计算属性
@@ -485,6 +557,9 @@ onMounted(async () => {
     openPanels.value[firstKey] = true
   }
 
+  loadProgress()
+  trackEvent('essay', 'result_view', result.value ? String(result.value.totalScore ?? '') : 'empty')
+
   // ?share=1 直接弹出分享卡片(方便预览/构造直链)
   if (route.query.share === '1' && result.value) {
     showShareCard.value = true
@@ -596,7 +671,16 @@ onMounted(async () => {
   color: #8b6f47;
 }
 
-/* ===== 一句话总结 ===== */
+/* ===== 进步曲线 ===== */
+.progress-card { padding: 1.25rem; }
+.progress-wrap { background: linear-gradient(to bottom, #f8faff, #fff); border-radius: 10px; padding: 8px 4px; }
+.progress-svg { width: 100%; height: 110px; display: block; }
+.progress-meta { display: flex; align-items: center; gap: 14px; margin-top: 10px; font-size: 13px; color: #4E5561; }
+.progress-meta .pd-up { color: #059669; font-weight: 700; }
+.progress-meta .pd-dn { color: #dc2626; font-weight: 700; }
+.progress-meta .pd-sub { margin-left: auto; font-size: 11px; color: #9aa4b2; }
+
+/* ===== 底部按钮 ===== */
 .quote-card {
   margin-bottom: 1.5rem;
   background: rgba(254, 243, 199, 0.8);

@@ -88,6 +88,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import { trackEvent } from '../utils/analytics.js'
 import { authStore, authFetch } from '../utils/authStore.js'
 
 const points = ref(0)

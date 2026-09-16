@@ -55,7 +55,7 @@ process.on('SIGINT', () => {
 
 // Scanner v3.0
 const SCANNER_VERSION = 'v4.2';
-import { initDB, saveDB, saveRecord, getRecord, getHistory, getStats, createUser, getUserByEmail, getUserById, updateUser, changePassword, listUsers, saveErrorProblem, saveErrorKnowledgeTags, getErrorProblem, listErrorProblems, getErrorStats, getKnowledgeStats, getErrorsByKnowledgePoint, searchKnowledgePoints, createPaperSession, updatePaperSession, getPaperSession, listPaperSessions, listErrorsByPaper, listErrorsByTime, listErrorsBySubject, listErrorsForGuidance, saveReview, updateErrorReviewStatus, updateErrorMastery, deleteErrorProblem, getSessionReviews, resetStalledPaperSessions, countPaperSessionsToday, getPoints, deductPoint, grantPoints, listPointLogs, getVisitorCount, incrementVisitors } from './db.js';
+import { initDB, saveDB, saveRecord, getRecord, getHistory, getStats, createUser, getUserByEmail, getUserById, getUserByRefCode, updateUser, changePassword, listUsers, saveErrorProblem, saveErrorKnowledgeTags, getErrorProblem, listErrorProblems, getErrorStats, getKnowledgeStats, getErrorsByKnowledgePoint, searchKnowledgePoints, createPaperSession, updatePaperSession, getPaperSession, listPaperSessions, listErrorsByPaper, listErrorsByTime, listErrorsBySubject, listErrorsForGuidance, saveReview, updateErrorReviewStatus, updateErrorMastery, deleteErrorProblem, getSessionReviews, resetStalledPaperSessions, countPaperSessionsToday, getPoints, deductPoint, grantPoints, listPointLogs, getVisitorCount, incrementVisitors } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3001;
@@ -1599,7 +1599,7 @@ app.get('/health', (req, res) => {
 
 // 注册
 app.post('/auth/register', (req, res) => {
-  const { email, password, nickname, region, grade, school } = req.body;
+  const { email, password, nickname, region, grade, school, ref } = req.body;
 
   if (!email || !password) {
     return res.status(400).json({ error: '邮箱和密码为必填项' });
@@ -1628,12 +1628,43 @@ app.post('/auth/register', (req, res) => {
 
   const token = jwt.sign({ sub: user.id, role: user.role }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
 
-  log('info', '用户注册', { userId: user.id, email: user.email, region: user.region });
+  // 邀请注册奖励(2026-09-16 分享得次数): ref=推荐人邀请码 → 推荐人+1点
+  let rewardedReferrer = false;
+  if (ref) {
+    const referrer = getUserByRefCode(ref);
+    if (referrer && referrer.id !== user.id) {
+      try {
+        grantPoints(referrer.id, 1, `邀请注册奖励(新用户 ${user.email})`);
+        rewardedReferrer = true;
+        log('info', '邀请注册奖励', { referrer: referrer.id, newUser: user.id });
+      } catch (e) {
+        log('error', '邀请奖励失败', { error: e.message });
+      }
+    }
+  }
+
+  log('info', '用户注册', { userId: user.id, email: user.email, region: user.region, viaRef: rewardedReferrer });
 
   res.status(201).json({
     success: true,
     token,
+    refRewarded: rewardedReferrer,
     user: { id: user.id, email: user.email, nickname: user.nickname, region: user.region, grade: user.grade, school: user.school, role: user.role, mustChangePassword: user.mustChangePassword }
+  });
+});
+
+// 我的邀请信息(分享得次数)
+app.get('/referral/me', authMiddleware, (req, res) => {
+  const user = getUserById(req.user.id);
+  if (!user) return res.status(404).json({ error: '用户不存在' });
+  const logs = listPointLogs(user.id, 200);
+  const inviteLogs = (logs || []).filter(l => String(l.reason || '').includes('邀请注册奖励'));
+  res.json({
+    success: true,
+    refCode: user.refCode,
+    inviteUrl: user.refCode ? `https://gaozhong.online/register?ref=${user.refCode}` : null,
+    invitedCount: inviteLogs.length,
+    rewardPoints: inviteLogs.length,   // 每次邀请+1点
   });
 });
 

@@ -152,6 +152,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { authFetch } from '../utils/authStore.js'
+import { trackEvent } from '../utils/analytics.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -237,7 +238,7 @@ async function submitConfirmation() {
     const data = await res.json()
     if (data.success) {
       // 示例卷: 引导注册(不写入真实错题本)
-      if (data.demo) router.push('/register?from=demo')
+      if (data.demo) { trackEvent('paper', 'demo_convert_click'); router.push('/register?from=demo') }
       else router.push(`/review/${sessionId}`)
     }
   } catch (e) {

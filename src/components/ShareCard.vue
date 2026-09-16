@@ -13,6 +13,16 @@
       <div class="share-actions">
         <p class="share-tip">📱 长按上方图片可保存 / 发给朋友</p>
         <button v-if="cardUrl" class="share-download" @click="download">保存到相册</button>
+
+        <!-- 邀请链接(分享得次数): 登录用户专属 -->
+        <div v-if="inviteUrl" class="invite-box">
+          <p class="invite-tip">🎁 邀请注册奖励：好友经你的链接注册，你多得 <b>1点</b>(已邀 {{ invitedCount }} 人)</p>
+          <div class="invite-row">
+            <input class="invite-input" :value="inviteUrl" readonly @click="$event.target.select()" />
+            <button class="invite-copy" @click="copyInvite">{{ copied ? '已复制 ✓' : '复制链接' }}</button>
+          </div>
+          <p class="invite-note">把卡片和链接一起发到家长群，链接注册成功即到账</p>
+        </div>
       </div>
     </div>
   </div>
@@ -21,6 +31,8 @@
 <script setup>
 // 作文批改分享卡片 — canvas 生成图片, 只含得分/五维/一句话总评, 不含作文全文(隐私)
 import { ref, onMounted } from 'vue'
+import { authStore, authFetch } from '../utils/authStore.js'
+import { trackEvent } from '../utils/analytics.js'
 
 const props = defineProps({
   result: { type: Object, required: true }
@@ -28,6 +40,9 @@ const props = defineProps({
 defineEmits(['close'])
 
 const cardUrl = ref('')
+const inviteUrl = ref('')
+const invitedCount = ref(0)
+const copied = ref(false)
 
 const W = 750
 
@@ -235,7 +250,32 @@ function download() {
   a.click()
 }
 
-onMounted(drawCard)
+async function loadInvite() {
+  if (!authStore.isLoggedIn) return
+  try {
+    const res = await authFetch('/api/referral/me')
+    const data = await res.json()
+    if (data.success && data.inviteUrl) {
+      inviteUrl.value = data.inviteUrl
+      invitedCount.value = data.invitedCount || 0
+    }
+  } catch (_) { /* 邀请信息失败不影响卡片 */ }
+}
+
+async function copyInvite() {
+  if (!inviteUrl.value) return
+  try {
+    await navigator.clipboard.writeText(inviteUrl.value)
+  } catch (_) {
+    const el = document.querySelector('.invite-input')
+    if (el) { el.select(); document.execCommand('copy') }
+  }
+  copied.value = true
+  trackEvent('growth', 'ref_link_copy')
+  setTimeout(() => { copied.value = false }, 2000)
+}
+
+onMounted(() => { drawCard(); loadInvite() })
 </script>
 
 <style scoped>
@@ -322,5 +362,50 @@ onMounted(drawCard)
 }
 .share-download:hover {
   opacity: 0.9;
+}
+.invite-box {
+  margin-top: 12px;
+  padding: 10px;
+  border-radius: 10px;
+  background: #f0f7ff;
+  border: 1px dashed #93c5fd;
+  text-align: left;
+}
+.invite-tip {
+  font-size: 12px;
+  color: #1d4ed8;
+  margin: 0 0 8px;
+}
+.invite-row {
+  display: flex;
+  gap: 6px;
+}
+.invite-input {
+  flex: 1;
+  min-width: 0;
+  padding: 7px 8px;
+  font-size: 11px;
+  color: #475569;
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  border-radius: 7px;
+}
+.invite-copy {
+  flex-shrink: 0;
+  padding: 0 12px;
+  border: none;
+  border-radius: 7px;
+  background: #2563eb;
+  color: #fff;
+  font-size: 12px;
+  cursor: pointer;
+}
+.invite-copy:hover {
+  background: #1d4ed8;
+}
+.invite-note {
+  margin: 6px 0 0;
+  font-size: 10px;
+  color: #64748b;
 }
 </style>
