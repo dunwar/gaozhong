@@ -24,12 +24,23 @@ console.log(`预渲染路由(${routes.length}): ${routes.join(', ')}`);
 
 // ---------- 1.5 逐路由 meta description(微信/搜索卡片摘要) ----------
 const DEFAULT_DESC = '上海高考作文AI逐句精批（70分制五维评分+升格示范），已批改试卷拍照自动整理错题本、生成订正纸。免下载，注册送5点。';
+// 注意: 匹配按数组顺序取第一个命中, 兜底规则必须在最后
 const ROUTE_DESC = [
   { match: /^\/upload\/?$/, desc: '免费AI作文批改：手机拍照上传手写作文，按上海高考70分制逐句点评，给出五维评分和升格示范。新用户注册送5点。' },
   { match: /^\/pricing\/?$/, desc: '点数说明：1点可批改1篇作文或整理1份试卷。新用户注册送5点，微信扫码充值即时到账，批改失败自动退款。' },
   { match: /^\/register\/?$/, desc: '免费注册送5点，即刻体验上海高考70分制作文AI精批与试卷错题一键整理。' },
-  { match: /^\/$/, desc: DEFAULT_DESC },
 ];
+// 文章页 desc 从内容数据模块动态读取(新增文章自动生效)
+try {
+  const { gaokaoEssays } = await import('../src/content/gaokaoEssays.js');
+  for (const [slug, a] of Object.entries(gaokaoEssays)) {
+    ROUTE_DESC.push({ match: new RegExp(`^/articles/${slug}/?$`), desc: a.description || DEFAULT_DESC });
+  }
+} catch (e) {
+  console.error('⚠️ 范文库数据模块读取失败(文章页用默认desc):', e.message);
+}
+// 兜底必须最后
+ROUTE_DESC.push({ match: /^\//, desc: DEFAULT_DESC });
 function descFor(pathname) {
   return (ROUTE_DESC.find(r => r.match.test(pathname)) || { desc: DEFAULT_DESC }).desc;
 }

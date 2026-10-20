@@ -273,6 +273,8 @@
         </div>
         <p class="mt-6 text-xs text-blue-200/50">
           📖 干货：
+          <router-link to="/articles/shanghai-gaokao-zuowen-2000-2026" class="text-blue-200/80 hover:text-blue-100 underline underline-offset-2">上海高考作文真题范文集</router-link>
+          <span class="mx-1.5">·</span>
           <router-link to="/articles/school-vs-ai" class="text-blue-200/80 hover:text-blue-100 underline underline-offset-2">学校vs AI批改</router-link>
           <span class="mx-1.5">·</span>
           <router-link to="/articles/paper-demo" class="text-blue-200/80 hover:text-blue-100 underline underline-offset-2">错题整理实测</router-link>

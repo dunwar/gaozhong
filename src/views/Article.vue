@@ -41,6 +41,7 @@
 // 正文只放真实内容(站内真实批改案例), 不编造数据
 import { computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
+import { gaokaoEssays } from '../content/gaokaoEssays.js'
 
 const route = useRoute()
 
@@ -174,7 +175,10 @@ const articles = {
   }
 }
 
-const article = computed(() => articles[route.params.slug] || null)
+// 站点文章 + 上海高考范文库(独立数据模块) 合并
+const allArticles = { ...articles, ...gaokaoEssays }
+
+const article = computed(() => allArticles[route.params.slug] || null)
 
 onMounted(() => {
   if (article.value) {
@@ -215,4 +219,27 @@ onMounted(() => {
 .article-body :deep(blockquote p) { margin-bottom: 0.5rem; }
 .article-body :deep(blockquote p:last-child) { margin-bottom: 0; }
 .article-body :deep(strong) { color: #1d2129; }
+/* 范文库: 真题表 + 讲评注记框 */
+.article-body :deep(table) {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0 0 1.25rem;
+  font-size: 13px;
+}
+.article-body :deep(th), .article-body :deep(td) {
+  border: 1px solid #e2e8f0;
+  padding: 6px 10px;
+  text-align: left;
+  line-height: 1.5;
+}
+.article-body :deep(th) { background: #f0f7ff; color: #1d2129; white-space: nowrap; }
+.article-body :deep(.essay-note) {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-left: 3px solid #16a34a;
+  border-radius: 0 0.5rem 0.5rem 0;
+  padding: 0.9rem 1rem;
+  margin: 1.5rem 0;
+}
+.article-body :deep(.essay-note p) { margin-bottom: 0.5rem; font-size: 13.5px; color: #475569; }
 </style>
