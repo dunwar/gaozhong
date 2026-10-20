@@ -16,12 +16,12 @@
 
         <!-- 邀请链接(分享得次数): 登录用户专属 -->
         <div v-if="inviteUrl" class="invite-box">
-          <p class="invite-tip">🎁 邀请注册奖励：好友经你的链接注册，你多得 <b>1点</b>(已邀 {{ invitedCount }} 人)</p>
+          <p class="invite-tip">🎁 邀请奖励：好友经你的链接注册并完成首次批改，你多得 <b>5点</b>(已邀 {{ invitedCount }} 人<template v-if="pendingCount">，{{ pendingCount }} 人待完成</template>)</p>
           <div class="invite-row">
             <input class="invite-input" :value="inviteUrl" readonly @click="$event.target.select()" />
             <button class="invite-copy" @click="copyInvite">{{ copied ? '已复制 ✓' : '复制链接' }}</button>
           </div>
-          <p class="invite-note">把卡片和链接一起发到家长群，链接注册成功即到账</p>
+          <p class="invite-note">把卡片(右下角有二维码)和链接一起发到家长群，好友完成首次批改后 5 点自动到账</p>
         </div>
       </div>
     </div>
@@ -30,7 +30,9 @@
 
 <script setup>
 // 作文批改分享卡片 — canvas 生成图片, 只含得分/五维/一句话总评, 不含作文全文(隐私)
+// 2026-10-20: 底部加二维码(邀请链接>站点), 长按直达解决 .online 微信信任问题
 import { ref, onMounted } from 'vue'
+import QRCode from 'qrcode'
 import { authStore, authFetch } from '../utils/authStore.js'
 import { trackEvent } from '../utils/analytics.js'
 
@@ -42,9 +44,11 @@ defineEmits(['close'])
 const cardUrl = ref('')
 const inviteUrl = ref('')
 const invitedCount = ref(0)
+const pendingCount = ref(0)
 const copied = ref(false)
 
 const W = 750
+const FOOTER_H = 180
 
 // 文本换行: 返回逐行数组, 最多 maxLines 行, 末行超出加省略号
 function wrapText(ctx, text, x, maxWidth, maxLines) {
@@ -81,7 +85,7 @@ function roundRect(ctx, x, y, w, h, r) {
   ctx.closePath()
 }
 
-function drawCard() {
+function drawCard(qrDataUrl) {
   const r = props.result || {}
   const dims = r.dimensions || {}
   const dimKeys = Object.keys(dims)
@@ -97,9 +101,9 @@ function drawCard() {
   const summaryLines = summary ? wrapText(ctx, summary, 0, W - 120 - 64, 3) : []
   const summaryH = summaryLines.length ? 30 + 50 + summaryLines.length * 40 + 28 : 0
 
-  // 高度 = 头部175 + 主体上区430 + 五维区(标题+条目) + 总评区 + 底部120
+  // 高度 = 头部175 + 主体上区430 + 五维区(标题+条目) + 总评区 + 底部FOOTER_H
   const dimBlockH = dimCount > 0 ? 60 + dimCount * 66 + 30 : 0
-  const H = 175 + 430 + dimBlockH + summaryH + 120
+  const H = 175 + 430 + dimBlockH + summaryH + FOOTER_H
   canvas.width = W
   canvas.height = H
 
@@ -228,16 +232,28 @@ function drawCard() {
     ctx.textAlign = 'center'
   }
 
-  // ── 底部 ──
-  const by = H - 120
+  // ── 底部: 左侧文案 + 右侧二维码 ──
+  const by = H - FOOTER_H
   ctx.fillStyle = '#0B1C3A'
-  ctx.fillRect(0, by, W, 120)
+  ctx.fillRect(0, by, W, FOOTER_H)
+  ctx.textAlign = 'left'
   ctx.fillStyle = 'rgba(255,255,255,0.92)'
-  ctx.font = `bold 28px ${FONT}`
-  ctx.fillText('作文每周细批 × 试卷考后秒变错题本', W / 2, by + 50)
+  ctx.font = `bold 30px ${FONT}`
+  ctx.fillText('作文每周细批', 56, by + 66)
+  ctx.fillText('试卷考后秒变错题本', 56, by + 110)
   ctx.fillStyle = 'rgba(255,255,255,0.6)'
-  ctx.font = `24px ${FONT}`
-  ctx.fillText('gaozhong.online · 长按保存分享', W / 2, by + 90)
+  ctx.font = `22px ${FONT}`
+  ctx.fillText('扫码免费体验 · gaozhong.online', 56, by + 150)
+  ctx.textAlign = 'center'
+  if (qrDataUrl) {
+    const qrSize = 124
+    const qrX = W - 56 - qrSize
+    const qrY = by + (FOOTER_H - qrSize) / 2
+    ctx.fillStyle = '#FFFFFF'
+    roundRect(ctx, qrX - 6, qrY - 6, qrSize + 12, qrSize + 12, 10)
+    ctx.fill()
+    ctx.drawImage(qrImg, qrX, qrY, qrSize, qrSize)
+  }
 
   cardUrl.value = canvas.toDataURL('image/png')
 }
@@ -258,6 +274,7 @@ async function loadInvite() {
     if (data.success && data.inviteUrl) {
       inviteUrl.value = data.inviteUrl
       invitedCount.value = data.invitedCount || 0
+      pendingCount.value = data.pendingCount || 0
     }
   } catch (_) { /* 邀请信息失败不影响卡片 */ }
 }
@@ -275,7 +292,23 @@ async function copyInvite() {
   setTimeout(() => { copied.value = false }, 2000)
 }
 
-onMounted(() => { drawCard(); loadInvite() })
+let qrImg = null
+
+onMounted(async () => {
+  await loadInvite()
+  // 二维码: 邀请链接优先, 未登录/无邀请码退回站点首页
+  const qrTarget = inviteUrl.value || 'https://gaozhong.online'
+  try {
+    const dataUrl = await QRCode.toDataURL(qrTarget, { width: 248, margin: 1, color: { dark: '#0B1C3A', light: '#FFFFFF' } })
+    qrImg = new Image()
+    await new Promise((resolve, reject) => {
+      qrImg.onload = resolve
+      qrImg.onerror = reject
+      qrImg.src = dataUrl
+    })
+  } catch (_) { qrImg = null }
+  drawCard(qrImg)
+})
 </script>
 
 <style scoped>

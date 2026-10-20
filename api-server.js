@@ -55,7 +55,7 @@ process.on('SIGINT', () => {
 
 // Scanner v3.0
 const SCANNER_VERSION = 'v4.2';
-import { initDB, saveDB, saveRecord, getRecord, getHistory, getStats, createUser, getUserByEmail, getUserById, getUserByRefCode, updateUser, changePassword, listUsers, saveErrorProblem, saveErrorKnowledgeTags, getErrorProblem, listErrorProblems, getErrorStats, getKnowledgeStats, getErrorsByKnowledgePoint, searchKnowledgePoints, createPaperSession, updatePaperSession, getPaperSession, listPaperSessions, listErrorsByPaper, listErrorsByTime, listErrorsBySubject, listErrorsForGuidance, saveReview, updateErrorReviewStatus, updateErrorMastery, deleteErrorProblem, getSessionReviews, resetStalledPaperSessions, countPaperSessionsToday, getPoints, deductPoint, grantPoints, listPointLogs, getVisitorCount, incrementVisitors, getUsageStats } from './db.js';
+import { initDB, saveDB, saveRecord, getRecord, getHistory, getStats, createUser, getUserByEmail, getUserById, getUserByRefCode, updateUser, changePassword, listUsers, saveErrorProblem, saveErrorKnowledgeTags, getErrorProblem, listErrorProblems, getErrorStats, getKnowledgeStats, getErrorsByKnowledgePoint, searchKnowledgePoints, createPaperSession, updatePaperSession, getPaperSession, listPaperSessions, listErrorsByPaper, listErrorsByTime, listErrorsBySubject, listErrorsForGuidance, saveReview, updateErrorReviewStatus, updateErrorMastery, deleteErrorProblem, getSessionReviews, resetStalledPaperSessions, countPaperSessionsToday, getPoints, deductPoint, grantPoints, listPointLogs, getVisitorCount, incrementVisitors, getUsageStats, createInviteReward, grantPendingInviteReward, getInviteSummary } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3001;
@@ -640,6 +640,8 @@ async function executeTask(task) {
       persisted: true,
       progress: { stage: 'done', message: '批改完成' }
     });
+    // 邀请奖励: 被邀请人完成首次作文批改 → 推荐人+5点
+    if (input.userId) { try { grantPendingInviteReward(input.userId); } catch (_) {} }
     log('info', 'task 完成', { taskId: task.id, score: result.totalScore, grade: result.grade });
   } catch (err) {
     log('error', 'task 失败', { taskId: task.id, error: err.message });
@@ -1481,6 +1483,8 @@ async function executeConfirmationAnalysis(sessionId, userId, confirmedQuestions
   }
 
   updatePaperSession(sessionId, { status: 'analyzed', analyzedCount });
+  // 邀请奖励: 被邀请人完成首次试卷分析 → 推荐人+5点
+  if (userId) { try { grantPendingInviteReward(userId); } catch (_) {} }
   log('info', 'Phase 6 分析完成', { sessionId, subject, analyzedCount });
 
   return { sessionId, analyzedCount, subject };
@@ -1628,27 +1632,28 @@ app.post('/auth/register', (req, res) => {
 
   const token = jwt.sign({ sub: user.id, role: user.role }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
 
-  // 邀请注册奖励(2026-09-16 分享得次数): ref=推荐人邀请码 → 推荐人+1点
-  let rewardedReferrer = false;
+  // 邀请奖励(2026-10-20 升级5+5): 注册只记pending, 被邀请人完成首次批改后推荐人+5点
+  // 防刷: 同IP 24h限1次; 每个新用户仅1次; 自邀拦截
+  let refRewarded = false;
+  let refRewardReason = null;
   if (ref) {
     const referrer = getUserByRefCode(ref);
     if (referrer && referrer.id !== user.id) {
-      try {
-        grantPoints(referrer.id, 1, `邀请注册奖励(新用户 ${user.email})`);
-        rewardedReferrer = true;
-        log('info', '邀请注册奖励', { referrer: referrer.id, newUser: user.id });
-      } catch (e) {
-        log('error', '邀请奖励失败', { error: e.message });
-      }
+      const signupIp = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.ip || null;
+      const r = createInviteReward({ referrerId: referrer.id, newUserId: user.id, newUserEmail: user.email, signupIp });
+      refRewarded = r.ok;
+      refRewardReason = r.ok ? null : r.reason;
+      log('info', '邀请注册记录', { referrer: referrer.id, newUser: user.id, result: r });
     }
   }
 
-  log('info', '用户注册', { userId: user.id, email: user.email, region: user.region, viaRef: rewardedReferrer });
+  log('info', '用户注册', { userId: user.id, email: user.email, region: user.region, viaRef: refRewarded });
 
   res.status(201).json({
     success: true,
     token,
-    refRewarded: rewardedReferrer,
+    refRewarded,
+    refRewardReason,
     user: { id: user.id, email: user.email, nickname: user.nickname, region: user.region, grade: user.grade, school: user.school, role: user.role, mustChangePassword: user.mustChangePassword }
   });
 });
@@ -1657,14 +1662,17 @@ app.post('/auth/register', (req, res) => {
 app.get('/referral/me', authMiddleware, (req, res) => {
   const user = getUserById(req.user.id);
   if (!user) return res.status(404).json({ error: '用户不存在' });
-  const logs = listPointLogs(user.id, 200);
-  const inviteLogs = (logs || []).filter(l => String(l.reason || '').includes('邀请注册奖励'));
+  const s = getInviteSummary(user.id);
   res.json({
     success: true,
     refCode: user.refCode,
     inviteUrl: user.refCode ? `https://gaozhong.online/register?ref=${user.refCode}` : null,
-    invitedCount: inviteLogs.length,
-    rewardPoints: inviteLogs.length,   // 每次邀请+1点
+    invitedCount: s.invitedCount,
+    grantedCount: s.grantedCount,
+    pendingCount: s.pendingCount,
+    rewardPoints: s.rewardPoints,      // 已到账点数(每次+5)
+    rewardPerInvite: 5,
+    note: s.pendingCount > 0 ? `${s.pendingCount} 位好友注册后, 完成首次批改时奖励到账` : null,
   });
 });
 

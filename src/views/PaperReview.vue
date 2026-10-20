@@ -37,6 +37,14 @@
               新增: {{ addedSet.size }}
             </span>
 
+            <!-- 学情分享卡 -->
+            <button
+              @click="showShareCard = true"
+              class="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs rounded-lg font-medium flex items-center gap-1"
+              title="生成学情分享卡片">
+              📤 分享
+            </button>
+
             <button
               @click="submitReviews"
               :disabled="submitting"
@@ -296,6 +304,15 @@
     <div v-else class="text-center py-20 text-gray-400">
       <p class="text-lg">找不到该试卷</p>
     </div>
+
+    <!-- 学情分享卡片 -->
+    <PaperShareCard
+      v-if="showShareCard && session"
+      :subject="session.subject"
+      :total-questions="allQuestions.length"
+      :error-count="errorList.length"
+      @close="showShareCard = false"
+    />
   </div>
 </template>
 
@@ -303,6 +320,9 @@
 import { ref, reactive, computed, onMounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { authFetch } from '../utils/authStore.js'
+import PaperShareCard from '../components/PaperShareCard.vue'
+
+const showShareCard = ref(false)
 
 const route = useRoute()
 const router = useRouter()

@@ -13,7 +13,8 @@ import { fileURLToPath } from 'url';
 import crypto from 'crypto';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DB_DIR = path.join(__dirname, 'data');
+// DB 目录: 默认项目 data/, 可用 DB_DIR 环境变量覆盖(测试隔离用)
+const DB_DIR = process.env.DB_DIR || path.join(__dirname, 'data');
 const DB_PATH = path.join(DB_DIR, 'grading.db');
 
 let db = null;
@@ -96,6 +97,22 @@ export async function initDB() {
   // 邀请码(2026-09-16 分享得次数): register?ref=码 → 推荐人+1点
   try { db.run(`ALTER TABLE users ADD COLUMN ref_code TEXT;`); } catch (_) {}
   try { db.run(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_ref_code ON users(ref_code);`); } catch (_) {}
+
+  // 邀请奖励(2026-10-20 升级5+5): 注册只记pending, 被邀请人完成首次批改后推荐人才+5点; 同IP 24h限1次
+  db.run(`
+    CREATE TABLE IF NOT EXISTS invite_rewards (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      referrer_id TEXT NOT NULL,
+      new_user_id TEXT NOT NULL UNIQUE,
+      new_user_email TEXT,
+      signup_ip TEXT,
+      status TEXT NOT NULL DEFAULT 'pending',
+      created_at INTEGER NOT NULL,
+      granted_at INTEGER
+    );
+  `);
+  try { db.run(`CREATE INDEX IF NOT EXISTS idx_invite_referrer ON invite_rewards(referrer_id);`); } catch (_) {}
+  try { db.run(`CREATE INDEX IF NOT EXISTS idx_invite_ip_time ON invite_rewards(signup_ip, created_at);`); } catch (_) {}
 
   // ========== 点数流水（点数制付费: 1点=1次作文批改或1份试卷整理） ==========
   db.run(`
@@ -304,7 +321,7 @@ export function saveDBDeferred(ms = 200) {
 
 // ========== 用户 CRUD ==========
 
-export function createUser({ email, passwordHash, nickname, region = '上海', role = 'user', wechatOpenid = null, mustChangePassword = 0, grade = '', school = '' }) {
+export function createUser({ email, passwordHash, nickname, region = '上海', role = 'user', wechatOpenid = null, mustChangePassword = 0, grade = '', school = '', points = 5 }) {
   if (!db) throw new Error('数据库未初始化');
   const id = crypto.randomUUID();
   const now = Date.now();
@@ -316,9 +333,9 @@ export function createUser({ email, passwordHash, nickname, region = '上海', r
     if (!exists.length) { refCode = candidate; break; }
   }
   db.run(
-    `INSERT INTO users (id, email, password_hash, nickname, region, role, wechat_openid, must_change_password, grade, school, ref_code, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [id, email.toLowerCase().trim(), passwordHash, nickname || email.split('@')[0], region, role, wechatOpenid, mustChangePassword, grade, school, refCode || null, now, now]
+    `INSERT INTO users (id, email, password_hash, nickname, region, role, wechat_openid, must_change_password, grade, school, ref_code, points, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, email.toLowerCase().trim(), passwordHash, nickname || email.split('@')[0], region, role, wechatOpenid, mustChangePassword, grade, school, refCode || null, points, now, now]
   );
   saveDBDeferred();
   return getUserById(id);
@@ -443,6 +460,68 @@ export function listPointLogs(userId, limit = 50) {
   while (stmt.step()) rows.push(stmt.getAsObject());
   stmt.free();
   return rows;
+}
+
+// ========== 邀请奖励 (2026-10-20 升级5+5: 延迟发放 + IP防刷) ==========
+export const INVITE_REWARD_POINTS = 5;
+export const INVITE_IP_WINDOW_MS = 24 * 3600 * 1000;
+
+// 注册时记录待发放邀请(被邀请人完成首次批改后才给推荐人+5点)
+// 返回 { ok:false, reason } 的拦截原因: self/ip_limited/duplicate_user
+export function createInviteReward({ referrerId, newUserId, newUserEmail, signupIp = null }) {
+  if (!db) return { ok: false, reason: 'db' };
+  if (!referrerId || referrerId === newUserId) return { ok: false, reason: 'self' };
+  // 防刷1: 同一IP 24h内只计1次邀请(含pending, 防批量小号)
+  if (signupIp) {
+    const dup = db.exec(
+      'SELECT 1 FROM invite_rewards WHERE signup_ip = ? AND created_at > ? LIMIT 1',
+      [signupIp, Date.now() - INVITE_IP_WINDOW_MS]);
+    if (dup.length) return { ok: false, reason: 'ip_limited' };
+  }
+  // 防刷2: 每个新用户只能触发一次邀请
+  try {
+    db.run('INSERT INTO invite_rewards (referrer_id, new_user_id, new_user_email, signup_ip, status, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+      [referrerId, newUserId, newUserEmail || null, signupIp, 'pending', Date.now()]);
+  } catch (_) {
+    return { ok: false, reason: 'duplicate_user' };
+  }
+  saveDBDeferred();
+  return { ok: true };
+}
+
+// 被邀请人首次批改完成(作文done/试卷done|analyzed)时调用: 给推荐人+5点
+export function grantPendingInviteReward(newUserId) {
+  if (!db || !newUserId) return false;
+  const rows = db.exec(
+    "SELECT id, referrer_id FROM invite_rewards WHERE new_user_id = ? AND status = 'pending' LIMIT 1",
+    [newUserId]);
+  if (!rows.length || !rows[0].values.length) return false;
+  const rewardId = rows[0].values[0][0];
+  const referrerId = rows[0].values[0][1];
+  if (!getUserById(referrerId)) return false;
+  db.run("UPDATE invite_rewards SET status = 'granted', granted_at = ? WHERE id = ?", [Date.now(), rewardId]);
+  grantPoints(referrerId, INVITE_REWARD_POINTS, `邀请奖励(好友完成首次批改 +${INVITE_REWARD_POINTS}点)`);
+  saveDBDeferred();
+  return true;
+}
+
+// /referral/me 汇总(替代旧版按流水统计)
+export function getInviteSummary(referrerId) {
+  if (!db) return { invitedCount: 0, grantedCount: 0, pendingCount: 0, rewardPoints: 0 };
+  const res = db.exec('SELECT status, COUNT(*) FROM invite_rewards WHERE referrer_id = ? GROUP BY status', [referrerId]);
+  let grantedCount = 0, pendingCount = 0;
+  if (res.length) {
+    for (const [status, cnt] of res[0].values) {
+      if (status === 'granted') grantedCount = cnt;
+      else if (status === 'pending') pendingCount = cnt;
+    }
+  }
+  return {
+    invitedCount: grantedCount + pendingCount,
+    grantedCount,
+    pendingCount,
+    rewardPoints: grantedCount * INVITE_REWARD_POINTS,
+  };
 }
 
 // ========== 批改记录 CRUD ==========
@@ -1101,6 +1180,7 @@ function deserializeUser(row) {
     mustChangePassword: !!row.must_change_password,
     grade: row.grade || '', school: row.school || '',
     refCode: row.ref_code || null,
+    points: row.points ?? 0,
     passwordHash: row.password_hash,
     createdAt: row.created_at, updatedAt: row.updated_at
   };
