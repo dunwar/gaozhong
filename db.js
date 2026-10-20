@@ -272,6 +272,19 @@ export function incrementVisitors() {
   return getVisitorCount();
 }
 
+// ========== 真实使用统计(首页底栏) ==========
+// 口径: 作文=grading_records完成数; 试卷=paper_sessions完成态(done/analyzed), 排除demo示例会话。
+// 前端阈值: <50 只展示域名slogan(小数字阶段"已批N篇"与"第N位访客"同样传递没人用), 到三位数再展示。
+export function getUsageStats() {
+  if (!db) return { essays: 0, papers: 0 };
+  const essays = db.exec("SELECT COUNT(*) FROM grading_records WHERE status = 'done'");
+  const papers = db.exec("SELECT COUNT(*) FROM paper_sessions WHERE user_id != 'demo' AND status IN ('done', 'analyzed')");
+  return {
+    essays: essays.length ? essays[0].values[0][0] : 0,
+    papers: papers.length ? papers[0].values[0][0] : 0,
+  };
+}
+
 export function saveDB() {
   if (!db) return;
   if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }

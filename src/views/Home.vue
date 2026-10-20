@@ -17,7 +17,7 @@
             作文批得<span class="text-blue-400">比学校细</span>，<br>错题<span class="text-emerald-400">不用自己抄</span>
           </h1>
           <p class="text-sm sm:text-base md:text-lg text-blue-200/90 mb-2">
-            每周作文 AI 细批：70 分制四维评分 + 逐句标注 + 升格建议
+            每周作文 AI 细批：70 分制五维评分 + 逐句标注 + 升格建议
           </p>
           <p class="text-sm sm:text-base md:text-lg text-blue-200/90 mb-8">
             考后试卷拍张照：错题本 + 可打印订正纸自动生成
@@ -282,12 +282,12 @@
       </div>
     </section>
 
-    <!-- 底栏: 访问计数(未加载/预渲染快照时隐藏计数部分) -->
+    <!-- 底栏: 真实使用统计(<50篇时隐藏数字只留域名, 小数字与"第N位访客"同样传递没人用) -->
     <footer class="bg-slate-950 py-5 text-center border-t border-slate-800/60">
-      <p v-if="visitorCount" class="text-xs text-slate-500">
-        您是第
-        <span class="text-slate-300 font-semibold tabular-nums mx-0.5">{{ visitorCount.toLocaleString() }}</span>
-        位访问者
+      <p v-if="essayCount" class="text-xs text-slate-500">
+        已为上海高中生累计细批
+        <span class="text-slate-300 font-semibold tabular-nums mx-0.5">{{ essayCount.toLocaleString() }}</span>
+        篇作文
         <span class="mx-2 text-slate-700">·</span>
         gaozhong.online · 高中生的 AI 学习管家
       </p>
@@ -319,19 +319,17 @@ async function startDemo() {
   }
 }
 
-// 底栏访问计数: 每个浏览器会话上报一次(后端另有IP日去重兜底)
-const visitorCount = ref(0)
+// 底栏: 访问上报保留(埋点用), 展示改用真实批改数(≥50才显示数字, 不虚标)
+const essayCount = ref(0)
 onMounted(async () => {
   try {
-    let res
     if (!sessionStorage.getItem('gz_visited')) {
-      res = await fetch('/api/visit', { method: 'POST' })
+      fetch('/api/visit', { method: 'POST' }).catch(() => {})
       sessionStorage.setItem('gz_visited', '1')
-    } else {
-      res = await fetch('/api/visit')
     }
+    const res = await fetch('/api/stats/summary')
     const data = await res.json()
-    if (data.success) visitorCount.value = data.total
-  } catch (_) { /* 计数失败静默, 不影响页面 */ }
+    if (data.success && data.essays >= 50) essayCount.value = data.essays
+  } catch (_) { /* 统计失败静默, 不影响页面 */ }
 })
 </script>
