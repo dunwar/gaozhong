@@ -34,7 +34,7 @@
               拍卷子整错题
             </router-link>
           </div>
-          <p class="mt-5 text-xs sm:text-sm text-blue-300/60">新用户注册送 3 点 · 手机拍照即用 · 无需下载 App</p>
+          <p class="mt-5 text-xs sm:text-sm text-blue-300/60">新用户注册送 5 点 · 手机拍照即用 · 无需下载 App</p>
         </div>
       </div>
     </section>

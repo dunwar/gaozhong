@@ -12,7 +12,7 @@ const routes = [
     path: '/', name: 'Home', component: Home,
     meta: {
       title: '上海高考作文批改AI＋试卷错题整理——批得比学校细，错题不用抄',
-      description: '高中生AI学习管家：作文每周细批（上海70分制五维评分+逐句点评+升格示范），已批改试卷拍照自动生成错题本和可打印订正纸。免注册体验示例卷，新用户送3点。'
+      description: '高中生AI学习管家：作文每周细批（上海70分制五维评分+逐句点评+升格示范），已批改试卷拍照自动生成错题本和可打印订正纸。免注册体验示例卷，新用户送5点。'
     }
   },
 
@@ -50,7 +50,7 @@ const routes = [
     path: '/pricing', name: 'Pricing', component: () => import('../views/Pricing.vue'),
     meta: {
       title: '点数说明与充值｜1点=1次作文批改或1份试卷整理',
-      description: '点数制：1点可批改1篇作文或整理1份试卷。新用户注册送3点，微信扫码人工充值即时到账。'
+      description: '点数制：1点可批改1篇作文或整理1份试卷。新用户注册送5点，微信扫码人工充值即时到账。'
     }
   },
 
@@ -58,7 +58,7 @@ const routes = [
   { path: '/login', name: 'Login', component: Login, meta: { title: '登录' } },
   {
     path: '/register', name: 'Register', component: () => import('../views/Register.vue'),
-    meta: { title: '免费注册送3点' }
+    meta: { title: '免费注册送5点' }
   },
   { path: '/password', name: 'Password', component: () => import('../views/Password.vue'), meta: { requiresAuth: true } },
 ]

@@ -21,7 +21,7 @@
       </div>
     </div>
     <div v-else class="bg-amber-50 border border-amber-200 rounded-2xl p-5 mb-8 text-center">
-      <p class="text-amber-800 text-sm">登录后查看余额 · <router-link to="/register" class="font-medium underline">新用户注册即送 3 点</router-link></p>
+      <p class="text-amber-800 text-sm">登录后查看余额 · <router-link to="/register" class="font-medium underline">新用户注册即送 5 点</router-link></p>
     </div>
 
     <!-- 充值流程 + 收款码 -->

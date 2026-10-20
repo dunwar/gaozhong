@@ -22,6 +22,23 @@ const routes = locs.map(u => new URL(u).pathname).filter(p => p !== '/robots.txt
 if (routes.length === 0) { console.error('❌ sitemap 无 URL'); process.exit(1); }
 console.log(`预渲染路由(${routes.length}): ${routes.join(', ')}`);
 
+// ---------- 1.5 逐路由 meta description(微信/搜索卡片摘要) ----------
+const DEFAULT_DESC = '上海高考作文AI逐句精批（70分制五维评分+升格示范），已批改试卷拍照自动整理错题本、生成订正纸。免下载，注册送5点。';
+const ROUTE_DESC = [
+  { match: /^\/upload\/?$/, desc: '免费AI作文批改：手机拍照上传手写作文，按上海高考70分制逐句点评，给出五维评分和升格示范。新用户注册送5点。' },
+  { match: /^\/pricing\/?$/, desc: '点数说明：1点可批改1篇作文或整理1份试卷。新用户注册送5点，微信扫码充值即时到账，批改失败自动退款。' },
+  { match: /^\/register\/?$/, desc: '免费注册送5点，即刻体验上海高考70分制作文AI精批与试卷错题一键整理。' },
+  { match: /^\/$/, desc: DEFAULT_DESC },
+];
+function descFor(pathname) {
+  return (ROUTE_DESC.find(r => r.match.test(pathname)) || { desc: DEFAULT_DESC }).desc;
+}
+// 把渲染后 HTML 的 meta description 替换为路由专属文案
+function injectDesc(html, desc) {
+  return html.replace(/<meta\s+name="description"\s+content="[^"]*"\s*\/?>/i,
+    `<meta name="description" content="${desc.replace(/"/g, '&quot;')}" />`);
+}
+
 // ---------- 2. 静态服务 dist(带 SPA fallback) ----------
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml', '.webp': 'image/webp', '.json': 'application/json', '.txt': 'text/plain', '.xml': 'application/xml', '.webmanifest': 'application/manifest+json', '.ico': 'image/x-icon' };
 const server = http.createServer((req, res) => {
@@ -54,7 +71,7 @@ try {
     const page = await browser.newPage();
     await page.goto(`http://localhost:${PORT}${route}`, { waitUntil: 'networkidle2', timeout: 30000 });
     await new Promise(r => setTimeout(r, 1200)); // 字体/图片余量
-    const html = await page.content();
+    const html = injectDesc(await page.content(), descFor(route));
     const out = route === '/' ? path.join(DIST, 'index.html') : path.join(DIST, route, 'index.html');
     fs.mkdirSync(path.dirname(out), { recursive: true });
     fs.writeFileSync(out, html);
