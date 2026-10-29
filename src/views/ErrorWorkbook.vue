@@ -5,10 +5,16 @@
         <h1 class="text-2xl font-bold text-gray-900">📔 错题本</h1>
         <p class="text-gray-500 mt-1">按试卷、时间或科目查看已整理的错题</p>
       </div>
-      <router-link to="/error/export"
-        class="px-4 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 shadow-sm transition-colors whitespace-nowrap">
-        📄 生成错题卷
-      </router-link>
+      <div class="flex items-center gap-2 flex-wrap">
+        <router-link to="/practice"
+          class="px-4 py-2.5 bg-amber-500 text-white rounded-xl text-sm font-medium hover:bg-amber-600 shadow-sm transition-colors whitespace-nowrap">
+          🎯 我的练习
+        </router-link>
+        <router-link to="/error/export"
+          class="px-4 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 shadow-sm transition-colors whitespace-nowrap">
+          📄 生成错题卷
+        </router-link>
+      </div>
     </div>
     <div class="mb-6"></div>
 
@@ -28,11 +34,18 @@
       </div>
     </div>
 
-    <!-- 掌握度筛选 -->
+    <!-- 掌握度筛选 + 错因筛选（F2）+ 出练习卷入口（F1） -->
     <div v-if="view === 'list'" class="flex gap-2 mb-3 flex-wrap items-center text-xs">
       <span class="text-gray-400">订正状态：</span>
       <button v-for="m in masteryFilters" :key="m.key" @click="masteryFilter = m.key"
         :class="['px-2.5 py-1 rounded-full font-medium', masteryFilter === m.key ? m.activeCls : 'bg-white border text-gray-500']">{{ m.label }}</button>
+      <span class="text-gray-400 ml-2">错因：</span>
+      <button v-for="ms in mistakeFilters" :key="ms.key" @click="mistakeFilter = ms.key"
+        :class="['px-2.5 py-1 rounded-full font-medium', mistakeFilter === ms.key ? 'bg-gray-800 text-white' : 'bg-white border text-gray-500']">{{ ms.label }}</button>
+      <button @click="makePracticePaper" :disabled="practiceBusy || practiceCandidates.length === 0"
+        class="ml-auto px-3 py-1.5 rounded-lg font-medium bg-amber-500 text-white hover:bg-amber-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors">
+        🎯 出练习卷{{ practiceCandidates.length ? `（${Math.min(practiceCandidates.length, 10)}题）` : '' }}
+      </button>
     </div>
 
     <!-- 分组切换 -->
@@ -186,6 +199,7 @@
               <div class="flex-1 min-w-0">
                 <p class="text-sm text-gray-800 line-clamp-2">{{ err.questionText || err.topic || '题目内容' }}</p>
                 <div class="flex gap-2 mt-1 flex-wrap text-xs">
+                  <span v-if="mistakeTag(err)" :class="mistakeTag(err).cls" class="px-1.5 rounded font-medium">{{ mistakeTag(err).label }}</span>
                   <span class="bg-red-100 text-red-700 px-1.5 rounded">{{ err.studentAnswer || err.wrong_answer }} → {{ err.correctAnswer || err.correct_answer }}</span>
                   <span v-if="err.errorType || err.error_type" class="bg-gray-100 text-gray-600 px-1.5 rounded">{{ err.errorType || err.error_type }}</span>
                   <span class="text-gray-400">{{ err.subject || err.error_subject }}</span>
@@ -240,7 +254,11 @@
 
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { authStore, authFetch } from '../utils/authStore.js'
+import { trackEvent } from '../utils/analytics.js'
+
+const router = useRouter()
 
 const views = [
   { key: 'paper', label: '📄 按试卷' },
@@ -288,9 +306,50 @@ function masteryDotCls(err) {
 }
 function masteryLabel(err) { return MASTERY_LABEL[err.mastery || 'pending'] }
 const filteredItems = computed(() => {
-  if (masteryFilter.value === 'all') return items.value
-  return items.value.filter(err => (err.mastery || 'pending') === masteryFilter.value)
+  let list = items.value
+  if (masteryFilter.value !== 'all') list = list.filter(err => (err.mastery || 'pending') === masteryFilter.value)
+  if (mistakeFilter.value !== 'all') list = list.filter(err => (err.mistakeStatus || '') === mistakeFilter.value)
+  return list
 })
+
+// F2: 错因状态 — 筛选与角标（做错了=有作答痕迹/不会做=无笔迹）
+const mistakeFilter = ref('all')
+const mistakeFilters = [
+  { key: 'all', label: '全部' },
+  { key: 'wrong_attempt', label: '🔴 做错了' },
+  { key: 'not_attempted', label: '🟡 不会做' },
+]
+function mistakeTag(err) {
+  const s = err.mistakeStatus || err.mistake_status
+  if (s === 'wrong_attempt') return { label: '做错了', cls: 'bg-red-100 text-red-700' }
+  if (s === 'not_attempted') return { label: '不会做', cls: 'bg-yellow-100 text-yellow-700' }
+  return null
+}
+
+// F1: 出练习卷 — 取当前筛选下的错题（题干完整的优先，最多10题）
+const practiceBusy = ref(false)
+const practiceCandidates = computed(() =>
+  filteredItems.value.filter(e => (e.questionText || e.question_text || '').trim().length > 8).slice(0, 10)
+)
+async function makePracticePaper() {
+  if (practiceBusy.value || practiceCandidates.value.length === 0) return
+  practiceBusy.value = true
+  try {
+    const res = await authFetch('/api/practice/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ errorIds: practiceCandidates.value.map(e => e.id), mode: 'paper' })
+    })
+    const data = await res.json()
+    if (!res.ok || !data.success) throw new Error(data.error || '生成失败')
+    trackEvent('practice', 'generate', 'workbook_paper')
+    router.push(`/practice/${data.sessionId}`)
+  } catch (e) {
+    alert(e.message)
+  } finally {
+    practiceBusy.value = false
+  }
+}
 async function cycleMastery(err) {
   const prev = err.mastery || 'pending'
   const next = MASTERY_NEXT[prev]

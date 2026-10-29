@@ -48,6 +48,7 @@
             <div class="absolute top-[calc(100%+0.5rem)] left-0 w-36 bg-white rounded-xl shadow-lg border border-gray-100 py-1.5 z-50 hidden group-hover:block">
               <router-link to="/paper/upload" class="dropdown-link">错题上传</router-link>
               <router-link to="/error/list" class="dropdown-link">错题本</router-link>
+              <router-link to="/practice" class="dropdown-link">我的练习</router-link>
               <router-link to="/knowledge" class="dropdown-link">知识点</router-link>
             </div>
           </div>

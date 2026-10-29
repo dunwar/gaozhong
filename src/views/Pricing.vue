@@ -83,6 +83,13 @@
         </div>
       </div>
     </div>
+
+    <!-- 协议 -->
+    <p class="text-xs text-gray-400 text-center mt-8 leading-relaxed">
+      点数价格与功能计费可能根据运营情况调整，详见
+      <router-link to="/terms" target="_blank" class="text-blue-500 hover:text-blue-600 underline">《用户协议》</router-link>
+      ；已充值到账的点数不受调整影响。
+    </p>
   </div>
 </template>
 

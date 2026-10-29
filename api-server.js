@@ -26,6 +26,7 @@ import { ERROR_DIAGNOSIS_PROMPT } from './prompts/error-diagnosis.js';
 import { renderPaperAnalysisPrompt } from './prompts/paper-analysis-v4.js';
 import { STUDY_GUIDANCE_PROMPT_V1 } from './prompts/study-guidance-v1.js';
 import { PAPER_SCANNER_VERSION, buildScannerMessages, postFilter, classifyErrors } from './prompts/paper-scanner-v5.js';
+import { renderPracticePrompt, DIFFICULTY_SPEC_SINGLE, DIFFICULTY_SPEC_PAPER } from './prompts/practice-v1.js';
 
 // ═══════════════════════════════════════
 // 全局错误处理 — 防止静默崩溃
@@ -45,17 +46,20 @@ process.on('unhandledRejection', (reason, promise) => {
 
 process.on('SIGTERM', () => {
   console.log('[SHUTDOWN] SIGTERM received, closing gracefully...');
+  // 修复(2026-10-31): 停机前刷库 — saveDBDeferred 防抖窗口内的写入(注册/错题/练习)此前会随进程退出丢失
+  try { saveDB(); console.log('[SHUTDOWN] 数据库已落盘'); } catch (e) { console.error('[SHUTDOWN] 刷库失败:', e.message); }
   process.exit(0);
 });
 
 process.on('SIGINT', () => {
   console.log('[SHUTDOWN] SIGINT received');
+  try { saveDB(); console.log('[SHUTDOWN] 数据库已落盘'); } catch (e) { console.error('[SHUTDOWN] 刷库失败:', e.message); }
   process.exit(0);
 });
 
 // Scanner v3.0
 const SCANNER_VERSION = 'v4.2';
-import { initDB, saveDB, saveRecord, getRecord, getHistory, getStats, createUser, getUserByEmail, getUserById, getUserByRefCode, updateUser, changePassword, listUsers, saveErrorProblem, saveErrorKnowledgeTags, getErrorProblem, listErrorProblems, getErrorStats, getKnowledgeStats, getErrorsByKnowledgePoint, searchKnowledgePoints, createPaperSession, updatePaperSession, getPaperSession, listPaperSessions, listErrorsByPaper, listErrorsByTime, listErrorsBySubject, listErrorsForGuidance, saveReview, updateErrorReviewStatus, updateErrorMastery, deleteErrorProblem, getSessionReviews, resetStalledPaperSessions, countPaperSessionsToday, getPoints, deductPoint, grantPoints, listPointLogs, getVisitorCount, incrementVisitors, getUsageStats, createInviteReward, grantPendingInviteReward, getInviteSummary } from './db.js';
+import { initDB, saveDB, saveRecord, getRecord, getHistory, getStats, createUser, getUserByEmail, getUserById, getUserByRefCode, updateUser, changePassword, listUsers, saveErrorProblem, saveErrorKnowledgeTags, getErrorProblem, listErrorProblems, getErrorStats, getKnowledgeStats, getErrorsByKnowledgePoint, searchKnowledgePoints, createPaperSession, updatePaperSession, getPaperSession, listPaperSessions, listErrorsByPaper, listErrorsByTime, listErrorsBySubject, listErrorsForGuidance, saveReview, updateErrorReviewStatus, updateErrorMastery, deleteErrorProblem, getSessionReviews, resetStalledPaperSessions, countPaperSessionsToday, getPoints, deductPoint, grantPoints, listPointLogs, getVisitorCount, incrementVisitors, getUsageStats, createInviteReward, grantPendingInviteReward, getInviteSummary, createPracticeSession, updatePracticeSession, getPracticeSession, listPracticeSessions, savePracticeItem, countPracticeToday } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3001;
@@ -339,6 +343,24 @@ function deepseekRequest(body, timeout = 120_000) {
     timeout
   });
 }
+
+// F1 练习生成通道: 默认复用 DeepSeek, 可经 PRACTICE_BASE_URL/PRACTICE_API_KEY/PRACTICE_MODEL
+// 独立切换(OpenAI兼容端点均可, 如智谱/硅基流动) — 主通道欠费时的逃生通道
+function practiceRequest(body, timeout = 120_000) {
+  const base = process.env.PRACTICE_BASE_URL || 'https://api.deepseek.com/v1';
+  const url = new URL(base.replace(/\/$/, '') + '/chat/completions');
+  // apiRequest 约定: port 非空走 HTTP, 空/443 走 HTTPS
+  const port = url.port ? parseInt(url.port) : (url.protocol === 'https:' ? null : 80);
+  return apiRequest({
+    hostname: url.hostname,
+    path: url.pathname + url.search,
+    apiKey: process.env.PRACTICE_API_KEY || DEEPSEEK_KEY,
+    port,
+    body,
+    timeout
+  });
+}
+const MODEL_PRACTICE = process.env.PRACTICE_MODEL || MODEL_GRADING;
 
 // ========== 智谱 VL 请求（GLM-4.6V 系列）==========
 /**
@@ -747,6 +769,7 @@ async function executeErrorTask(task) {
       difficulty: result.difficulty,
       aiRaw: JSON.stringify(result),
       status: 'done',
+      mistakeStatus: input.wrongAnswer ? 'wrong_attempt' : 'not_attempted',
       createdAt: task.createdAt
     });
 
@@ -1328,6 +1351,7 @@ async function executePaperTask(task) {
         notes: '',
         sessionId: id, paperIndex: q.pageIndex || 1, status: 'done',
         reviewStatus: 'pending',  // 待用户确认
+        mistakeStatus: q.studentAnswer ? 'wrong_attempt' : 'not_attempted',  // F2: 有作答=做错了, 无笔迹=不会做
         createdAt: Date.now()
       });
       savedCount++;
@@ -1469,6 +1493,7 @@ async function executeConfirmationAnalysis(sessionId, userId, confirmedQuestions
           status: 'done',
           reviewStatus: 'confirmed',
           mastery: target.mastery || 'pending',  // 阶段C: 重写不丢订正状态
+          mistakeStatus: target.mistakeStatus || (target.wrongAnswer ? 'wrong_attempt' : 'not_attempted'),
           createdAt: target.createdAt || Date.now()
         });
 
@@ -1942,6 +1967,8 @@ app.get('/stats', (req, res) => {
 
 // 提交错题诊断（异步）
 app.post('/error/diagnose', (req, res) => {
+  // 修复(2026-10-31): 本路由引用了未定义的 ip 变量致每次 500 — 存量bug, 自320d91e起
+  const ip = req.ip || req.socket.remoteAddress || 'unknown';
   // 限流 + Token 预算检查（错题诊断 ~8000 token）
   const limits = checkLimits(req, 8000);
   if (!limits.allowed) return res.status(limits.status || 429).json({ error: limits.error, retryAfter: limits.retryAfter });
@@ -2015,7 +2042,8 @@ app.get('/error/list', authMiddleware, (req, res) => {
   const sessionId = req.query.sessionId || null;
   const timeFrom = req.query.timeFrom ? parseInt(req.query.timeFrom) : null;
   const timeTo = req.query.timeTo ? parseInt(req.query.timeTo) : null;
-  const result = listErrorProblems({ userId: req.user.id, subject, sessionId, timeFrom, timeTo, page, limit });
+  const mistakeStatus = req.query.mistakeStatus || null;
+  const result = listErrorProblems({ userId: req.user.id, subject, sessionId, timeFrom, timeTo, mistakeStatus, page, limit });
   res.json({ success: true, view: 'list', ...result });
 });
 
@@ -2033,6 +2061,145 @@ app.post('/error/:id/mastery', authMiddleware, (req, res) => {
   const updated = updateErrorMastery(req.params.id, mastery);
   if (!updated) return res.status(400).json({ error: '无效的订正状态' });
   res.json({ success: true, record: updated });
+});
+
+// ========== F1 同类题练习生成 ==========
+
+const PRACTICE_DAILY_LIMIT = 5;
+const practiceQueue = new ConcurrencyQueue(2);
+
+/** 解析练习生成的 JSON 数组（兼容 markdown 包裹与残缺输出） */
+function parsePracticeItems(content) {
+  const cleaned = content.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+  let parsed;
+  try {
+    parsed = JSON.parse(cleaned);
+  } catch {
+    const m = cleaned.match(/\[[\s\S]*\]/);
+    if (m) {
+      try { parsed = JSON.parse(m[0]); } catch { parsed = null; }
+    }
+  }
+  if (!Array.isArray(parsed)) return [];
+  return parsed
+    .filter(it => it && typeof it.questionText === 'string' && it.questionText.trim().length > 4)
+    .map(it => ({
+      questionText: it.questionText.trim(),
+      answerText: (it.answerText || '').trim(),
+      analysis: (it.analysis || '').trim(),
+      knowledgePoint: (it.knowledgePoint || '').trim(),
+      difficulty: ['easy', 'medium', 'hard'].includes(it.difficulty) ? it.difficulty : 'medium'
+    }));
+}
+
+/** 练习会话执行器: 逐错题调 DeepSeek 生成变式题, 单题失败不阻塞整卷 */
+async function executePracticeSession(sessionId) {
+  const session = getPracticeSession(sessionId);
+  if (!session) return;
+  const { sourceErrorIds, mode } = session;
+  const count = mode === 'single' ? 3 : 1;
+  const difficultySpec = mode === 'single' ? DIFFICULTY_SPEC_SINGLE : DIFFICULTY_SPEC_PAPER;
+  let okCount = 0;
+
+  for (const errorId of sourceErrorIds) {
+    const err = getErrorProblem(errorId);
+    if (!err) { log('warn', '练习生成: 源错题不存在', { sessionId, errorId }); continue; }
+    try {
+      const prompt = renderPracticePrompt({
+        subject: err.subject || '英语',
+        questionText: err.questionText,
+        passageText: err.passageText || '',
+        wrongAnswer: err.wrongAnswer || '',
+        knowledgePoints: (err.knowledgeTags || []).map(t => t.name),
+        count,
+        difficultySpec
+      });
+      const result = await practiceRequest({
+        model: MODEL_PRACTICE,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.7,
+        max_tokens: 3000 * count
+      });
+      const content = result.choices?.[0]?.message?.content;
+      if (!content) throw new Error('AI 返回为空');
+      const items = parsePracticeItems(content);
+      if (!items.length) throw new Error('AI 返回无可解析题目');
+      for (const it of items) {
+        savePracticeItem({
+          id: crypto.randomUUID().slice(0, 8),
+          sessionId, sourceErrorId: errorId,
+          questionText: it.questionText, answerText: it.answerText,
+          analysis: it.analysis, knowledgePoint: it.knowledgePoint,
+          difficulty: it.difficulty
+        });
+        okCount++;
+      }
+      log('info', '练习生成: 单题完成', { sessionId, errorId, generated: items.length });
+    } catch (e) {
+      log('error', '练习生成: 单题失败(不阻塞整卷)', { sessionId, errorId, error: e.message });
+    }
+  }
+
+  updatePracticeSession(sessionId, { status: okCount > 0 ? 'done' : 'failed' });
+  log('info', '练习生成: 会话结束', { sessionId, mode, okCount });
+}
+
+// 生成练习（单题3道变式 / 组卷每题1道）
+app.post('/practice/generate', authMiddleware, (req, res) => {
+  const { errorIds, mode = 'single' } = req.body || {};
+  if (!Array.isArray(errorIds) || errorIds.length === 0) {
+    return res.status(400).json({ error: '请选择至少一道错题' });
+  }
+  const maxErrors = mode === 'single' ? 1 : 20;
+  if (errorIds.length > maxErrors) {
+    return res.status(400).json({ error: mode === 'single' ? '单题模式只能选一道错题' : `一次组卷最多 ${maxErrors} 道错题` });
+  }
+
+  // 所有权校验（不属于本人的 id 直接过滤）
+  const errors = errorIds.map(id => getErrorProblem(id, req.user.id)).filter(Boolean);
+  if (errors.length === 0) return res.status(404).json({ error: '错题记录不存在' });
+
+  // 每日限流（免费功能, 防滥用）
+  const todayCount = countPracticeToday(req.user.id);
+  if (todayCount >= PRACTICE_DAILY_LIMIT) {
+    return res.status(429).json({ error: `今日生成次数已用完（每天 ${PRACTICE_DAILY_LIMIT} 次），明天再来吧` });
+  }
+
+  const sessionId = crypto.randomUUID().slice(0, 8);
+  const title = mode === 'single'
+    ? `同类练习 · ${errors[0].topic || '错题'}`
+    : `练习卷 · ${errors.length} 道错题`;
+  createPracticeSession({ id: sessionId, userId: req.user.id, sourceErrorIds: errors.map(e => e.id), title, mode });
+
+  practiceQueue.enqueue(() => executePracticeSession(sessionId)).catch(err => {
+    log('error', '练习生成队列异常', { sessionId, error: err.message });
+    updatePracticeSession(sessionId, { status: 'failed' });
+  });
+
+  log('info', '练习生成任务创建', { sessionId, userId: req.user.id, mode, errorCount: errors.length, todayCount: todayCount + 1 });
+  res.status(202).json({ success: true, sessionId, status: 'generating', todayRemaining: PRACTICE_DAILY_LIMIT - todayCount - 1 });
+});
+
+// 我的练习列表
+app.get('/practice', authMiddleware, (req, res) => {
+  const page = Math.max(1, parseInt(req.query.page) || 1);
+  const result = listPracticeSessions(req.user.id, { page, limit: 20 });
+  res.json({ success: true, ...result, dailyLimit: PRACTICE_DAILY_LIMIT, todayUsed: countPracticeToday(req.user.id) });
+});
+
+// 练习详情（轮询用）
+app.get('/practice/:id', authMiddleware, (req, res) => {
+  const session = getPracticeSession(req.params.id, req.user.id);
+  if (!session) return res.status(404).json({ error: '练习不存在' });
+  res.json({ success: true, session });
+});
+
+// 标记练习完成
+app.post('/practice/:id/complete', authMiddleware, (req, res) => {
+  const session = getPracticeSession(req.params.id, req.user.id);
+  if (!session) return res.status(404).json({ error: '练习不存在' });
+  updatePracticeSession(req.params.id, { status: 'completed' });
+  res.json({ success: true });
 });
 
 // 错题详情
@@ -2385,6 +2552,7 @@ app.post('/paper/demo', (req, res) => {
       notes: '',
       sessionId, paperIndex: q.pageIndex || 1, status: 'done',
       reviewStatus: 'pending',
+      mistakeStatus: q.studentAnswer ? 'wrong_attempt' : 'not_attempted',
       createdAt: Date.now()
     });
   }
@@ -2520,7 +2688,7 @@ app.post('/paper/:sessionId/confirm', optionalAuth, async (req, res) => {
         knowledgeExplanation: '{}', gradingEvidence: '用户手动添加',
         aiRaw: '{}', notes: '',
         sessionId: req.params.sessionId, paperIndex: 1, status: 'done',
-        reviewStatus: 'confirmed', createdAt: Date.now()
+        reviewStatus: 'confirmed', mistakeStatus: 'unknown', createdAt: Date.now()
       });
     }
   }
@@ -2681,6 +2849,7 @@ app.post('/paper/:sessionId/review', authMiddleware, (req, res) => {
         aiRaw: '{}', notes: '用户手动添加遗漏错题',
         sessionId: req.params.sessionId, paperIndex: qd.pageIndex || 1,
         status: 'done', reviewStatus: 'user_added',
+        mistakeStatus: qd.studentAnswer ? 'wrong_attempt' : 'not_attempted',
         positionData: '{}', createdAt: Date.now()
       });
       saveReview({
@@ -2716,6 +2885,7 @@ app.post('/paper/:sessionId/review', authMiddleware, (req, res) => {
       paperIndex: add.pageIndex || 1,
       status: 'done',
       reviewStatus: 'user_added',
+      mistakeStatus: add.studentAnswer ? 'wrong_attempt' : 'not_attempted',
       positionData: JSON.stringify(add.position || {}),
       createdAt: Date.now()
     });
@@ -2769,6 +2939,7 @@ app.post('/paper/:sessionId/review/add', authMiddleware, (req, res) => {
     paperIndex: pageIndex || 1,
     status: 'done',
     reviewStatus: 'user_added',
+    mistakeStatus: 'not_attempted',  // 手动添加默认无作答记录
     positionData: JSON.stringify(position || {}),
     createdAt: Date.now()
   });

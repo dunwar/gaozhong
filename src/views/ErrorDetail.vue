@@ -28,7 +28,8 @@
           <div class="flex flex-wrap items-center gap-3 mb-2">
             <span :class="subjectBadge(record.subject)" class="px-3 py-1 rounded-lg text-sm font-semibold">{{ record.subject }}</span>
             <span v-if="record.questionType" class="px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs">{{ record.questionType }}</span>
-            <span v-if="record.errorType" :class="errTypeTag(record.errorType)" class="px-3 py-1 rounded-full text-xs font-medium">{{ record.errorType }}</span>
+            <span v-if="mistakeLabel" :class="mistakeBadgeClass" class="px-3 py-1 rounded-full text-xs font-semibold">{{ mistakeLabel }}</span>
+            <span v-if="record.errorType && record.errorType !== '待分析'" :class="errTypeTag(record.errorType)" class="px-3 py-1 rounded-full text-xs font-medium">{{ record.errorType }}</span>
             <span class="flex items-center gap-0.5"><span v-for="i in 5" :key="i" :class="i <= record.difficulty ? 'text-yellow-500' : 'text-gray-200'" class="text-sm">★</span></span>
           </div>
           <div v-if="record.topic" class="text-sm text-gray-400">{{ record.topic }}</div>
@@ -79,13 +80,13 @@
           </div>
         </div>
 
-        <!-- 作答对比 -->
+        <!-- 作答对比 + 错因（F2: mistake_status 前置展示） -->
         <div v-if="record.wrongAnswer || record.correctAnswer" class="px-6 py-5 border-b border-gray-50 bg-amber-50/50">
           <h3 class="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-3">⚖️ 作答对比</h3>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div class="bg-red-50 rounded-lg p-4 border border-red-100">
               <p class="text-xs text-red-500 font-medium mb-1">❌ 你的答案</p>
-              <p class="text-red-800 font-semibold">{{ record.wrongAnswer || '（未作答）' }}</p>
+              <p class="text-red-800 font-semibold">{{ record.wrongAnswer || (record.mistakeStatus === 'not_attempted' ? '（没作答）' : '（未作答）') }}</p>
             </div>
             <div class="bg-green-50 rounded-lg p-4 border border-green-100">
               <p class="text-xs text-green-500 font-medium mb-1">✅ 正确答案</p>
@@ -140,12 +141,20 @@
         </div>
       </div>
 
-      <div class="flex flex-wrap items-center justify-between mt-6">
-        <router-link to="/paper/upload" class="flex items-center gap-1.5 bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium">
-          + 上传试卷
-        </router-link>
+      <div class="flex flex-wrap items-center justify-between gap-3 mt-6">
+        <div class="flex flex-wrap items-center gap-3">
+          <button @click="startPractice" :disabled="practiceStarting || !practiceable"
+            class="flex items-center gap-1.5 bg-emerald-600 text-white px-4 py-2.5 rounded-lg hover:bg-emerald-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors text-sm font-medium">
+            <span v-if="practiceStarting" class="inline-block w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+            🎯 {{ practiceStarting ? '出题中...' : '练同类题' }}
+          </button>
+          <router-link to="/paper/upload" class="flex items-center gap-1.5 bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium">
+            + 上传试卷
+          </router-link>
+        </div>
         <router-link to="/error/list" class="text-gray-500 hover:text-blue-600 transition-colors text-sm">返回错题本 →</router-link>
       </div>
+      <p v-if="practiceError" class="text-sm text-red-600 mt-2">{{ practiceError }}</p>
     </template>
   </div>
 </template>
@@ -154,11 +163,48 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { authFetch } from '../utils/authStore.js'
+import { trackEvent } from '../utils/analytics.js'
 
 const route = useRoute()
 const router = useRouter()
 const record = ref(null)
 const loading = ref(true)
+
+// F1: 练同类题
+const practiceStarting = ref(false)
+const practiceError = ref('')
+const practiceable = computed(() => (record.value?.questionText || '').trim().length > 8)
+
+async function startPractice() {
+  if (!practiceable.value || practiceStarting.value) return
+  practiceStarting.value = true
+  practiceError.value = ''
+  try {
+    const res = await authFetch('/api/practice/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ errorIds: [record.value.id], mode: 'single' })
+    })
+    const data = await res.json()
+    if (!res.ok || !data.success) throw new Error(data.error || '生成失败，请稍后再试')
+    trackEvent('practice', 'generate', 'detail_single')
+    router.push(`/practice/${data.sessionId}`)
+  } catch (e) {
+    practiceError.value = e.message
+  } finally {
+    practiceStarting.value = false
+  }
+}
+
+// F2: 错因状态徽章（做错了/不会做）
+const mistakeLabel = computed(() => {
+  const s = record.value?.mistakeStatus
+  return s === 'wrong_attempt' ? '🔴 做错了' : s === 'not_attempted' ? '🟡 不会做' : ''
+})
+const mistakeBadgeClass = computed(() => {
+  const s = record.value?.mistakeStatus
+  return s === 'wrong_attempt' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'
+})
 
 const options = computed(() => {
   if (!record.value?.answerOptions) return []

@@ -224,6 +224,9 @@ export async function initDB() {
   try { db.run(`ALTER TABLE error_problems ADD COLUMN mastery TEXT DEFAULT 'pending';`); } catch (_) {}
   try { db.run(`ALTER TABLE error_problems ADD COLUMN mastery_updated_at INTEGER DEFAULT 0;`); } catch (_) {}
 
+  // F2 错因卡片: 做错了(wrong_attempt)/不会做(not_attempted)/未判断(unknown) — confirm 时由已有证据映射, 零AI成本
+  try { db.run(`ALTER TABLE error_problems ADD COLUMN mistake_status TEXT DEFAULT '';`); } catch (_) {}
+
   // 错题复核记录表
   db.run(`
     CREATE TABLE IF NOT EXISTS error_reviews (
@@ -238,6 +241,35 @@ export async function initDB() {
       created_at  INTEGER NOT NULL
     );
   `);
+
+  // F1 同类题练习: 会话(一次生成=一卷) + 题目条目
+  db.run(`
+    CREATE TABLE IF NOT EXISTS practice_sessions (
+      id            TEXT PRIMARY KEY,
+      user_id       TEXT NOT NULL,
+      source_error_ids TEXT DEFAULT '',
+      title         TEXT DEFAULT '',
+      mode          TEXT DEFAULT 'single',
+      status        TEXT NOT NULL DEFAULT 'generating',
+      created_at    INTEGER NOT NULL,
+      updated_at    INTEGER NOT NULL
+    );
+  `);
+  db.run(`
+    CREATE TABLE IF NOT EXISTS practice_items (
+      id            TEXT PRIMARY KEY,
+      session_id    TEXT NOT NULL,
+      source_error_id TEXT DEFAULT '',
+      question_text TEXT NOT NULL,
+      answer_text   TEXT DEFAULT '',
+      analysis      TEXT DEFAULT '',
+      knowledge_point TEXT DEFAULT '',
+      difficulty    TEXT DEFAULT 'medium',
+      created_at    INTEGER NOT NULL
+    );
+  `);
+  db.run(`CREATE INDEX IF NOT EXISTS idx_ps_user ON practice_sessions(user_id);`);
+  db.run(`CREATE INDEX IF NOT EXISTS idx_pi_session ON practice_items(session_id);`);
 
   // 站点访问计数(单行表, 首页底栏展示)
   db.run(`
@@ -716,9 +748,9 @@ export function saveErrorProblem(record) {
       knowledge_explanation, grading_evidence,
       notes, source, ai_raw, status,
       session_id, paper_index, review_status,
-      passage_text, mastery,
+      passage_text, mastery, mistake_status,
       created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   stmt.run([
     record.id,
@@ -744,6 +776,7 @@ export function saveErrorProblem(record) {
     record.reviewStatus || 'pending',
     record.passageText || '',
     record.mastery || 'pending',
+    record.mistakeStatus || '',
     record.createdAt || Date.now(),
     Date.now()
   ]);
@@ -775,7 +808,7 @@ export function getErrorProblem(id, userId = null) {
   return { ...deserializeError(row), knowledgeTags: tags };
 }
 
-export function listErrorProblems({ userId, subject, sessionId, timeFrom, timeTo, page = 1, limit = 20 } = {}) {
+export function listErrorProblems({ userId, subject, sessionId, timeFrom, timeTo, mistakeStatus, page = 1, limit = 20 } = {}) {
   if (!db) return { records: [], total: 0, page, limit, totalPages: 0 };
   const conditions = [];
   const params = [];
@@ -784,6 +817,7 @@ export function listErrorProblems({ userId, subject, sessionId, timeFrom, timeTo
   if (sessionId) { conditions.push('session_id = ?'); params.push(sessionId); }
   if (timeFrom) { conditions.push('created_at >= ?'); params.push(timeFrom); }
   if (timeTo) { conditions.push('created_at <= ?'); params.push(timeTo); }
+  if (mistakeStatus && mistakeStatus !== 'all') { conditions.push('mistake_status = ?'); params.push(mistakeStatus); }
   const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
   const countStmt = db.prepare(`SELECT COUNT(*) as total FROM error_problems ${where}`);
@@ -1170,6 +1204,127 @@ export function getSessionReviews(sessionId) {
   return reviews;
 }
 
+// ========== F1 同类题练习 ==========
+
+export function createPracticeSession({ id, userId, sourceErrorIds = [], title = '', mode = 'single' }) {
+  if (!db) throw new Error('数据库未初始化');
+  const stmt = db.prepare(`
+    INSERT INTO practice_sessions (id, user_id, source_error_ids, title, mode, status, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, 'generating', ?, ?)
+  `);
+  stmt.run([id, userId, JSON.stringify(sourceErrorIds), title, mode, Date.now(), Date.now()]);
+  stmt.free();
+  saveDBDeferred();
+}
+
+export function updatePracticeSession(id, fields) {
+  if (!db) return false;
+  const allowed = { status: 'status', title: 'title' };
+  const sets = [], params = [];
+  for (const [k, col] of Object.entries(allowed)) {
+    if (fields[k] !== undefined) { sets.push(`${col} = ?`); params.push(fields[k]); }
+  }
+  if (!sets.length) return false;
+  params.push(Date.now(), id);
+  db.run(`UPDATE practice_sessions SET ${sets.join(', ')}, updated_at = ? WHERE id = ?`, params);
+  saveDBDeferred();
+  return true;
+}
+
+export function getPracticeSession(id, userId = null) {
+  if (!db) return null;
+  let query = 'SELECT * FROM practice_sessions WHERE id = ?';
+  const params = [id];
+  if (userId) { query += ' AND user_id = ?'; params.push(userId); }
+  const stmt = db.prepare(query);
+  stmt.bind(params);
+  if (!stmt.step()) { stmt.free(); return null; }
+  const row = stmt.getAsObject();
+  stmt.free();
+  return {
+    id: row.id, userId: row.user_id,
+    sourceErrorIds: JSON.parse(row.source_error_ids || '[]'),
+    title: row.title, mode: row.mode, status: row.status,
+    createdAt: row.created_at, updatedAt: row.updated_at,
+    items: listPracticeItems(id)
+  };
+}
+
+export function listPracticeSessions(userId, { page = 1, limit = 20 } = {}) {
+  if (!db) return { records: [], total: 0 };
+  const countStmt = db.prepare('SELECT COUNT(*) as total FROM practice_sessions WHERE user_id = ?');
+  countStmt.bind([userId]);
+  countStmt.step();
+  const total = countStmt.getAsObject().total;
+  countStmt.free();
+  const stmt = db.prepare(`
+    SELECT * FROM practice_sessions WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?
+  `);
+  stmt.bind([userId, limit, (page - 1) * limit]);
+  const records = [];
+  while (stmt.step()) {
+    const row = stmt.getAsObject();
+    records.push({
+      id: row.id, title: row.title, mode: row.mode, status: row.status,
+      itemCount: countPracticeItems(row.id),
+      createdAt: row.created_at
+    });
+  }
+  stmt.free();
+  return { records, total };
+}
+
+function countPracticeItems(sessionId) {
+  const stmt = db.prepare('SELECT COUNT(*) as c FROM practice_items WHERE session_id = ?');
+  stmt.bind([sessionId]);
+  stmt.step();
+  const c = stmt.getAsObject().c;
+  stmt.free();
+  return c;
+}
+
+export function savePracticeItem({ id, sessionId, sourceErrorId = '', questionText, answerText = '', analysis = '', knowledgePoint = '', difficulty = 'medium' }) {
+  if (!db) return;
+  const stmt = db.prepare(`
+    INSERT INTO practice_items (id, session_id, source_error_id, question_text, answer_text, analysis, knowledge_point, difficulty, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  stmt.run([id, sessionId, sourceErrorId, questionText, answerText, analysis, knowledgePoint, difficulty, Date.now()]);
+  stmt.free();
+  saveDBDeferred();
+}
+
+export function listPracticeItems(sessionId) {
+  if (!db) return [];
+  const stmt = db.prepare('SELECT * FROM practice_items WHERE session_id = ? ORDER BY created_at ASC');
+  stmt.bind([sessionId]);
+  const items = [];
+  while (stmt.step()) {
+    const row = stmt.getAsObject();
+    items.push({
+      id: row.id, sessionId: row.session_id, sourceErrorId: row.source_error_id,
+      questionText: row.question_text, answerText: row.answer_text,
+      analysis: row.analysis, knowledgePoint: row.knowledge_point,
+      difficulty: row.difficulty, createdAt: row.created_at
+    });
+  }
+  stmt.free();
+  return items;
+}
+
+// 每日生成次数（限流口径：当天 0 点起）
+export function countPracticeToday(userId) {
+  if (!db) return 0;
+  const dayStart = new Date();
+  dayStart.setHours(0, 0, 0, 0);
+  const stmt = db.prepare('SELECT COUNT(*) as c FROM practice_sessions WHERE user_id = ? AND created_at >= ?');
+  stmt.bind([userId, dayStart.getTime()]);
+  stmt.step();
+  const c = stmt.getAsObject().c;
+  stmt.free();
+  return c;
+}
+
 // ========== 工具 ==========
 
 function deserializeUser(row) {
@@ -1239,6 +1394,7 @@ function deserializeError(row) {
     notes: row.notes, source: row.source, aiRaw: row.ai_raw,
     status: row.status, sessionId: row.session_id, paperIndex: row.paper_index,
     reviewStatus: row.review_status || 'pending',
+    mistakeStatus: row.mistake_status || '',
     positionData: row.position_data || '',
     passageText: row.passage_text || '',
     mastery: row.mastery || 'pending',

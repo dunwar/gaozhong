@@ -128,6 +128,11 @@
         >
           {{ loading ? '注册中...' : '注册' }}
         </button>
+        <p class="mt-3 text-xs text-gray-400 text-center leading-relaxed">
+          注册即代表同意
+          <router-link to="/terms" target="_blank" class="text-blue-500 hover:text-blue-600 underline">《用户协议》</router-link>
+          （含价格调整条款）
+        </p>
       </form>
 
       <!-- 登录引导 -->

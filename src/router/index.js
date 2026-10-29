@@ -34,6 +34,8 @@ const routes = [
   { path: '/error/list', name: 'ErrorWorkbook', component: () => import('../views/ErrorWorkbook.vue'), meta: { requiresAuth: true } },
   { path: '/error/export', name: 'PaperExport', component: () => import('../views/PaperExport.vue'), meta: { requiresAuth: true } },
   { path: '/error/:id', name: 'ErrorDetail', component: () => import('../views/ErrorDetail.vue'), meta: { requiresAuth: true } },
+  { path: '/practice', name: 'PracticeList', component: () => import('../views/PracticeList.vue'), meta: { requiresAuth: true } },
+  { path: '/practice/:id', name: 'PracticeDetail', component: () => import('../views/PracticeDetail.vue'), meta: { requiresAuth: true } },
   { path: '/paper/:sessionId/errors', name: 'PaperErrors', component: () => import('../views/PaperErrors.vue'), meta: { requiresAuth: true } },
   { path: '/knowledge', name: 'KnowledgeMap', component: () => import('../views/KnowledgeMap.vue'), meta: { requiresAuth: true } },
   { path: '/review/:sessionId', name: 'PaperReview', component: () => import('../views/PaperReview.vue'), meta: { requiresAuth: true } },
@@ -56,6 +58,7 @@ const routes = [
 
   // ===== 认证 =====
   { path: '/login', name: 'Login', component: Login, meta: { title: '登录' } },
+  { path: '/terms', name: 'Terms', component: () => import('../views/Terms.vue'), meta: { title: '用户协议' } },
   {
     path: '/register', name: 'Register', component: () => import('../views/Register.vue'),
     meta: { title: '免费注册送5点' }
