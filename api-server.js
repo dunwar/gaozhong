@@ -2065,7 +2065,7 @@ app.post('/error/:id/mastery', authMiddleware, (req, res) => {
 
 // ========== F1 同类题练习生成 ==========
 
-const PRACTICE_DAILY_LIMIT = 5;
+const PRACTICE_DAILY_LIMIT = parseInt(process.env.PRACTICE_DAILY_LIMIT || '5', 10);
 const practiceQueue = new ConcurrencyQueue(2);
 
 /** 解析练习生成的 JSON 数组（兼容 markdown 包裹与残缺输出） */
@@ -2104,26 +2104,38 @@ async function executePracticeSession(sessionId) {
   for (const errorId of sourceErrorIds) {
     const err = getErrorProblem(errorId);
     if (!err) { log('warn', '练习生成: 源错题不存在', { sessionId, errorId }); continue; }
-    try {
-      const prompt = renderPracticePrompt({
-        subject: err.subject || '英语',
-        questionText: err.questionText,
-        passageText: err.passageText || '',
-        wrongAnswer: err.wrongAnswer || '',
-        knowledgePoints: (err.knowledgeTags || []).map(t => t.name),
-        count,
-        difficultySpec
-      });
+    const prompt = renderPracticePrompt({
+      subject: err.subject || '英语',
+      questionText: err.questionText,
+      passageText: err.passageText || '',
+      wrongAnswer: err.wrongAnswer || '',
+      knowledgePoints: (err.knowledgeTags || []).map(t => t.name),
+      count,
+      difficultySpec
+    });
+    // deepseek-v4-pro 是推理模型: reasoning 段不定长, max_tokens 偏小会被推理吃满→content空(作文批改同款坑)
+    const genOnce = async () => {
       const result = await practiceRequest({
         model: MODEL_PRACTICE,
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.7,
-        max_tokens: 3000 * count
+        max_tokens: Math.min(16000, 8000 + 4000 * count)
       });
       const content = result.choices?.[0]?.message?.content;
       if (!content) throw new Error('AI 返回为空');
       const items = parsePracticeItems(content);
       if (!items.length) throw new Error('AI 返回无可解析题目');
+      return items;
+    };
+    try {
+      let items;
+      try {
+        items = await genOnce();
+      } catch (e1) {
+        // 推理模型偶发吃满/格式波动, 同 prompt 重试一次
+        log('warn', '练习生成: 首次失败, 重试', { sessionId, errorId, error: e1.message });
+        items = await genOnce();
+      }
       for (const it of items) {
         savePracticeItem({
           id: crypto.randomUUID().slice(0, 8),
