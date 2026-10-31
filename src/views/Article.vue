@@ -172,6 +172,64 @@ const articles = {
       <p>这三件事，本站（gaozhong.online）恰好都能支撑：作文每周细批、试卷拍照变错题本、考前一键重做卷。新用户注册送 5 点，首页可免注册体验示例卷。</p>
       <p>祝孩子们开学顺利，第一次月考都超预期。</p>
     `
+  },
+
+  'exam-practice': {
+    title: '考前出卷子：别让孩子重做错题原题，AI 把错题变成变式练习卷',
+    date: '2026-10',
+    minutes: 5,
+    description: '考前复习的最大误区是重做错题原题——等于背答案。真实案例：一道做错的语法题，AI 出三道变式（易/平/难），难题还针对孩子易错点埋了陷阱。期中考前实战指南。',
+    html: `
+      <p>期中考试只剩一周多了。这两天很多家庭会上演同一幕：孩子把错题本翻出来，从第一页"看"到最后一页，看完合上，感觉自己复习了。</p>
+      <p>然后考场上，同一道题换了个说法，又错了。</p>
+
+      <h2>一、为什么"重做原题"没用？</h2>
+      <p>重做错题原题时，孩子调动的不是解题能力，是<strong>记忆力</strong>——"这题答案是 C"。他记住的是答案，不是方法。考试稍改情境，记忆失效，错误原样复现。</p>
+      <p>真正管用的是<strong>变式练习</strong>：同一个考点，换情境、换数据、换问法，让孩子每次都得真正"解"一遍。这是练习效应研究里最稳的结论之一，老师和教辅都懂——</p>
+      <p>问题在于：<strong>没人给孩子对着错题出变式题</strong>。老师没空，教辅不认识你家孩子，家长出不了题。</p>
+
+      <h2>二、现在这件事 AI 能做了：一个真实案例</h2>
+      <p>下面全部是本站（gaozhong.online）新功能「同类题练习」的真实输出，题目来自一份高一英语卷里做错的第 25 题：</p>
+      <p><strong>原题（孩子选了 A，正确答案 C）：</strong></p>
+      <blockquote>
+        <p>—I haven't heard from Henry for a long time.<br/>
+        —What do you suppose ______ to him?</p>
+        <p>A. to have happened　B. to happen<br/>C. has happened　D. had happened</p>
+      </blockquote>
+      <p>这题考的是「do you suppose 作插入语 + 从句用陈述语序」。孩子选 A，说明他把插入语当成了谓语。AI 针对这道错题，出了三道变式：</p>
+      <p><strong>变式一（基础）：</strong></p>
+      <blockquote>
+        <p>—Tom looks upset.<br/>
+        —What do you think ______ to him?</p>
+        <p>A. has happened　B. had happened<br/>C. happening　D. to happen</p>
+      </blockquote>
+      <p><strong>变式二（提高）：</strong></p>
+      <blockquote>
+        <p>—Sarah hasn't returned my calls for days.<br/>
+        —What do you suppose ______ to her?</p>
+        <p>A. had happened　B. has happened<br/>C. happening　D. to happen</p>
+      </blockquote>
+      <p><strong>变式三（挑战）：</strong></p>
+      <blockquote>
+        <p>—The manager hasn't been seen in his office since Monday.<br/>
+        —What do you expect ______ to him?</p>
+        <p>A. has happened　B. had happened<br/>C. was happened　D. has been happened</p>
+      </blockquote>
+      <p>注意变式三的选项：C 和 D 是 <strong>was happened / has been happened</strong>——这是专门给"以为 happen 有被动语态"的孩子埋的陷阱。三道题做完，这个考点才算真正练到，而不是背到。</p>
+
+      <h2>三、考前怎么用：三步</h2>
+      <ol>
+        <li><strong>错题入库</strong>：考完的试卷拍照上传，AI 识别错题，确认一遍（期中考后正好做这件事）</li>
+        <li><strong>一键出卷</strong>：错题本里勾选错题，点「出练习卷」——每道错题出一道同类变式，十来道题几分钟成卷</li>
+        <li><strong>打印去做</strong>：题目卷+答案页分开打印，限时做完再对答案；答案页还可以附解析和知识点</li>
+      </ol>
+      <p>词汇题变词汇题（engage 变 engagement 考词性转换），阅读题变阅读题，各归各的打法。孩子做完家长不用批——答案页就是标准。</p>
+
+      <h2>四、写在期中考前</h2>
+      <p>考前一周的正确姿势不是刷新题，是<strong>把自己犯过的错，用新的题再犯一遍——然后改掉</strong>。</p>
+      <p>「同类题练习」目前<strong>免费</strong>（每天 5 次），错题本里的错题都可以出。期中考完，把试卷拍上来试试：错题本 → 出练习卷 → 打印，一气呵成。</p>
+      <p>祝孩子们期中都考出真实水平。</p>
+    `
   }
 }
 

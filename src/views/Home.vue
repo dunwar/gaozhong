@@ -280,6 +280,8 @@
           <router-link to="/articles/paper-demo" class="text-blue-200/80 hover:text-blue-100 underline underline-offset-2">错题整理实测</router-link>
           <span class="mx-1.5">·</span>
           <router-link to="/articles/september-parents" class="text-blue-200/80 hover:text-blue-100 underline underline-offset-2">开学家长三件事</router-link>
+          <span class="mx-1.5">·</span>
+          <router-link to="/articles/exam-practice" class="text-blue-200/80 hover:text-blue-100 underline underline-offset-2">考前出卷子</router-link>
         </p>
       </div>
     </section>
