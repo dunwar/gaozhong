@@ -242,6 +242,10 @@ export async function initDB() {
     );
   `);
 
+  // 运营统计(管理员): 当日独立访问 — day 变更时 day_total 自动归 1
+  try { db.run(`ALTER TABLE visit_stats ADD COLUMN day TEXT DEFAULT '';`); } catch (_) {}
+  try { db.run(`ALTER TABLE visit_stats ADD COLUMN day_total INTEGER DEFAULT 0;`); } catch (_) {}
+
   // F1 同类题练习: 会话(一次生成=一卷) + 题目条目
   db.run(`
     CREATE TABLE IF NOT EXISTS practice_sessions (
@@ -316,9 +320,37 @@ export function getVisitorCount() {
 export function incrementVisitors() {
   if (!db) return 0;
   const now = Date.now();
-  db.run('INSERT INTO visit_stats (id, total, updated_at) VALUES (1, 1, ?) ON CONFLICT(id) DO UPDATE SET total = total + 1, updated_at = ?', [now, now]);
+  const today = new Date().toLocaleDateString('sv'); // 本地时区 YYYY-MM-DD
+  db.run(`
+    INSERT INTO visit_stats (id, total, day, day_total, updated_at) VALUES (1, 1, ?, 1, ?)
+    ON CONFLICT(id) DO UPDATE SET
+      total = total + 1,
+      day_total = CASE WHEN day = excluded.day THEN day_total + 1 ELSE 1 END,
+      day = excluded.day,
+      updated_at = excluded.updated_at
+  `, [today, now]);
   saveDBDeferred();
   return getVisitorCount();
+}
+
+// 管理员运营数据: 累计/当日访问(当日=当日独立IP去重, 与 increment 口径一致)
+export function getVisitStats() {
+  if (!db) return { total: 0, today: 0, day: '' };
+  const res = db.exec('SELECT total, day, day_total FROM visit_stats WHERE id = 1');
+  const row = res[0]?.values[0];
+  const today = new Date().toLocaleDateString('sv');
+  return {
+    total: row ? row[0] : 0,
+    day: row ? row[1] : '',
+    today: row && row[1] === today ? row[2] : 0   // 跨天未访问时显示 0 而非昨日数
+  };
+}
+
+// 注册用户总数
+export function countUsers() {
+  if (!db) return 0;
+  const res = db.exec('SELECT COUNT(*) FROM users');
+  return res[0]?.values[0][0] || 0;
 }
 
 // ========== 真实使用统计(首页底栏) ==========

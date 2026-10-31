@@ -59,6 +59,7 @@ const routes = [
   // ===== 认证 =====
   { path: '/login', name: 'Login', component: Login, meta: { title: '登录' } },
   { path: '/terms', name: 'Terms', component: () => import('../views/Terms.vue'), meta: { title: '用户协议' } },
+  { path: '/admin/stats', name: 'AdminStats', component: () => import('../views/AdminStats.vue'), meta: { requiresAuth: true, title: '运营数据' } },
   {
     path: '/register', name: 'Register', component: () => import('../views/Register.vue'),
     meta: { title: '免费注册送5点' }

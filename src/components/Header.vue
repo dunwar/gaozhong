@@ -70,6 +70,7 @@
                   <span v-if="authStore.mustChangePassword" class="ml-1 w-2 h-2 bg-orange-400 rounded-full inline-block"></span>
                 </router-link>
                 <router-link to="/pricing" class="dropdown-link">充值 / 我的点数</router-link>
+                <router-link v-if="authStore.user?.role === 'admin'" to="/admin/stats" class="dropdown-link">📊 运营数据</router-link>
                 <hr class="my-1 border-gray-100" />
                 <button @click="handleLogout" class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors">退出登录</button>
               </div>

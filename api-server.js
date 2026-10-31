@@ -59,7 +59,7 @@ process.on('SIGINT', () => {
 
 // Scanner v3.0
 const SCANNER_VERSION = 'v4.2';
-import { initDB, saveDB, saveRecord, getRecord, getHistory, getStats, createUser, getUserByEmail, getUserById, getUserByRefCode, updateUser, changePassword, listUsers, saveErrorProblem, saveErrorKnowledgeTags, getErrorProblem, listErrorProblems, getErrorStats, getKnowledgeStats, getErrorsByKnowledgePoint, searchKnowledgePoints, createPaperSession, updatePaperSession, getPaperSession, listPaperSessions, listErrorsByPaper, listErrorsByTime, listErrorsBySubject, listErrorsForGuidance, saveReview, updateErrorReviewStatus, updateErrorMastery, deleteErrorProblem, getSessionReviews, resetStalledPaperSessions, countPaperSessionsToday, getPoints, deductPoint, grantPoints, listPointLogs, getVisitorCount, incrementVisitors, getUsageStats, createInviteReward, grantPendingInviteReward, getInviteSummary, createPracticeSession, updatePracticeSession, getPracticeSession, listPracticeSessions, savePracticeItem, countPracticeToday, exportUserData } from './db.js';
+import { initDB, saveDB, saveRecord, getRecord, getHistory, getStats, createUser, getUserByEmail, getUserById, getUserByRefCode, updateUser, changePassword, listUsers, saveErrorProblem, saveErrorKnowledgeTags, getErrorProblem, listErrorProblems, getErrorStats, getKnowledgeStats, getErrorsByKnowledgePoint, searchKnowledgePoints, createPaperSession, updatePaperSession, getPaperSession, listPaperSessions, listErrorsByPaper, listErrorsByTime, listErrorsBySubject, listErrorsForGuidance, saveReview, updateErrorReviewStatus, updateErrorMastery, deleteErrorProblem, getSessionReviews, resetStalledPaperSessions, countPaperSessionsToday, getPoints, deductPoint, grantPoints, listPointLogs, getVisitorCount, incrementVisitors, getVisitStats, countUsers, getUsageStats, createInviteReward, grantPendingInviteReward, getInviteSummary, createPracticeSession, updatePracticeSession, getPracticeSession, listPracticeSessions, savePracticeItem, countPracticeToday, exportUserData } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3001;
@@ -1790,6 +1790,16 @@ app.put('/auth/password', authMiddleware, (req, res) => {
 });
 
 // 管理员：用户列表
+// 管理员运营数据: 累计/当日访问 + 真实批改数 + 注册数(访问计数此前对外展示已撤, 转为运营者自看)
+app.get('/admin/stats', authMiddleware, adminMiddleware, (req, res) => {
+  res.json({
+    success: true,
+    visits: getVisitStats(),
+    usage: getUsageStats(),
+    users: countUsers()
+  });
+});
+
 app.get('/admin/users', authMiddleware, adminMiddleware, (req, res) => {
   const page = Math.max(1, parseInt(req.query.page) || 1);
   const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 50));
