@@ -1325,6 +1325,29 @@ export function countPracticeToday(userId) {
   return c;
 }
 
+// F3: 用户数据全量导出（错题+标签+复核记录+练习卷）— 家长备份/换机
+export function exportUserData(userId) {
+  if (!db) return null;
+  const { records } = listErrorProblems({ userId, page: 1, limit: 1000 });
+  const errors = records.map(({ aiRaw, ...rest }) => rest); // aiRaw 是管线原始数据, 备份不需要且体积大
+
+  const stmt = db.prepare('SELECT * FROM error_reviews WHERE user_id = ? ORDER BY created_at ASC');
+  stmt.bind([userId]);
+  const reviews = [];
+  while (stmt.step()) {
+    const row = stmt.getAsObject();
+    reviews.push({ id: row.id, errorId: row.error_id, sessionId: row.session_id, action: row.review_action, note: row.user_note, createdAt: row.created_at });
+  }
+  stmt.free();
+
+  const practice = listPracticeSessions(userId, { page: 1, limit: 200 }).records.map(s => ({
+    ...s,
+    items: listPracticeItems(s.id)
+  }));
+
+  return { version: 1, exportedAt: new Date().toISOString(), errors, reviews, practice };
+}
+
 // ========== 工具 ==========
 
 function deserializeUser(row) {

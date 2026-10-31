@@ -51,6 +51,12 @@
         <label class="flex items-center gap-1.5 text-sm text-gray-600">
           <input type="checkbox" v-model="withAnswers" class="accent-emerald-600" /> 附答案页（做完后再看）
         </label>
+        <label class="flex items-center gap-1.5 text-sm" :class="withAnswers ? 'text-gray-600' : 'text-gray-300'">
+          <input type="checkbox" v-model="withAnalysis" :disabled="!withAnswers" class="accent-emerald-600" /> 答案页附解析
+        </label>
+        <label class="flex items-center gap-1.5 text-sm" :class="withAnswers ? 'text-gray-600' : 'text-gray-300'">
+          <input type="checkbox" v-model="withKnowledge" :disabled="!withAnswers" class="accent-emerald-600" /> 答案页附知识点
+        </label>
         <label class="flex items-center gap-1.5 text-sm text-gray-600">
           <input type="checkbox" v-model="screenshotsFirst" class="accent-emerald-600" /> 优先使用题目截图
         </label>
@@ -119,10 +125,23 @@
       <div class="text-center border-b-2 border-gray-800 pb-2 mb-4 mt-8 pt-4">
         <h2 class="text-lg font-bold">参考答案（做完后再看）</h2>
       </div>
-      <div class="grid grid-cols-5 gap-y-1 text-sm">
+      <!-- 纯答案: 紧凑网格 -->
+      <div v-if="!withAnalysis && !withKnowledge" class="grid grid-cols-5 gap-y-1 text-sm">
         <span v-for="q in paperQuestions" :key="'a'+q.id" class="border-b border-gray-100 pb-1">
           {{ q.questionNumber }}. <b>{{ q.correctAnswer || '?' }}</b><span v-if="q.wrongAnswer" class="text-gray-400 text-xs">（原选{{ q.wrongAnswer }}）</span>
         </span>
+      </div>
+      <!-- 带解析/知识点: 逐题列表 -->
+      <div v-else class="space-y-3">
+        <div v-for="q in paperQuestions" :key="'a'+q.id" class="border-b border-gray-100 pb-2 break-inside-avoid">
+          <p class="text-sm">
+            <span class="font-bold">{{ q.questionNumber }}.</span>
+            <b>{{ q.correctAnswer || '?' }}</b>
+            <span v-if="q.wrongAnswer" class="text-gray-400 text-xs">（原选 {{ q.wrongAnswer }}）</span>
+            <span v-if="withKnowledge && q.knowledgeTags?.length" class="text-xs text-blue-700 ml-2">[{{ q.knowledgeTags.map(t => t.name).join(' / ') }}]</span>
+          </p>
+          <p v-if="withAnalysis && q.correctSolution" class="text-xs text-gray-600 mt-0.5 whitespace-pre-wrap">{{ q.correctSolution.slice(0, 400) }}</p>
+        </div>
       </div>
     </div>
   </div>
@@ -144,6 +163,8 @@ const range = ref('month')
 const dateFrom = ref('')
 const dateTo = ref('')
 const withAnswers = ref(true)
+const withAnalysis = ref(false)
+const withKnowledge = ref(false)
 const screenshotsFirst = ref(true)
 const mode = ref('correct')                 // 阶段C: 订正纸(默认,贴合学校流程) / 重做卷
 const masteryFilter = ref('pending')

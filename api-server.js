@@ -59,7 +59,7 @@ process.on('SIGINT', () => {
 
 // Scanner v3.0
 const SCANNER_VERSION = 'v4.2';
-import { initDB, saveDB, saveRecord, getRecord, getHistory, getStats, createUser, getUserByEmail, getUserById, getUserByRefCode, updateUser, changePassword, listUsers, saveErrorProblem, saveErrorKnowledgeTags, getErrorProblem, listErrorProblems, getErrorStats, getKnowledgeStats, getErrorsByKnowledgePoint, searchKnowledgePoints, createPaperSession, updatePaperSession, getPaperSession, listPaperSessions, listErrorsByPaper, listErrorsByTime, listErrorsBySubject, listErrorsForGuidance, saveReview, updateErrorReviewStatus, updateErrorMastery, deleteErrorProblem, getSessionReviews, resetStalledPaperSessions, countPaperSessionsToday, getPoints, deductPoint, grantPoints, listPointLogs, getVisitorCount, incrementVisitors, getUsageStats, createInviteReward, grantPendingInviteReward, getInviteSummary, createPracticeSession, updatePracticeSession, getPracticeSession, listPracticeSessions, savePracticeItem, countPracticeToday } from './db.js';
+import { initDB, saveDB, saveRecord, getRecord, getHistory, getStats, createUser, getUserByEmail, getUserById, getUserByRefCode, updateUser, changePassword, listUsers, saveErrorProblem, saveErrorKnowledgeTags, getErrorProblem, listErrorProblems, getErrorStats, getKnowledgeStats, getErrorsByKnowledgePoint, searchKnowledgePoints, createPaperSession, updatePaperSession, getPaperSession, listPaperSessions, listErrorsByPaper, listErrorsByTime, listErrorsBySubject, listErrorsForGuidance, saveReview, updateErrorReviewStatus, updateErrorMastery, deleteErrorProblem, getSessionReviews, resetStalledPaperSessions, countPaperSessionsToday, getPoints, deductPoint, grantPoints, listPointLogs, getVisitorCount, incrementVisitors, getUsageStats, createInviteReward, grantPendingInviteReward, getInviteSummary, createPracticeSession, updatePracticeSession, getPracticeSession, listPracticeSessions, savePracticeItem, countPracticeToday, exportUserData } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3001;
@@ -2220,6 +2220,17 @@ app.post('/practice/:id/complete', authMiddleware, (req, res) => {
   if (!session) return res.status(404).json({ error: '练习不存在' });
   updatePracticeSession(req.params.id, { status: 'completed' });
   res.json({ success: true });
+});
+
+// F3: 错题数据导出备份（仅本人数据, JSON 下载）
+app.get('/export', authMiddleware, (req, res) => {
+  const data = exportUserData(req.user.id);
+  if (!data) return res.status(500).json({ error: '导出失败' });
+  log('info', '数据导出', { userId: req.user.id, errors: data.errors.length, practice: data.practice.length });
+  const filename = `gaozhong-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  res.json(data);
 });
 
 // 错题详情

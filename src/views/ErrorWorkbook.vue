@@ -6,6 +6,10 @@
         <p class="text-gray-500 mt-1">按试卷、时间或科目查看已整理的错题</p>
       </div>
       <div class="flex items-center gap-2 flex-wrap">
+        <button @click="exportBackup" :disabled="exporting"
+          class="px-4 py-2.5 bg-white border text-gray-600 rounded-xl text-sm font-medium hover:border-gray-400 hover:text-gray-800 shadow-sm transition-colors whitespace-nowrap disabled:opacity-50">
+          {{ exporting ? '导出中…' : '⬇ 备份' }}
+        </button>
         <router-link to="/practice"
           class="px-4 py-2.5 bg-amber-500 text-white rounded-xl text-sm font-medium hover:bg-amber-600 shadow-sm transition-colors whitespace-nowrap">
           🎯 我的练习
@@ -348,6 +352,28 @@ async function makePracticePaper() {
     alert(e.message)
   } finally {
     practiceBusy.value = false
+  }
+}
+
+// F3: 数据备份下载（错题+复核+练习卷 JSON）
+const exporting = ref(false)
+async function exportBackup() {
+  if (exporting.value) return
+  exporting.value = true
+  try {
+    const res = await authFetch('/api/export')
+    if (!res.ok) throw new Error('导出失败')
+    const blob = await res.blob()
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = `gaozhong-backup-${new Date().toISOString().slice(0, 10)}.json`
+    a.click()
+    URL.revokeObjectURL(a.href)
+    trackEvent('workbook', 'export_backup')
+  } catch (e) {
+    alert(e.message)
+  } finally {
+    exporting.value = false
   }
 }
 async function cycleMastery(err) {
