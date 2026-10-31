@@ -2101,9 +2101,11 @@ async function executePracticeSession(sessionId) {
   const difficultySpec = mode === 'single' ? DIFFICULTY_SPEC_SINGLE : DIFFICULTY_SPEC_PAPER;
   let okCount = 0;
 
-  for (const errorId of sourceErrorIds) {
+  // 组内并行(默认4路, PRACTICE_ITEM_CONCURRENCY可调): 串行11题≈12分钟不可接受, 并行后≈3分钟
+  const concurrency = Math.max(1, parseInt(process.env.PRACTICE_ITEM_CONCURRENCY || '4', 10));
+  const genOne = async (errorId) => {
     const err = getErrorProblem(errorId);
-    if (!err) { log('warn', '练习生成: 源错题不存在', { sessionId, errorId }); continue; }
+    if (!err) { log('warn', '练习生成: 源错题不存在', { sessionId, errorId }); return 0; }
     const prompt = renderPracticePrompt({
       subject: err.subject || '英语',
       questionText: err.questionText,
@@ -2147,9 +2149,15 @@ async function executePracticeSession(sessionId) {
         okCount++;
       }
       log('info', '练习生成: 单题完成', { sessionId, errorId, generated: items.length });
+      return items.length;
     } catch (e) {
       log('error', '练习生成: 单题失败(不阻塞整卷)', { sessionId, errorId, error: e.message });
+      return 0;
     }
+  };
+
+  for (let i = 0; i < sourceErrorIds.length; i += concurrency) {
+    await Promise.all(sourceErrorIds.slice(i, i + concurrency).map(id => genOne(id)));
   }
 
   updatePracticeSession(sessionId, { status: okCount > 0 ? 'done' : 'failed' });
