@@ -119,7 +119,7 @@ function drawCard(qrDataUrl) {
   ctx.fillText('gaozhong.online', W / 2, 68)
   ctx.font = `26px ${FONT}`
   ctx.fillStyle = 'rgba(255,255,255,0.8)'
-  ctx.fillText('高中生的 AI 学习管家', W / 2, 112)
+  ctx.fillText('上海高中家长的错题整理与作文批改工具', W / 2, 112)
   ctx.font = `20px ${FONT}`
   ctx.fillStyle = 'rgba(255,255,255,0.55)'
   ctx.fillText('作文每周细批 · 比学校老师更细', W / 2, 155)

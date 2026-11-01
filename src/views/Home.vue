@@ -11,16 +11,16 @@
       <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24 w-full">
         <div class="max-w-xl">
           <span class="inline-flex items-center gap-1.5 bg-white/10 border border-white/15 text-blue-200 text-xs sm:text-sm font-medium px-3.5 py-1.5 rounded-full mb-6 backdrop-blur-sm">
-            📍 专为上海高中生打造 · 上海高考评分口径
+            📍 上海高中家长的错题整理与作文批改工具 · 上海高考评分口径
           </span>
           <h1 class="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-4 tracking-tight leading-tight">
-            作文批得<span class="text-blue-400">比学校细</span>，<br>错题<span class="text-emerald-400">不用自己抄</span>
+            作文批得<span class="text-blue-400">比学校细</span>，<br>错题<span class="text-emerald-400">孩子不用抄</span>
           </h1>
           <p class="text-sm sm:text-base md:text-lg text-blue-200/90 mb-2">
             每周作文 AI 细批：70 分制五维评分 + 逐句标注 + 升格建议
           </p>
           <p class="text-sm sm:text-base md:text-lg text-blue-200/90 mb-8">
-            考后试卷拍张照：错题本 + 可打印订正纸自动生成
+            期中试卷<b class="text-white/95">你</b>拍张照：题目印好的订正纸打印出来，孩子只写答案
           </p>
 
           <!-- Two CTAs -->
@@ -121,15 +121,15 @@
     <section class="py-16 md:py-24 bg-slate-50">
       <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="text-center mb-10 md:mb-14">
-          <span class="text-xs font-semibold tracking-widest text-emerald-600 uppercase">亮点二 · 错题整理</span>
-          <h2 class="mt-2 text-2xl md:text-3xl font-bold text-gray-900">拍张照，错题本和订正纸自动生成</h2>
-          <p class="mt-3 text-gray-500 text-sm md:text-base max-w-xl mx-auto">不抄一道题——已批改的试卷拍照上传，AI 识别错题，直接打印出学校要检查的订正纸</p>
+          <span class="text-xs font-semibold tracking-widest text-emerald-600 uppercase">亮点二 · 错题整理（家长操作，孩子只写答案）</span>
+          <h2 class="mt-2 text-2xl md:text-3xl font-bold text-gray-900">试卷你拍，订正纸你打，孩子只写订正</h2>
+          <p class="mt-3 text-gray-500 text-sm md:text-base max-w-xl mx-auto">学校要检查的错题订正，原来要孩子一道道抄题——现在家长拍张照，题目印好的订正纸直接打印，<b>孩子全程不用碰 App</b>，省下的时间还给他</p>
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6 items-stretch">
           <!-- 格1：试卷照片 -->
           <div class="bg-white rounded-2xl border border-gray-200 p-5 flex flex-col">
-            <span class="self-start text-xs font-semibold text-gray-500 bg-gray-100 px-2.5 py-1 rounded-md mb-4">① 拍照上传</span>
+            <span class="self-start text-xs font-semibold text-gray-500 bg-gray-100 px-2.5 py-1 rounded-md mb-4">① 你：拍张照（30秒）</span>
             <!-- 试卷 mock -->
             <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-4 flex-1 rotate-[-1deg]">
               <p class="text-[10px] text-gray-400 text-center mb-3 border-b border-dashed border-gray-200 pb-2">英语期末考试 · 第 3 页</p>
@@ -147,7 +147,7 @@
 
           <!-- 格2：错题本 -->
           <div class="bg-white rounded-2xl border border-gray-200 p-5 flex flex-col">
-            <span class="self-start text-xs font-semibold text-emerald-700 bg-emerald-100 px-2.5 py-1 rounded-md mb-4">② AI 识别错题</span>
+            <span class="self-start text-xs font-semibold text-emerald-700 bg-emerald-100 px-2.5 py-1 rounded-md mb-4">② AI：识别错题（你确认1分钟）</span>
             <!-- 错题本 mock -->
             <div class="bg-slate-900 rounded-xl p-4 flex-1 space-y-2.5">
               <div class="bg-slate-800 rounded-lg p-3">
@@ -181,7 +181,7 @@
 
           <!-- 格3：订正纸 -->
           <div class="bg-white rounded-2xl border border-gray-200 p-5 flex flex-col">
-            <span class="self-start text-xs font-semibold text-gray-600 bg-gray-100 px-2.5 py-1 rounded-md mb-4">③ 打印订正纸</span>
+            <span class="self-start text-xs font-semibold text-gray-600 bg-gray-100 px-2.5 py-1 rounded-md mb-4">③ 你：打印，塞给孩子</span>
             <!-- 订正纸 mock -->
             <div class="bg-white rounded-xl border border-gray-300 shadow-sm p-4 flex-1">
               <p class="text-[10px] text-gray-500 text-center mb-2 pb-1.5 border-b border-gray-200">错题订正 · 2026-09 月考（英语）</p>
@@ -198,13 +198,13 @@
                 </div>
               </div>
             </div>
-            <p class="mt-3 text-xs text-gray-400 text-center">直接打印 · 承接学校检查</p>
+            <p class="mt-3 text-xs text-gray-400 text-center">题目印好 · 孩子只写订正 · 承接学校检查</p>
           </div>
         </div>
 
         <div class="mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs sm:text-sm text-gray-500">
-          <span>✓ 考前一键生成「错题重做卷」</span>
-          <span>✓ 每题带原题截图，不用抄题</span>
+          <span>✓ <b>孩子全程不用碰 App</b>，只拿到印好的纸</span>
+          <span>✓ 考前还能把错题变成「同类练习卷」（免费）</span>
           <span class="text-gray-400">目前支持英语 · 语文/数学即将开放</span>
         </div>
 
@@ -239,20 +239,20 @@
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 md:gap-8">
           <div class="text-center group">
             <div class="w-14 h-14 bg-white border-2 border-blue-200 group-hover:border-blue-500 text-blue-600 rounded-2xl flex items-center justify-center text-xl font-bold mx-auto mb-4 transition-all shadow-sm group-hover:shadow-md">1</div>
-            <h3 class="font-semibold text-gray-900 mb-2 text-sm md:text-base">拍照上传</h3>
-            <p class="text-gray-500 text-sm leading-relaxed">手机拍下作文或已批改试卷，一次可传多页，拍照倾斜也能自动矫正</p>
+            <h3 class="font-semibold text-gray-900 mb-2 text-sm md:text-base">家长拍照</h3>
+            <p class="text-gray-500 text-sm leading-relaxed">作文或已批改的试卷拍下来，一次可传多页，拍照倾斜也能自动矫正</p>
           </div>
 
           <div class="text-center group">
             <div class="w-14 h-14 bg-white border-2 border-blue-200 group-hover:border-blue-500 text-blue-600 rounded-2xl flex items-center justify-center text-xl font-bold mx-auto mb-4 transition-all shadow-sm group-hover:shadow-md">2</div>
-            <h3 class="font-semibold text-gray-900 mb-2 text-sm md:text-base">AI 智能分析</h3>
-            <p class="text-gray-500 text-sm leading-relaxed">作文逐句细批；试卷识别批改痕迹，错题判定你只需花 1 分钟确认</p>
+            <h3 class="font-semibold text-gray-900 mb-2 text-sm md:text-base">AI 干活</h3>
+            <p class="text-gray-500 text-sm leading-relaxed">作文逐句细批；试卷识别批改痕迹整理错题，错题判定你只需花 1 分钟确认</p>
           </div>
 
           <div class="text-center group">
             <div class="w-14 h-14 bg-white border-2 border-blue-200 group-hover:border-blue-500 text-blue-600 rounded-2xl flex items-center justify-center text-xl font-bold mx-auto mb-4 transition-all shadow-sm group-hover:shadow-md">3</div>
-            <h3 class="font-semibold text-gray-900 mb-2 text-sm md:text-base">复习巩固</h3>
-            <p class="text-gray-500 text-sm leading-relaxed">错题订正打勾追踪掌握度，考前一键生成重做卷，作文看进步曲线</p>
+            <h3 class="font-semibold text-gray-900 mb-2 text-sm md:text-base">孩子只写答案</h3>
+            <p class="text-gray-500 text-sm leading-relaxed">订正纸、重做卷、练习卷都打印好递过去，订正打勾追踪掌握度</p>
           </div>
         </div>
       </div>
@@ -261,8 +261,8 @@
     <!-- Bottom CTA -->
     <section class="py-16 md:py-20 bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-950">
       <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-        <h2 class="text-2xl md:text-3xl font-bold text-white mb-4">开学第一个月，把方法跑顺</h2>
-        <p class="text-blue-200/70 mb-8 text-sm md:text-base max-w-xl mx-auto">第一次月考后，让每一份试卷都留下来——不抄题，不白错</p>
+        <h2 class="text-2xl md:text-3xl font-bold text-white mb-4">期中考完，别让试卷在书包里吃灰</h2>
+        <p class="text-blue-200/70 mb-8 text-sm md:text-base max-w-xl mx-auto">拍张照：错题本、订正纸、练习卷三件套备好——孩子不抄题，错题不白错</p>
         <div class="flex flex-col sm:flex-row gap-4 justify-center">
           <router-link to="/upload" class="inline-flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-medium px-6 py-3.5 rounded-2xl text-sm sm:text-base transition-all shadow-lg shadow-blue-600/30">
             ✏️ 免费批改第一篇作文
@@ -293,9 +293,9 @@
         <span class="text-slate-300 font-semibold tabular-nums mx-0.5">{{ essayCount.toLocaleString() }}</span>
         篇作文
         <span class="mx-2 text-slate-700">·</span>
-        gaozhong.online · 高中生的 AI 学习管家
+        gaozhong.online · 上海高中家长的错题整理与作文批改工具
       </p>
-      <p v-else class="text-xs text-slate-500">gaozhong.online · 高中生的 AI 学习管家</p>
+      <p v-else class="text-xs text-slate-500">gaozhong.online · 上海高中家长的错题整理与作文批改工具</p>
     </footer>
   </div>
 </template>

@@ -75,7 +75,7 @@ async function drawCard(qrImg) {
   ctx.fillText('gaozhong.online', W / 2, 72)
   ctx.font = `26px ${FONT}`
   ctx.fillStyle = 'rgba(255,255,255,0.8)'
-  ctx.fillText('高中生的 AI 学习管家', W / 2, 116)
+  ctx.fillText('上海高中家长的错题整理与作文批改工具', W / 2, 116)
   ctx.font = `20px ${FONT}`
   ctx.fillStyle = 'rgba(255,255,255,0.55)'
   ctx.fillText('试卷拍照 · 自动整理错题 · 一键打印订正纸', W / 2, 162)
